@@ -1,0 +1,74 @@
+import React from "react";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
+import { MaterialIcons, FontAwesome5, Feather, Entypo } from "@expo/vector-icons";
+
+export default function SafetyScreen() {
+  return (
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {/* Message Support */}
+      <TouchableOpacity style={styles.row}>
+        <FontAwesome5 name="user-friends" size={20} color="#FFC107" />
+        <Text style={styles.rowText}>Message KabLux support</Text>
+      </TouchableOpacity>
+
+      {/* Report Issue */}
+      <TouchableOpacity style={styles.row}>
+        <Entypo name="warning" size={22} color="#FFC107" />
+        <Text style={styles.rowText}>Report issue with customer</Text>
+      </TouchableOpacity>
+
+      {/* Call the Police */}
+      <TouchableOpacity style={styles.row}>
+        <MaterialIcons name="local-police" size={22} color="#FF4B4B" />
+        <Text style={[styles.rowText, { color: "#FF4B4B" }]}>Call the Police</Text>
+      </TouchableOpacity>
+
+      {/* Share Location */}
+      <TouchableOpacity style={styles.row}>
+        <Feather name="share-2" size={20} color="#FFC107" />
+        <Text style={styles.rowText}>Share Location</Text>
+      </TouchableOpacity>
+
+      {/* Record Audio */}
+      <TouchableOpacity style={[styles.row, { borderBottomWidth: 0 }]}>
+        <Feather name="mic-off" size={20} color="#FFC107" />
+        <Text style={styles.rowText}>Record audio</Text>
+      </TouchableOpacity>
+
+      {/* Security Note */}
+      <Text style={styles.noteText}>
+        Please note that for security reasons, your trip may be recorded by the driver.
+      </Text>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "black",
+  },
+  content: {
+    padding: 20,
+    paddingTop: 30,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderBottomWidth: 0.7,
+    borderBottomColor: "rgba(255, 193, 7, 0.4)",
+    paddingVertical: 18,
+  },
+  rowText: {
+    color: "white",
+    fontSize: 15,
+    fontWeight: "500",
+    marginLeft: 12,
+  },
+  noteText: {
+    color: "#ccc",
+    fontSize: 13,
+    marginTop: 40,
+    lineHeight: 18,
+  },
+});
