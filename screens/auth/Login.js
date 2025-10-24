@@ -27,7 +27,7 @@ const Login = ({ navigation, setTokenFromOutside }) => {
     password: "",
   });
 
-  const { mutate: login, isPending } = useLoginEndPoint(navigation);
+  const { mutate: login, isPending } = useLoginEndPoint(navigation, remember);
 
   const validateForm = () => {
     let valid = true;
@@ -56,6 +56,7 @@ const Login = ({ navigation, setTokenFromOutside }) => {
     return valid;
   };
 
+  //TODO: add remember me validation to login endpoint
   const handleSubmit = async () => {
     if (validateForm()) {
       login({ email, password });

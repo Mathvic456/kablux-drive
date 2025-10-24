@@ -126,10 +126,10 @@ const { mutate: register, isPending } = useRegisterEndPoint();
       },
       {
         onSuccess: () => {
-          navigator.navigate("OTP");
+          navigation.navigate("OTP");
         },
         onError: (err) => {
-      const errorData = err.response?.data;
+      const  errorData = err.response?.data;
 
       if (errorData?.email?.[0]?.includes("already exists")) {
         setErrors((prev) => ({

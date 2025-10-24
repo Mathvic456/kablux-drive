@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import React, { useState, useRef, useEffect } from "react";
 import { useVerifyOtpEndPoint } from "../../services/otpVerification.service";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   Image,
   StyleSheet,
@@ -10,7 +11,6 @@ import {
   View,
   ActivityIndicator,
   Modal,
-  AsyncStorage,
 } from "react-native";
 import Logo from "../../assets/Logo.png";
 
@@ -44,7 +44,7 @@ const OTP = ({ navigation }) => {
 
   const handleOtpChange = (text, index) => {
     if (text.length > 1) return;
-
+    console.log(otp);
     const newOtp = [...otp];
     newOtp[index] = text;
     setOtp(newOtp);
@@ -53,12 +53,6 @@ const OTP = ({ navigation }) => {
       inputRefs.current[index + 1].focus();
     }
 
-    if (text && index === 5) {
-      const isAllFilled = newOtp.every(digit => digit !== '');
-      if (isAllFilled) {
-        handleVerify();
-      }
-    }
   };
 
   const handleKeyPress = (e, index) => {
@@ -69,26 +63,25 @@ const OTP = ({ navigation }) => {
 
   const otpVerify = useVerifyOtpEndPoint();
 
-  const handleVerify = async () => {
-    if (otpVerify.isPending) return;
-    
-    const code = otp.join('');
-    console.log("OTP Entered:", code);
-    
-    try {
-      await otpVerify.mutateAsync({ email, otp: code });
-      console.log("✅ OTP verification successful!");
-      setShowSuccessModal(true);
-      
-    } catch (err) {
-      console.error("❌ OTP verification failed:", err);
-      // You can add error handling here (show error toast/alert)
-    }
-  };
+const handleVerify = async (otpArray = otp) => {
+  if (otpVerify.isPending) return;
+
+  const code = otpArray.join('');
+  console.log("OTP Entered:", code); // should now always be 6 digits
+  try {
+    await otpVerify.mutateAsync({ email, otp: code });
+    console.log("✅ OTP verification successful!");
+    setShowSuccessModal(true);
+  } catch (err) {
+    console.error("❌ OTP verification failed:", err);
+  }
+};
+
 
   const handleSuccessModalClose = () => {
     setShowSuccessModal(false);
-    navigation.navigate('KycScreenOne');
+    console.log("I shifted the navigation.navigate to after login tempoarily so I can work on document upload seperately")
+    //navigation.navigate('KycScreenOne');
   };
 
   return (

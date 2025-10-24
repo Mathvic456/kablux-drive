@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   StyleSheet,
   View,
@@ -14,6 +15,7 @@ const KabluxSplashScreen = () => {
   const fadeAnim = useRef(new Animated.Value(0)).current; // for fade in/out
   const translateY = useRef(new Animated.Value(-100)).current; // start above screen
   const navigation = useNavigation();
+
 
   useEffect(() => {
     // Start the animation sequence
@@ -45,10 +47,19 @@ const KabluxSplashScreen = () => {
         useNativeDriver: true,
       }),
     ]).start(() => {
-      // Navigate after fade out completes
-      navigation.replace('Login'); // Replace with your target screen name
+     
+      checkToken();
     });
   }, [fadeAnim, translateY, navigation]);
+
+    async function checkToken() {
+      const token = await AsyncStorage.getItem("token");
+      if (token) {
+        navigation.replace('Tabs');
+      } else {
+        navigation.replace('Login');
+      }
+    };
 
   return (
     <View style={styles.container}>

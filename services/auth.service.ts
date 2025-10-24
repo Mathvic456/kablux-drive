@@ -27,13 +27,16 @@ export const useRegisterEndPoint = () => {
   return mutation;
 };
 
-export const useLoginEndPoint = (navigation: any) => {
+export const useLoginEndPoint = (navigation: any, remember: boolean) => {
   return useMutation({
     mutationFn: (data) => api.post("auth/login/", data),
     onSuccess: async (res) => {
       const token = res.data?.data?.access;
+      if (remember) {
       await AsyncStorage.setItem("token", token);
       console.log("✅ Token saved!");
+      }
+      console.log("Token not saved, remember me not checked.")
       navigation.replace('Tabs');
     },
     onError: (error) => {

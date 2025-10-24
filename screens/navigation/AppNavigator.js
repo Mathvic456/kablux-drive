@@ -71,10 +71,6 @@ const AppNavigator = () => {
 
 
 
-      <Stack.Screen 
-        name="KycScreenOne" 
-        component={KycScreenOne}
-      />
 
       <Stack.Screen 
         name="IDVerification" 
@@ -127,6 +123,11 @@ const AppNavigator = () => {
         component={OTP}
       /> 
 
+
+      <Stack.Screen 
+        name="KycScreenOne" 
+        component={KycScreenOne}
+      />
 
       <Stack.Screen 
         name="Tabs" 
