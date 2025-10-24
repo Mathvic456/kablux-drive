@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import KabluxSplashScreen from '../onboarding/KabluxSplashScreen';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -31,6 +31,8 @@ import PersonalInfo from '../settings/PersonalInfo';
 
 const Stack = createStackNavigator();
 
+
+
 const AppNavigator = () => {
   return (
     <Stack.Navigator
@@ -39,6 +41,7 @@ const AppNavigator = () => {
            ...TransitionPresets.FadeFromBottomAndroid,
 
       }}
+      initialRouteName='Splash'
     >
       {/* Initial screens that use Stack navigation */}
       {/* <Stack.Screen 
@@ -66,10 +69,7 @@ const AppNavigator = () => {
         component={SignUp}
       />
 
-      <Stack.Screen 
-        name="OTP" 
-        component={OTP}
-      /> 
+
 
       <Stack.Screen 
         name="KycScreenOne" 
@@ -105,6 +105,29 @@ const AppNavigator = () => {
         name="PasskeySetup" 
         component={PasskeySetup}
       /> */}
+
+      <Stack.Screen 
+        name="Splash" 
+        component={KabluxSplashScreen}
+      />
+
+      
+       <Stack.Screen 
+        name="Login" 
+        component={Login}
+      />
+
+      <Stack.Screen 
+        name="Signup" 
+        component={SignUp}
+      />
+
+      <Stack.Screen 
+        name="OTP" 
+        component={OTP}
+      /> 
+
+
       <Stack.Screen 
         name="Tabs" 
         component={TabNavigator}

@@ -46,7 +46,7 @@ const KabluxSplashScreen = () => {
       }),
     ]).start(() => {
       // Navigate after fade out completes
-      navigation.replace('CategorySelection'); // Replace with your target screen name
+      navigation.replace('Login'); // Replace with your target screen name
     });
   }, [fadeAnim, translateY, navigation]);
 
