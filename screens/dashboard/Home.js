@@ -8,14 +8,18 @@ import {
   Button 
 } from 'react-native';
 import DonutChart from '../components/DonutChart';
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useState } from 'react';
 import UpgradeNotificationCard from '../components/UpgradeNotificationCard';
 import RideOrders from '../components/RideOrders';
 import OrderCard from '../components/OrderCard';
 import TierOverlay from '../components/TierOverlay';
+import { useNavigation } from "@react-navigation/native";
+
 
 export default function Home() {
+  
+  const navigation = useNavigation();
   const [isOnline, setIsOnline] = useState(false);
   const [tierOverlayVisible, setTierOverlayVisible] = useState(false);
 
@@ -50,12 +54,12 @@ export default function Home() {
         </TouchableOpacity>
 
         {/* Right Section - Notification */}
-        <View style={styles.notificationContainer}>
-          <Ionicons name="notifications-outline" size={26} color="white" />
-          <View style={styles.badge}>
+        <TouchableOpacity style={styles.notificationContainer} onPress={() => navigation.openDrawer()}>
+            <MaterialCommunityIcons name="menu" size={24} color="white" />          
+            <View style={styles.badge}>
             <Text style={styles.badgeText}>3</Text>
           </View>
-        </View>
+        </TouchableOpacity>
       </View>
 
       {/* Donut Chart Section */}
