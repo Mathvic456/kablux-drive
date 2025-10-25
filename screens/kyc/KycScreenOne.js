@@ -315,7 +315,7 @@ const KycScreenOne = ({ navigation }) => {
           Verify your identity by providing the necessary information below
         </Text>
 
-        {/* ID Upload Button */}
+        {/* ID Upload Button DO this first, then incorporate to the other */}
         <TouchableOpacity style={styles.IDUpload} onPress={handleIDUpload}>
           <MaterialIcons name="file-upload" size={24} color="#fcbf24" />
           <Text style={styles.ButtonText}>Upload ID Document</Text>

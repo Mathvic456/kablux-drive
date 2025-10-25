@@ -35,9 +35,11 @@ export const useLoginEndPoint = (navigation: any, remember: boolean) => {
       if (remember) {
       await AsyncStorage.setItem("token", token);
       console.log("✅ Token saved!");
+      } else {
+         console.log("Token not saved, remember me not checked.")
       }
-      console.log("Token not saved, remember me not checked.")
-      navigation.replace('Tabs');
+     
+      navigation.replace('KycScreenOne');
     },
     onError: (error) => {
       console.error("Login error:", error);

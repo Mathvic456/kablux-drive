@@ -72,20 +72,13 @@ const AppNavigator = () => {
 
 
 
-      <Stack.Screen 
-        name="IDVerification" 
-        component={IDVerification}
-      />
 
       <Stack.Screen 
         name="PhotoUpload" 
         component={PhotoUpload}
       />
 
-      <Stack.Screen 
-        name="DocumentUploads" 
-        component={DocumentUploads}
-      />
+
 
       <Stack.Screen 
         name="PaymentInformation" 
@@ -127,6 +120,16 @@ const AppNavigator = () => {
       <Stack.Screen 
         name="KycScreenOne" 
         component={KycScreenOne}
+      />
+
+      <Stack.Screen 
+        name="IDVerification" 
+        component={IDVerification}
+      />
+
+      <Stack.Screen 
+        name="DocumentUploads" 
+        component={DocumentUploads}
       />
 
       <Stack.Screen 
