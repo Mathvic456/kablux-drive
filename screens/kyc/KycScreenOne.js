@@ -21,12 +21,18 @@ const KycScreenOne = ({ navigation }) => {
   const [permission, requestPermission] = useCameraPermissions();
   const [showCamera, setShowCamera] = useState(false);
   const [capturedImage, setCapturedImage] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const cameraRef = useRef(null);
+
+    const CLOUD_NAME = "dynyozcjh";
+    const UPLOAD_PRESET = "unsigned_preset_dev";
+    
+    const fileUploadMutation = useUploadFile();
 
   const handleIDUpload = () => {
     navigation.navigate('IDVerification');
@@ -51,13 +57,80 @@ const KycScreenOne = ({ navigation }) => {
     if (cameraRef.current) {
       try {
         const photo = await cameraRef.current.takePictureAsync();
+        console.log(photo);
         setCapturedImage(photo.uri);
+        console.log(photo.uri);
+        setIsLoading(true);
+
+        const file = {
+          uri: photo.uri,
+          name: `photo_${Date.now()}.jpg`,
+          mimeType: "image/jpeg",
+          size: 0, // optional, not required unless your API checks
+        };
+        const cloudinaryData = await handleCloudinaryUpload(file);
+      
+      if (!cloudinaryData) {
+        setShowErrorModal(true);
+        setUploadingDoc(null);
+        return;
+      }
+
+      const formData = new FormData();
+
+      formData.append("file", cloudinaryData.secure_url);
+      formData.append("mimetype", file.mimeType);
+      formData.append("name", file.name);
+      formData.append("size", file.size || 0);
+      try {
+        const response = await fileUploadMutation.mutateAsync(formData);
+        const uploadId = response.data.id || response.data._id || response.data.fileId;
+        
+        console.log(`File uploaded successfully for ${docType}:`, uploadId);
+        
+
         setShowCamera(false);
         setShowSuccessModal(true);
-      } catch (error) {
+      } catch(error) {
+        console.log("An error occured while taking this picture", error);
+        setShowErrorModal(true);
+      } 
+    }
+      catch (error) {
         console.error('Error taking picture:', error);
         setShowErrorModal(true);
       }
+
+      setIsLoading(false);
+    }
+  }
+
+   async function handleCloudinaryUpload(file) {
+    const formData = new FormData();
+    
+   formData.append("file", {
+      uri: file.uri,
+      type: file.mimeType,
+      name: file.name,
+    });
+    formData.append("upload_preset", UPLOAD_PRESET);
+
+    try {
+      const res = await fetch(
+        `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
+        { method: "POST", body: formData }
+      );
+      const data = await res.json();
+      
+      if (!res.ok) throw new Error(data.error?.message || "Upload failed");
+
+      return {
+        secure_url: data.secure_url,
+        public_id: data.public_id,
+      };
+    } catch (err) {
+      console.error("Cloudinary upload error:", err);
+      return null;
     }
   }
 
@@ -316,6 +389,7 @@ const KycScreenOne = ({ navigation }) => {
         </Text>
 
         {/* ID Upload Button DO this first, then incorporate to the other */}
+
         <TouchableOpacity style={styles.IDUpload} onPress={handleIDUpload}>
           <MaterialIcons name="file-upload" size={24} color="#fcbf24" />
           <Text style={styles.ButtonText}>Upload ID Document</Text>

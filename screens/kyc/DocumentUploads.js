@@ -2,6 +2,7 @@ import { FontAwesome, MaterialIcons, Feather, FontAwesome5, SimpleLineIcons } fr
 import Octicons from '@expo/vector-icons/Octicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import React, { useState, useRef, useEffect } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   Image,
   StyleSheet,
@@ -68,8 +69,9 @@ const DocumentUploads = ({ navigation }) => {
       // Then upload to your backend with document type
       const formData = new FormData();
       formData.append("file", cloudinaryData.secure_url);
-      formData.append("document_type", docType);
-      formData.append("file_name", selectedFile.name);
+      formData.append("mimetype", selectedFile.mimeType || "image/jpeg");
+      formData.append("name", selectedFile.name);
+      formData.append("size", selectedFile.size || 0);
 
       try {
         const response = await fileUploadMutation.mutateAsync(formData);
@@ -88,7 +90,13 @@ const DocumentUploads = ({ navigation }) => {
           });
           return newMap;
         });
-
+         await AsyncStorage.setItem(`doc_${docType}`, JSON.stringify({
+        id: uploadId,
+        fileName: selectedFile.name,
+        cloudinaryUrl: cloudinaryData.secure_url,
+        publicId: cloudinaryData.public_id
+      }));
+        
         // Update the document state
         setDocuments(prevDocs => 
           prevDocs.map(doc => 
@@ -97,6 +105,8 @@ const DocumentUploads = ({ navigation }) => {
               : doc
           )
         );
+
+       
 
       } catch (error) {
         console.error('Error uploading to backend:', error);
@@ -158,14 +168,13 @@ const DocumentUploads = ({ navigation }) => {
 
   const handleSubmitVerification = async () => {
     const allUploaded = documents.every(doc => doc.uploaded);
-    
+    //TODO: switch to disabled button
     if (!allUploaded) {
       setShowErrorModal(true);
       return;
     }
-
     setIsSubmitting(true);
-    
+
     // Convert Map to object for easy API submission
     const uploadedFilesObject = Object.fromEntries(uploadedFiles);
     
@@ -179,9 +188,11 @@ const DocumentUploads = ({ navigation }) => {
     // } something in this structure.
 
     //add kyc stuff here.
-    
+
+   
     try {
-      
+       await AsyncStorage.setItem("preDocuments", uploadedFilesObject);
+    console.log("Stored in async storage")
       setTimeout(() => {
         setIsSubmitting(false);
         setShowSuccessModal(true);
