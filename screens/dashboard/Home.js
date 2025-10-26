@@ -19,10 +19,15 @@ import { useNavigation } from "@react-navigation/native";
 
 export default function Home() {
   
+
   const navigation = useNavigation();
   const [isOnline, setIsOnline] = useState(false);
   const [tierOverlayVisible, setTierOverlayVisible] = useState(false);
 
+  const openDrawer = () => {
+    // navigation.openDrawer();
+    navigation.navigate('Drawer');
+  }
   return (
     <View style={styles.container}>
       {/* Header Section */}
@@ -54,7 +59,7 @@ export default function Home() {
         </TouchableOpacity>
 
         {/* Right Section - Notification */}
-        <TouchableOpacity style={styles.notificationContainer} onPress={() => navigation.openDrawer()}>
+        <TouchableOpacity style={styles.notificationContainer} >
             <MaterialCommunityIcons name="menu" size={24} color="white" />          
             <View style={styles.badge}>
             <Text style={styles.badgeText}>3</Text>

@@ -29,7 +29,6 @@ import SafetyActions from '../settings/SafetyActions';
 import PersonalInfo from '../settings/PersonalInfo';
 
 
-
 const Stack = createStackNavigator();
 
 const AppNavigator = () => {
@@ -167,7 +166,6 @@ const AppNavigator = () => {
         name="PersonalInfo" 
         component={PersonalInfo}
       />
-      
     </Stack.Navigator>
   );
 };
