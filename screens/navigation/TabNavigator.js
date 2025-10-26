@@ -1,6 +1,6 @@
 // App.js or Navigation.js
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Ionicons, FontAwesome6, SimpleLineIcons, FontAwesome } from '@expo/vector-icons'; // Optional: for icons
+import { Ionicons, FontAwesome6, SimpleLineIcons } from '@expo/vector-icons'; // Optional: for icons
 import Home from '../dashboard/Home';
 import Bookings from '../dashboard/Bookings';
 import Wallet from '../dashboard/Wallet';
@@ -38,7 +38,7 @@ function TabNavigator() {
         name="Bookings" 
         component={Bookings}
         options={{
-          tabBarLabel: 'Bookings',
+          tabBarLabel: 'Profile',
           tabBarIcon: ({ color, size }) => (
             <FontAwesome6 name="clock-rotate-left" size={size} color={color} />          ),
         }}
@@ -47,19 +47,20 @@ function TabNavigator() {
         name="Wallet" 
         component={Wallet}
         options={{
-          tabBarLabel: 'Wallet',
+          tabBarLabel: 'Settings',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="wallet-outline" color={color} size={size} />
           ),
         }}
       />
       <Tab.Screen 
-        name="Settings" 
+        name="Account" 
         component={Account}
         options={{
           tabBarLabel: 'Settings',
           tabBarIcon: ({ color, size }) => (
-            <FontAwesome name="user-o" size={24} color={color} />          ),
+            <SimpleLineIcons name="badge" color={color} size={size} />
+          ),
         }}
       />
     </Tab.Navigator>

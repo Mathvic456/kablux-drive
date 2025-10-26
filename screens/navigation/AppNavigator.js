@@ -29,6 +29,7 @@ import SafetyActions from '../settings/SafetyActions';
 import PersonalInfo from '../settings/PersonalInfo';
 
 
+
 const Stack = createStackNavigator();
 
 
@@ -44,7 +45,7 @@ const AppNavigator = () => {
       initialRouteName='Splash'
     >
       {/* Initial screens that use Stack navigation */}
-      {/* <Stack.Screen 
+      <Stack.Screen 
         name="Splash" 
         component={KabluxSplashScreen}
       />
@@ -93,49 +94,13 @@ const AppNavigator = () => {
       <Stack.Screen 
         name="PasskeySetup" 
         component={PasskeySetup}
-      /> */}
-
-      <Stack.Screen 
-        name="Splash" 
-        component={KabluxSplashScreen}
       />
-
-      
-       <Stack.Screen 
-        name="Login" 
-        component={Login}
-      />
-
-      <Stack.Screen 
-        name="Signup" 
-        component={SignUp}
-      />
-
-      <Stack.Screen 
-        name="OTP" 
-        component={OTP}
-      /> 
-
-
-      <Stack.Screen 
-        name="KycScreenOne" 
-        component={KycScreenOne}
-      />
-
-      <Stack.Screen 
-        name="IDVerification" 
-        component={IDVerification}
-      />
-
-      <Stack.Screen 
-        name="DocumentUploads" 
-        component={DocumentUploads}
-      />
-
       <Stack.Screen 
         name="Tabs" 
         component={TabNavigator}
       />
+
+      
 
       <Stack.Screen 
         name="Withdraw" 
