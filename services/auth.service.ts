@@ -32,12 +32,12 @@ export const useLoginEndPoint = (navigation: any, remember: boolean) => {
     mutationFn: (data) => api.post("auth/login/", data),
     onSuccess: async (res) => {
       const token = res.data?.data?.access;
-      if (remember) {
+      //if (remember) {
       await AsyncStorage.setItem("token", token);
       console.log("✅ Token saved!");
-      } else {
-         console.log("Token not saved, remember me not checked.")
-      }
+     // } else {
+      //   console.log("Token not saved, remember me not checked.")
+     // }
      
       navigation.replace('KycScreenOne');
     },

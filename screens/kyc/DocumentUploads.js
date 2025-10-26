@@ -36,9 +36,6 @@ const DocumentUploads = ({ navigation }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(null);
   
-  const CLOUD_NAME = "dynyozcjh";
-  const UPLOAD_PRESET = "unsigned_preset_dev";
-  
   const fileUploadMutation = useUploadFile();
 
   const pickDocument = async (docType) => {
@@ -55,23 +52,26 @@ const DocumentUploads = ({ navigation }) => {
         return;
       }
 
-      const selectedFile = result.assets[0];
-      
-      // First upload to Cloudinary
-      const cloudinaryData = await handleCloudinaryUpload(selectedFile);
-      
-      if (!cloudinaryData) {
-        setShowErrorModal(true);
-        setUploadingDoc(null);
-        return;
+        if (result.type === 'success') {
+        console.log("URI:", result.uri);
+        console.log("Name:", result.name);
+        console.log("Size:", result.size); // <-- in bytes
+        console.log("MIME:", result.mimeType);
       }
+      
+    
 
       // Then upload to your backend with document type
       const formData = new FormData();
-      formData.append("file", cloudinaryData.secure_url);
-      formData.append("mimetype", selectedFile.mimeType || "image/jpeg");
-      formData.append("name", selectedFile.name);
-      formData.append("size", selectedFile.size || 0);
+
+      formData.append({
+        "file": result.uri,
+        "mimetype": result.mimeType,
+        "name": result.name,
+        "size": result.size,
+        
+      });
+     
 
       try {
         const response = await fileUploadMutation.mutateAsync(formData);

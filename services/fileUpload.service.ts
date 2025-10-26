@@ -1,14 +1,19 @@
 import { useMutation } from "@tanstack/react-query";
 import { api } from "./api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export function useUploadFile() {
   return useMutation({
-    mutationFn: (data: FormData) => 
-      api.post("uploads/", data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      }),
+    mutationFn: async (data: FormData) => {
+      const token = await AsyncStorage.getItem('token');
+
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      return api.post("uploads/", data, { headers });
+    },
 
     onSuccess: (res) => {
       console.log("File uploaded", res.data);
