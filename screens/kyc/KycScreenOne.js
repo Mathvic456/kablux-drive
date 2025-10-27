@@ -14,6 +14,8 @@ import {
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import Logo from "../../assets/Logo.png";
 import { useNavigation } from '@react-navigation/native';
+import { useUploadFile } from "../../services/fileUpload.service";
+import * as FileSystem from 'expo-file-system';
 
 const KycScreenOne = ({ navigation }) => {
   const [facing, setFacing] = useState('back');
@@ -21,12 +23,18 @@ const KycScreenOne = ({ navigation }) => {
   const [permission, requestPermission] = useCameraPermissions();
   const [showCamera, setShowCamera] = useState(false);
   const [capturedImage, setCapturedImage] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const cameraRef = useRef(null);
+
+    const CLOUD_NAME = "dynyozcjh";
+    const UPLOAD_PRESET = "unsigned_preset_dev";
+    
+    const fileUploadMutation = useUploadFile();
 
   const handleIDUpload = () => {
     navigation.navigate('IDVerification');
@@ -51,15 +59,47 @@ const KycScreenOne = ({ navigation }) => {
     if (cameraRef.current) {
       try {
         const photo = await cameraRef.current.takePictureAsync();
+        const info = await FileSystem.getInfoAsync(photo.uri);
+        console.log("File path:", photo.uri);
+        console.log("File size:", info.size, "bytes");
         setCapturedImage(photo.uri);
+        setIsLoading(true);
+
+    
+      
+      
+      const formData = new FormData();
+
+      formData.append({
+        "file": photo.uri,
+        "mimetype": "image/jpeg",
+        "name": `photo_${Date.now()}.jpg`,
+        "size": info.size,
+        
+      });
+      try {
+        const response = await fileUploadMutation.mutateAsync(formData);
+        const uploadId = response.data.id || response.data._id || response.data.fileId;
+        
+        console.log(`File uploaded successfully for ${docType}:`, uploadId);
+        
+
         setShowCamera(false);
         setShowSuccessModal(true);
-      } catch (error) {
+      } catch(error) {
+        console.log("An error occured while taking this picture", error);
+        setShowErrorModal(true);
+      } 
+    }
+      catch (error) {
         console.error('Error taking picture:', error);
         setShowErrorModal(true);
       }
+
+      setIsLoading(false);
     }
   }
+
 
   const toggleCameraFacing = () => {
     setFacing(current => (current === 'back' ? 'front' : 'back'));
@@ -258,46 +298,55 @@ const KycScreenOne = ({ navigation }) => {
     );
   }
 
+
   // Camera View
   if (showCamera) {
     return (
       <View style={styles.cameraContainer}>
-        <CameraView
-          style={styles.camera}
-          ref={cameraRef}
-          facing={facing}
-          flash={flash}
-        >
-          {/* Document Frame Overlay */}
-          <DocumentFrame />
-          
-          <View style={styles.cameraControls}>
-            <TouchableOpacity style={styles.cameraButton} onPress={closeCamera}>
-              <MaterialIcons name="close" size={24} color="white" />
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.cameraButton} onPress={toggleFlash}>
-              <MaterialIcons 
-                name={flash === 'on' ? 'flash-on' : 'flash-off'} 
-                size={24} 
-                color="white" 
-              />
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.cameraButton} onPress={toggleCameraFacing}>
-              <MaterialIcons name="flip-camera-ios" size={24} color="white" />
-            </TouchableOpacity>
+        {isLoading ? (
+          // Show a spinner while processing/uploading
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color="#fcbf24" />
           </View>
+        ) : (
+          <CameraView
+            style={styles.camera}
+            ref={cameraRef}
+            facing={facing}
+            flash={flash}
+          >
+            {/* Document Frame Overlay */}
+            <DocumentFrame />
 
-          <View style={styles.captureContainer}>
-            <TouchableOpacity style={styles.captureButton} onPress={takePicture}>
-              <View style={styles.captureButtonInner} />
-            </TouchableOpacity>
-          </View>
-        </CameraView>
+            <View style={styles.cameraControls}>
+              <TouchableOpacity style={styles.cameraButton} onPress={closeCamera}>
+                <MaterialIcons name="close" size={24} color="white" />
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.cameraButton} onPress={toggleFlash}>
+                <MaterialIcons 
+                  name={flash === 'on' ? 'flash-on' : 'flash-off'} 
+                  size={24} 
+                  color="white" 
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.cameraButton} onPress={toggleCameraFacing}>
+                <MaterialIcons name="flip-camera-ios" size={24} color="white" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.captureContainer}>
+              <TouchableOpacity style={styles.captureButton} onPress={takePicture}>
+                <View style={styles.captureButtonInner} />
+              </TouchableOpacity>
+            </View>
+          </CameraView>
+        )}
+       
       </View>
     );
-  }
+  } 
 
   return (
     <View style={styles.container}>
@@ -315,7 +364,8 @@ const KycScreenOne = ({ navigation }) => {
           Verify your identity by providing the necessary information below
         </Text>
 
-        {/* ID Upload Button */}
+        {/* ID Upload Button DO this first, then incorporate to the other */}
+
         <TouchableOpacity style={styles.IDUpload} onPress={handleIDUpload}>
           <MaterialIcons name="file-upload" size={24} color="#fcbf24" />
           <Text style={styles.ButtonText}>Upload ID Document</Text>

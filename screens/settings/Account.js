@@ -1,11 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { MaterialIcons, FontAwesome5, Feather, Entypo } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { Modal } from 'react-native';
+import { useLogoutEndPoint } from '../../services/auth.service';
+
 
 
 export default function Account() {
-
+    const [modalVisible, setModalVisible] = useState('false');
     const navigation = useNavigation();
 
     const LoginAndSecurity = () => {
@@ -40,11 +43,19 @@ export default function Account() {
         navigation.navigate('Legal');
     }
 
-    const LogOut = () => {
-        // Implement logout functionality here
+    const logoutEndpoint = useLogoutEndPoint();
+    const handleLogout = async() => {
+     try {
+      await logoutEndpoint.mutateAsync(); 
+    setModalVisible(false);
+    console.log("User logged out");
+     navigation.navigate("Login")
+    } catch (error) {
+      console.error("Logout failed:", error);
     }
-    
+  }
   return (
+    <>
     <ScrollView style={styles.container}>
       {/* Header */}
       <Text style={styles.header}>Account</Text>
@@ -93,9 +104,37 @@ export default function Account() {
         <Divider />
         <MenuItem onPress={Legal} icon={<Feather name="file-text" size={20} color="#FFC107" />} label="Legal" />
         <Divider />
-        <MenuItem onPress={LogOut} icon={<Feather name="log-out" size={20} color="#FFC107" />} label="Log Out" />
+        <MenuItem onPress={() => setModalVisible(true)} icon={<Feather name="log-out" size={20} color="#FFC107" />} label="Log Out" />
       </View>
     </ScrollView>
+
+   <Modal
+          animationType="fade"
+          transparent={true}
+          visible={modalVisible}
+          onRequestClose={() => {
+            Alert.alert('Modal has been closed.');
+            setModalVisible(!modalVisible);
+          }}>
+          <View style={styles.centeredView}>
+            <View style={styles.modalView}>
+              <Text style={styles.modalText}>Do you want to log out?</Text>
+              <TouchableOpacity
+                style={[styles.button, styles.buttonClose]}
+                onPress={handleLogout}>
+                <Text style={styles.textStyle}>Logout</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.button, styles.buttonClose]}
+                onPress={() => setModalVisible(false)}>
+                <Text style={styles.textStyle}>Close</Text>
+              </TouchableOpacity>
+
+            </View>
+          </View>
+        </Modal>
+    </>
   );
 }
 
@@ -173,5 +212,37 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFC107',
     opacity: 0.5,
     marginHorizontal: 16,
+  },
+  modalView: {
+    margin: 20,
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 35,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  button: {
+    borderRadius: 20,
+    padding: 10,
+    elevation: 2,
+  },
+  buttonClose: {
+    backgroundColor: '#FFC107',
+  },
+  textStyle: {
+    color: 'white',
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  modalText: {
+    marginBottom: 15,
+    textAlign: 'center',
   },
 });

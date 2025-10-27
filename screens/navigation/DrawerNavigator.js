@@ -1,162 +1,126 @@
 import 'react-native-gesture-handler';
-import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
-import { createDrawerNavigator, DrawerContentScrollView, DrawerItemList, DrawerItem } from '@react-navigation/drawer';
+import { createDrawerNavigator, DrawerContentScrollView } from '@react-navigation/drawer';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
-import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
-// Screens
-import Leaderboards from '../settings/Leaderboards';
+// Import screens
+import Leaderboard from '../dashboard/Leaderboard';
 import Ratings from '../settings/Ratings';
 import Settings from '../settings/Settings';
-import DrawerStackNavigator from './DrawerStackNavigator';
-
+import TabNavigator from './TabNavigator';
 
 const Drawer = createDrawerNavigator();
 
-// Custom Drawer Content Component
 function CustomDrawerContent(props) {
   return (
-    <DrawerContentScrollView 
-      {...props} 
-      style={styles.drawerContainer}
-      contentContainerStyle={styles.drawerContent}
-    >
-      {/* Drawer Header */}
+    <DrawerContentScrollView {...props} style={styles.drawerContainer}>
       <View style={styles.drawerHeader}>
-        <Image
-          source={require('../../assets/Profileimg.png')} // Adjust path as needed
-          style={styles.profileImage}
-        />
-        <View style={styles.profileInfo}>
-          <Text style={styles.profileName}>Ibrahim Victor</Text>
-          <View style={styles.ratingRow}>
-            <Text style={styles.ratingText}>4.99 </Text>
-            <FontAwesome5 name="star" size={14} color="#FFC107" />
-          </View>
-          <Text style={styles.driverId}>Driver ID: KBLX28934</Text>
-        </View>
+        {/* Profile header stuff */}
       </View>
 
-      {/* Drawer Items */}
       <View style={styles.drawerItems}>
-        <DrawerItemList {...props} />
-      </View>
-
-      {/* Drawer Footer */}
-      <View style={styles.drawerFooter}>
-        <TouchableOpacity 
-          style={styles.logoutButton}
+        {/* Home - Navigate back to tabs */}
+        <TouchableOpacity
+          style={styles.drawerButton}
           onPress={() => {
-            // Handle logout
-            console.log('Logout pressed');
+            props.navigation.navigate('MainTabs');
+            props.navigation.closeDrawer();
           }}
         >
-          <Ionicons name="log-out-outline" size={20} color="#FFC107" />
-          <Text style={styles.logoutText}>Log Out</Text>
+          <Ionicons name="home-outline" size={20} color="#FFC107" />
+          <Text style={styles.drawerLabel}>Home</Text>
         </TouchableOpacity>
-        
-        <Text style={styles.versionText}>KabLux Driver v2.1.4</Text>
+
+        {/* Leaderboard */}
+        <TouchableOpacity
+          style={styles.drawerButton}
+          onPress={() => {
+            props.navigation.navigate('Leaderboard');
+            props.navigation.closeDrawer();
+          }}
+        >
+          <Ionicons name="trophy-outline" size={20} color="#FFC107" />
+          <Text style={styles.drawerLabel}>Leaderboards</Text>
+        </TouchableOpacity>
+
+        {/* Ratings */}
+        <TouchableOpacity
+          style={styles.drawerButton}
+          onPress={() => {
+            props.navigation.navigate('Ratings');
+            props.navigation.closeDrawer();
+          }}
+        >
+          <Ionicons name="star-outline" size={20} color="#FFC107" />
+          <Text style={styles.drawerLabel}>My Ratings</Text>
+        </TouchableOpacity>
+
+        {/* Settings */}
+        <TouchableOpacity
+          style={styles.drawerButton}
+          onPress={() => {
+            props.navigation.navigate('Settings');
+            props.navigation.closeDrawer();
+          }}
+        >
+          <Ionicons name="settings-outline" size={20} color="#FFC107" />
+          <Text style={styles.drawerLabel}>Settings</Text>
+        </TouchableOpacity>
       </View>
     </DrawerContentScrollView>
   );
-}
+}  
 
 export default function DrawerNavigator() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      {/* <NavigationContainer> */}
-        <Drawer.Navigator 
-          initialRouteName="Home"
-          drawerContent={(props) => <CustomDrawerContent {...props} />}
-          screenOptions={{
-            headerShown: false,
-            drawerStyle: {
-              width: 320,
-            },
-            drawerLabelStyle: {
-              fontSize: 16,
-              fontWeight: '600',
-              marginLeft: -16,
-            },
-            drawerActiveTintColor: '#FFC107',
-            drawerInactiveTintColor: 'rgba(255, 255, 255, 0.7)',
-            drawerActiveBackgroundColor: 'rgba(255, 193, 7, 0.15)',
-          }}
-        >
+      <Drawer.Navigator
+      id="DrawerNavigator"
+        initialRouteName="MainTabs"
+        drawerContent={(props) => <CustomDrawerContent {...props} />}
+        screenOptions={{
+          headerShown: false,
+          drawerStyle: { width: 320 },
+          drawerActiveTintColor: '#FFC107',
+          drawerInactiveTintColor: 'rgba(255, 255, 255, 0.7)',
+          drawerActiveBackgroundColor: 'rgba(255, 193, 7, 0.15)',
+        }}
+      >
+        {/* Main Tabs - Primary screen */}
+        <Drawer.Screen
+          name="MainTabs"
+          component={TabNavigator}
+          options={{ drawerLabel: () => null }} // Hide from drawer menu
+        />
 
-            <Drawer.Screen 
-            name="Home" 
-            component={DrawerStackNavigato}
-            options={{
-              title: 'Settings',
-              drawerIcon: ({ color, size, focused }) => (
-                <Ionicons 
-                  name={focused ? "settings" : "settings-outline"} 
-                  size={size} 
-                  color={color} 
-                />
-              ),
-            }}
-          />
-          <Drawer.Screen 
-            name="DrawerStack" 
-            component={DrawerStackNavigator}
-            options={{
-              title: 'Settings',
-              drawerIcon: ({ color, size, focused }) => (
-                <Ionicons 
-                  name={focused ? "settings" : "settings-outline"} 
-                  size={size} 
-                  color={color} 
-                />
-              ),
-            }}
-          />
-          <Drawer.Screen 
-            name="Ratings" 
-            component={Ratings}
-            options={{
-              title: 'My Ratings',
-              drawerIcon: ({ color, size, focused }) => (
-                <Ionicons 
-                  name={focused ? "star" : "star-outline"} 
-                  size={size} 
-                  color={color} 
-                />
-              ),
-            }}
-          />
-          <Drawer.Screen 
-            name="Leaderboards" 
-            component={Leaderboards}
-            options={{
-              title: 'Leaderboards',
-              drawerIcon: ({ color, size, focused }) => (
-                <Ionicons 
-                  name={focused ? "trophy" : "trophy-outline"} 
-                  size={size} 
-                  color={color} 
-                />
-              ),
-            }}
-          />
-        </Drawer.Navigator>
-        <StatusBar style="light" />
-      {/* </NavigationContainer> */}
+        {/* Drawer-only screens */}
+        <Drawer.Screen
+          name="Leaderboard"
+          component={Leaderboard}
+          options={{ drawerLabel: () => null }}
+        />
+        <Drawer.Screen
+          name="Ratings"
+          component={Ratings}
+          options={{ drawerLabel: () => null }}
+        />
+        <Drawer.Screen
+          name="Settings"
+          component={Settings}
+          options={{ drawerLabel: () => null }}
+        />
+      </Drawer.Navigator>
     </GestureHandlerRootView>
   );
-}
+}  
 
 const styles = StyleSheet.create({
   drawerContainer: {
     backgroundColor: '#04223A',
     borderRightWidth: 2,
     borderRightColor: '#FFC107',
-  },
-  drawerContent: {
-    flex: 1,
   },
   drawerHeader: {
     padding: 25,
@@ -165,67 +129,22 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(255, 193, 7, 0.3)',
     backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
-  profileImage: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    marginBottom: 15,
-    borderWidth: 2,
-    borderColor: '#FFC107',
-  },
-  profileInfo: {
-    flex: 1,
-  },
-  profileName: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 5,
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 5,
-  },
-  ratingText: {
-    color: '#FFC107',
-    fontSize: 14,
-    fontWeight: '600',
-    marginRight: 4,
-  },
-  driverId: {
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontSize: 12,
-  },
   drawerItems: {
     flex: 1,
     paddingVertical: 10,
   },
-  drawerFooter: {
-    padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 193, 7, 0.3)',
-  },
-  logoutButton: {
+  drawerButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 193, 7, 0.1)',
-    borderWidth: 1,
-    borderColor: '#FFC107',
-    marginBottom: 15,
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderLeftWidth: 3,
+    borderLeftColor: 'transparent',
   },
-  logoutText: {
-    color: '#FFC107',
+  drawerLabel: {
+    color: 'white',
     fontSize: 16,
     fontWeight: '600',
-    marginLeft: 10,
-  },
-  versionText: {
-    color: 'rgba(255, 255, 255, 0.4)',
-    fontSize: 12,
-    textAlign: 'center',
+    marginLeft: 15,
   },
 });

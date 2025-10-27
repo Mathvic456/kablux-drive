@@ -1,5 +1,4 @@
 // App.js or Navigation.js
-import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons, FontAwesome6, SimpleLineIcons } from '@expo/vector-icons'; // Optional: for icons
 import Home from '../dashboard/Home';

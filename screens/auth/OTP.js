@@ -1,7 +1,7 @@
-import { FontAwesome, MaterialIcons, Feather } from "@expo/vector-icons";
-import Octicons from '@expo/vector-icons/Octicons';
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { Feather } from "@expo/vector-icons";
 import React, { useState, useRef, useEffect } from "react";
+import { useVerifyOtpEndPoint } from "../../services/otpVerification.service";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   Image,
   StyleSheet,
@@ -10,40 +10,49 @@ import {
   TouchableOpacity,
   View,
   ActivityIndicator,
+  Modal,
 } from "react-native";
 import Logo from "../../assets/Logo.png";
-import { useNavigation } from '@react-navigation/native';
 
 const OTP = ({ navigation }) => {
-  const [otp, setOtp] = useState(['', '', '', '']);
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [progress, setProgress] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const inputRefs = useRef([]);
 
-  // Update progress whenever OTP changes
+  useEffect(() => {
+    const loadEmail = async () => {
+      try {
+        const savedEmail = await AsyncStorage.getItem("pendingEmail");
+        if (savedEmail) {
+          setEmail(savedEmail);
+          console.log("📬 Loaded email from storage:", savedEmail);
+        }
+      } catch (error) {
+        console.error("❌ Error loading email:", error);
+      }
+    };
+    loadEmail();
+  }, []);
+
   useEffect(() => {
     const filledCount = otp.filter(digit => digit !== '').length;
-    const newProgress = (filledCount / 4) * 100;
+    const newProgress = (filledCount / 6) * 100;
     setProgress(newProgress);
   }, [otp]);
 
   const handleOtpChange = (text, index) => {
+    if (text.length > 1) return;
+    console.log(otp);
     const newOtp = [...otp];
     newOtp[index] = text;
     setOtp(newOtp);
 
-    // Auto move to next input
-    if (text && index < 3) {
+    if (text && index < 5) {
       inputRefs.current[index + 1].focus();
     }
 
-    // Auto submit when all fields are filled
-    if (text && index === 3) {
-      const isAllFilled = newOtp.every(digit => digit !== '');
-      if (isAllFilled) {
-        handleVerify();
-      }
-    }
   };
 
   const handleKeyPress = (e, index) => {
@@ -52,76 +61,51 @@ const OTP = ({ navigation }) => {
     }
   };
 
-  const handleVerify = async () => {
-    if (isLoading) return; // Prevent multiple clicks
-    
-    setIsLoading(true);
-    const otpCode = otp.join('');
-    console.log("OTP Entered:", otpCode);
-    
-    // Simulate API call or verification process
-    try {
-      await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
-      
-      // Here you would typically verify the OTP with your backend
-      // For demo purposes, we'll assume it's always successful
-      console.log("OTP verification successful!");
-      
-      // Navigate to next screen after successful verification
-      navigation.navigate('KycScreenOne'); // Change 'Home' to your target screen
-      
-    } catch (error) {
-      console.log("OTP verification failed:", error);
-      // You can add error handling here (show error message, etc.)
-    } finally {
-      setIsLoading(false);
-    }
-  }
+  const otpVerify = useVerifyOtpEndPoint();
 
-  const handleResendOTP = () => {
-    if (isLoading) return; // Prevent resend during loading
-    
-    console.log("Resend OTP");
-    setOtp(['', '', '', '']);
-    setProgress(0);
-    inputRefs.current[0].focus();
-    
-    // You can add your resend OTP logic here
-  }
+const handleVerify = async (otpArray = otp) => {
+  if (otpVerify.isPending) return;
 
-  const focusNext = (index) => {
-    if (index < 3) {
-      inputRefs.current[index + 1].focus();
-    }
+  const code = otpArray.join('');
+  console.log("OTP Entered:", code); // should now always be 6 digits
+  try {
+    await otpVerify.mutateAsync({ email, otp: code });
+    console.log("✅ OTP verification successful!");
+    setShowSuccessModal(true);
+  } catch (err) {
+    console.error("❌ OTP verification failed:", err);
+  }
+};
+
+
+  const handleSuccessModalClose = () => {
+    setShowSuccessModal(false);
+    console.log("I shifted the navigation.navigate to after login tempoarily so I can work on document upload seperately")
+    //navigation.navigate('KycScreenOne');
   };
 
   return (
     <View style={styles.container}>
-      {/* Top Banner */}
       <View style={styles.banner} />
 
-      {/* Card */}
       <View style={styles.card}>
-        <View style={styles.LogoContainer}>
-          <Image source={Logo} style={styles.Logoicon} />
+        <View style={styles.logoContainer}>
+          <Image source={Logo} style={styles.logoIcon} />
         </View>
 
-        <View style={styles.IconContainer}>
+        <View style={styles.iconContainer}>
           <Feather name="mail" size={24} color="#fcbf24" />
         </View>
+
         <Text style={styles.title}>OTP Authentication</Text>
         <Text style={styles.subtitle}>
           Check your email for the verification code
         </Text>
 
-        {/* Progress Bar */}
         <View style={styles.progressContainer}>
           <View style={styles.progressBar}>
             <View 
-              style={[
-                styles.progressFill,
-                { width: `${progress}%` }
-              ]} 
+              style={[styles.progressFill, { width: `${progress}%` }]} 
             />
           </View>
           <Text style={styles.progressText}>
@@ -129,77 +113,82 @@ const OTP = ({ navigation }) => {
           </Text>
         </View>
 
-        {/* OTP Input */}
         <View style={styles.otpContainer}>
-          {[0, 1, 2, 3].map((index) => (
+          {[0, 1, 2, 3, 4, 5].map((index) => (
             <TextInput
               key={index}
               ref={(ref) => (inputRefs.current[index] = ref)}
               style={[
                 styles.otpInput,
                 otp[index] && styles.otpInputFilled,
-                isLoading && styles.otpInputDisabled
+                otpVerify.isPending && styles.otpInputDisabled
               ]}
               placeholder="0"
-              placeholderTextColor="#aaa"
+              placeholderTextColor="#555"
               keyboardType="number-pad"
               maxLength={1}
               textAlign="center"
               value={otp[index]}
               onChangeText={(text) => handleOtpChange(text, index)}
               onKeyPress={(e) => handleKeyPress(e, index)}
-              onFocus={() => {
-                if (otp[index] && index < 3 && !otp[index + 1]) {
-                  focusNext(index);
-                }
-              }}
-              editable={!isLoading}
+              editable={!otpVerify.isPending}
             />
           ))}
         </View>
 
-        {/* Verify Button */}
         <TouchableOpacity
           style={[
             styles.verifyBtn,
-            (!otp.every(digit => digit !== '') || isLoading) && styles.verifyBtnDisabled
+            (!otp.every(digit => digit !== '') || otpVerify.isPending) && styles.verifyBtnDisabled
           ]}
           onPress={handleVerify}
-          disabled={!otp.every(digit => digit !== '') || isLoading}
+          disabled={!otp.every(digit => digit !== '') || otpVerify.isPending}
         >
-          {isLoading ? (
+          {otpVerify.isPending ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="small" color="#000" />
-              <Text style={styles.verifyText}>Verifying...</Text>
             </View>
           ) : (
             <Text style={styles.verifyText}>Verify</Text>
           )}
         </TouchableOpacity>
-
-        {/* Resend OTP */}
-        <TouchableOpacity 
-          onPress={handleResendOTP}
-          disabled={isLoading}
-        >
-          <Text style={[
-            styles.resendText,
-            isLoading && styles.resendTextDisabled
-          ]}>
-            Didn't receive code?{" "}
-            <Text style={[
-              styles.resendLink,
-              isLoading && styles.resendLinkDisabled
-            ]}>Resend OTP</Text>
-          </Text>
-        </TouchableOpacity>
       </View>
+
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showSuccessModal}
+        onRequestClose={handleSuccessModalClose}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.successIconContainer}>
+              <Feather name="check-circle" size={60} color="#fcbf24" />
+            </View>
+            
+            <Text style={styles.modalTitle}>Success!</Text>
+            <Text style={styles.modalSubtitle}>
+              OTP verification successful
+            </Text>
+
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={handleSuccessModalClose}
+            >
+              <Text style={styles.modalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#000" },
+  container: { 
+    flex: 1, 
+    backgroundColor: "#000" 
+  },
   banner: {
     height: 200,
     backgroundColor: "#0B2633",
@@ -216,12 +205,23 @@ const styles = StyleSheet.create({
     width: "95%",
     alignSelf: "center",
   },
-  logo: {
-    fontSize: 36,
-    fontWeight: "bold",
-    color: "#fcbf24",
-    textAlign: "center",
+  logoContainer: {
+    marginBottom: 10,
+  },
+  logoIcon: {
+    width: 130,
+    height: 100,
+    resizeMode: "contain",
+    alignSelf: "center",
+  },
+  iconContainer: {
+    borderColor: '#fcbf24',
+    padding: 10,
+    borderRadius: 50,
+    alignSelf: 'center',
     marginBottom: 20,
+    alignItems: 'center',
+    backgroundColor: '#FEB91454',
   },
   title: {
     fontSize: 24,
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#ccc",
     textAlign: "center",
-    marginBottom: 20,
+    marginBottom: 30,
   },
   progressContainer: {
     marginBottom: 30,
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
   progressBar: {
     width: '100%',
     height: 8,
-    backgroundColor: '#333',
+    backgroundColor: '#222',
     borderRadius: 4,
     overflow: 'hidden',
     marginBottom: 8,
@@ -252,28 +252,28 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#fcbf24',
     borderRadius: 4,
-    transition: 'width 0.3s ease-in-out',
   },
   progressText: {
     fontSize: 12,
-    color: '#ccc',
+    color: '#888',
     textAlign: 'center',
   },
   otpContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 30,
+    marginBottom: 40,
+    gap: 8,
   },
   otpInput: {
-    width: 60,
+    flex: 1,
     height: 60,
     backgroundColor: "#111",
     borderRadius: 10,
     color: "#fff",
     fontSize: 20,
     fontWeight: "bold",
-    borderWidth: 1,
-    borderColor: "#333",
+    borderWidth: 2,
+    borderColor: "#222",
   },
   otpInputFilled: {
     borderColor: "#fcbf24",
@@ -286,13 +286,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#fcbf24",
     borderRadius: 10,
     paddingVertical: 14,
-    marginTop: 10,
     alignItems: "center",
-    marginBottom: 20,
   },
   verifyBtnDisabled: {
-    backgroundColor: "#666",
-    opacity: 0.6,
+    backgroundColor: "#444",
+    opacity: 0.5,
   },
   loadingContainer: {
     flexDirection: 'row',
@@ -304,35 +302,50 @@ const styles = StyleSheet.create({
     fontWeight: "bold", 
     fontSize: 16 
   },
-  resendText: { 
-    textAlign: "center", 
-    color: "#888", 
-    fontSize: 14 
-  },
-  resendTextDisabled: {
-    opacity: 0.5,
-  },
-  resendLink: { 
-    color: "#fcbf24", 
-    fontWeight: "bold" 
-  },
-  resendLinkDisabled: {
-    color: "#666",
-  },
-  Logoicon: {
-    width: 130,
-    height: 100,
-    resizeMode: "contain",
-    alignSelf: "center",
-  },
-  IconContainer: {
-    borderColor: '#fcbf24',
-    padding: 10,
-    borderRadius: 50,
-    alignSelf: 'center',
-    marginBottom: 20,
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FEB91454',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#111',
+    borderRadius: 20,
+    padding: 30,
+    width: '85%',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#222',
+  },
+  successIconContainer: {
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    fontSize: 16,
+    color: '#ccc',
+    marginBottom: 30,
+    textAlign: 'center',
+  },
+  modalButton: {
+    backgroundColor: '#fcbf24',
+    borderRadius: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 60,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    color: '#000',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });
 
