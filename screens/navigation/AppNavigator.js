@@ -27,6 +27,7 @@ import LoginAndSecurity from '../settings/LoginAndSecurity';
 import ReferAndEarn from '../settings/ReferAndEarn';
 import SafetyActions from '../settings/SafetyActions';
 import PersonalInfo from '../settings/PersonalInfo';
+import DrawerNavigator from './DrawerNavigator';
 
 
 
@@ -96,8 +97,8 @@ const AppNavigator = () => {
         component={PasskeySetup}
       />
       <Stack.Screen 
-        name="Tabs" 
-        component={TabNavigator}
+        name="Mainapp" 
+        component={DrawerNavigator}
       />
 
       

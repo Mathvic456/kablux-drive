@@ -55,7 +55,7 @@ const KabluxSplashScreen = () => {
     async function checkToken() {
       const token = await AsyncStorage.getItem("token");
       if (token) {
-        navigation.replace('Tabs');
+        navigation.replace('Mainapp');
       } else {
         navigation.replace('Login');
       }
