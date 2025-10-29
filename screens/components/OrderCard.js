@@ -1,10 +1,20 @@
 import React from "react";
-import { View, Text, StyleSheet, Image } from "react-native";
+import { View, Text, StyleSheet, Image, Touchable, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+
+
 
 export default function OrderCard({ name, rating, price, info, id }) {
+  
+  const navigation = useNavigation();
+  const goToPriceDetails = () => {
+    navigation.navigate("PriceDetails");
+  }
+  
+  
   return (
-    <View style={styles.card}>
+    <TouchableOpacity style={styles.card} onPress={goToPriceDetails}>
       {/* Top Row */}
       <View style={styles.topRow}>
         <View style={styles.leftTop}>
@@ -31,7 +41,7 @@ export default function OrderCard({ name, rating, price, info, id }) {
         </Text>
         <Text style={styles.id}>{id || "EZ213456"}</Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 

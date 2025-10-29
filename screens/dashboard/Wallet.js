@@ -5,9 +5,7 @@ import ActionButtons from '../components/ActionButtons';
 import TransactionHistory from '../components/TransactionHistory';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons, Entypo } from "@expo/vector-icons";
 import { useNavigation } from '@react-navigation/native';
-
-
-
+ 
 export default function Wallet() {
   const navigation = useNavigation();
 

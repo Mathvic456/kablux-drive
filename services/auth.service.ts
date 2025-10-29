@@ -39,7 +39,7 @@ export const useLoginEndPoint = (navigation: any, remember: boolean) => {
       //   console.log("Token not saved, remember me not checked.")
      // }
      
-      navigation.replace('KycScreenOne');
+      navigation.replace('Tabs');
     },
     onError: (error) => {
       console.error("Login error:", error);

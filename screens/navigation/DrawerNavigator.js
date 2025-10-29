@@ -3,7 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createDrawerNavigator, DrawerContentScrollView } from '@react-navigation/drawer';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, Entypo } from '@expo/vector-icons';
 
 // Import screens
 import Leaderboard from '../dashboard/Leaderboard';
@@ -57,6 +57,17 @@ function CustomDrawerContent(props) {
           <Text style={styles.drawerLabel}>My Ratings</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity
+          style={styles.drawerButton}
+          onPress={() => {
+            props.navigation.navigate('DriverIncomeDashboard');
+            props.navigation.closeDrawer();
+          }}
+        >
+          <Entypo name="wallet" size={20} color="#FFC107" />
+          <Text style={styles.drawerLabel}>Earnings</Text>
+        </TouchableOpacity>
+
         {/* Settings */}
         <TouchableOpacity
           style={styles.drawerButton}
@@ -81,8 +92,9 @@ export default function DrawerNavigator() {
         initialRouteName="MainTabs"
         drawerContent={(props) => <CustomDrawerContent {...props} />}
         screenOptions={{
+          drawerPosition: 'right',
           headerShown: false,
-          drawerStyle: { width: 320 },
+          drawerStyle: { width: 200 },
           drawerActiveTintColor: '#FFC107',
           drawerInactiveTintColor: 'rgba(255, 255, 255, 0.7)',
           drawerActiveBackgroundColor: 'rgba(255, 193, 7, 0.15)',
@@ -118,8 +130,8 @@ export default function DrawerNavigator() {
 
 const styles = StyleSheet.create({
   drawerContainer: {
-    backgroundColor: '#04223A',
-    borderRightWidth: 2,
+    backgroundColor: 'black',
+    borderLeftWidth: 2,
     borderRightColor: '#FFC107',
   },
   drawerHeader: {

@@ -28,6 +28,9 @@ import ReferAndEarn from '../settings/ReferAndEarn';
 import SafetyActions from '../settings/SafetyActions';
 import PersonalInfo from '../settings/PersonalInfo';
 import DrawerNavigator from './DrawerNavigator';
+import DriverIncomeDashboard from '../settings/DriverIncomeDashboard';
+import PriceDetails from '../ride/PriceDetails'
+import RideDetails from '../ride/RideDetails'
 
 
 const Stack = createStackNavigator();
@@ -55,6 +58,16 @@ const AppNavigator = () => {
         component={WhatDoYouDriveScreen}
       />
 
+      <Stack.Screen
+      name="PriceDetails"
+      component={PriceDetails}/>
+
+      <Stack.Screen
+      name="RideDetails"
+      component={RideDetails}/>
+
+
+
       <Stack.Screen 
         name="CategorySelection" 
         component={CategorySelection}
@@ -70,14 +83,23 @@ const AppNavigator = () => {
         component={SignUp}
       />
 
-
-
+      <Stack.Screen 
+        name="DriverIncomeDashboard" 
+        component={DriverIncomeDashboard}
+      />
 
 
       <Stack.Screen 
         name="PhotoUpload" 
         component={PhotoUpload}
       />
+
+      <Stack.Screen 
+        name="Tabs" 
+        component={TabNavigator}
+      />
+
+
 
 
 
@@ -100,7 +122,6 @@ const AppNavigator = () => {
         component={DrawerNavigator}
       />
 
-      
 
       <Stack.Screen 
         name="Withdraw" 
@@ -150,6 +171,11 @@ const AppNavigator = () => {
       <Stack.Screen 
         name="SafetyActions" 
         component={SafetyActions}
+      />
+
+      <Stack.Screen 
+        name="Map" 
+        component={Map}
       />
 
       <Stack.Screen 

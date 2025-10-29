@@ -1,23 +1,26 @@
 import React, { useState } from "react";
 import { View, Text, Image, StyleSheet, TouchableOpacity, ScrollView, RefreshControl } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import OrderCard from "./OrderCard"; // Make sure to import OrderCard
+import OrderCard from "./OrderCard";
+import { useNavigation } from "@react-navigation/native";
 
 const RideOrders = () => {
+  const navigation = useNavigation();
+  const goToPriceDetails = () => {
+    navigation.navigate("Map");
+  }
   const [hasOrders, setHasOrders] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const handleRefresh = () => {
     setRefreshing(true);
     
-    // Simulate API call delay
     setTimeout(() => {
-      setHasOrders(!hasOrders); // Toggle between empty and having orders
+      setHasOrders(!hasOrders);
       setRefreshing(false);
     }, 1000);
   };
 
-  // Mock data for multiple orders (you can replace with actual data)
   const mockOrders = [
     {
       id: "EZ213456",
@@ -58,9 +61,9 @@ const RideOrders = () => {
 
   return (
     <View style={styles.container}>
-      {/* Header with Refresh Button - Fixed at top */}
+      {/* Header with Refresh Button */}
       <View style={styles.header}>
-        <Text style={styles.title}>Ride Order</Text>
+        <Text style={styles.title}>Ride Orders</Text>
         <TouchableOpacity 
           style={[styles.refreshButton, refreshing && styles.refreshing]}
           onPress={handleRefresh}
@@ -68,27 +71,15 @@ const RideOrders = () => {
         >
           <Ionicons 
             name="refresh" 
-            size={22} 
+            size={20} 
             color={refreshing ? "#888" : "#FFD700"} 
           />
         </TouchableOpacity>
       </View>
 
       {hasOrders ? (
-        // Scrollable Orders List with Pull-to-Refresh
-        <ScrollView 
-          style={styles.ordersContainer}
-          contentContainerStyle={styles.ordersContentContainer}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              tintColor="#FFD700"
-              colors={["#FFD700"]}
-            />
-          }
-        >
+        // Orders List - No need for nested ScrollView since parent is scrollable
+        <View style={styles.ordersContainer}>
           {mockOrders.map((order) => (
             <OrderCard 
               key={order.id}
@@ -99,25 +90,10 @@ const RideOrders = () => {
               id={order.id}
             />
           ))}
-          
-          {/* Add some bottom padding for better scrolling */}
-          <View style={styles.bottomPadding} />
-        </ScrollView>
+        </View>
       ) : (
-        // Scrollable Empty State (in case of tall screens)
-        <ScrollView 
-          style={styles.emptyContainer}
-          contentContainerStyle={styles.emptyContentContainer}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              tintColor="#FFD700"
-              colors={["#FFD700"]}
-            />
-          }
-        >
+        // Empty State
+        <View style={styles.emptyContainer}>
           <View style={styles.content}>
             <Image
               source={require("../../assets/Box.png")}
@@ -128,13 +104,13 @@ const RideOrders = () => {
               Pull down to refresh or tap the refresh button above
             </Text>
           </View>
-        </ScrollView>
+        </View>
       )}
 
       {/* Refresh Indicator */}
       {refreshing && (
         <View style={styles.refreshIndicator}>
-          <Ionicons name="refresh" size={20} color="#FFD700" />
+          <Ionicons name="refresh" size={18} color="#FFD700" />
           <Text style={styles.refreshText}>Loading orders...</Text>
         </View>
       )}
@@ -146,19 +122,18 @@ export default RideOrders;
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: "black",
-    borderWidth: 1,
-    // borderColor: "white",
+    width: '90%',
+    backgroundColor: "transparent",
+    marginTop: 10,
+    marginBottom: 20,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 25,
-    paddingTop: 8,
-    paddingBottom: 0,
-    backgroundColor: "black",
+    paddingHorizontal: 10,
+    paddingBottom: 15,
+    backgroundColor: "transparent",
   },
   title: {
     color: "white",
@@ -175,40 +150,38 @@ const styles = StyleSheet.create({
   },
   // Orders List Styles
   ordersContainer: {
-    flex: 1,
-    backgroundColor: "black",
-  },
-  ordersContentContainer: {
-    paddingHorizontal: 25,
-    paddingTop: 0,
-    paddingBottom: 30, // Extra padding at bottom for better scroll
+    backgroundColor: "transparent",
+    gap: 12,
   },
   // Empty State Styles
   emptyContainer: {
-    flex: 1,
-    backgroundColor: "black",
-  },
-  emptyContentContainer: {
-    flexGrow: 1,
+    backgroundColor: "transparent",
+    minHeight: 200,
     justifyContent: "center",
-    paddingHorizontal: 25,
+    alignItems: "center",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#333",
+    borderStyle: "dashed",
   },
   content: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 40,
+    paddingVertical: 30,
   },
   image: {
-    width: 110,
-    height: 110,
+    width: 80,
+    height: 80,
     resizeMode: "contain",
-    marginBottom: 10,
+    marginBottom: 15,
+    opacity: 0.7,
   },
   message: {
     color: "white",
-    fontSize: 14,
-    opacity: 0.7,
-    marginBottom: 5,
+    fontSize: 16,
+    fontWeight: "500",
+    marginBottom: 8,
+    opacity: 0.8,
   },
   subMessage: {
     color: "#666",
@@ -217,20 +190,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     lineHeight: 18,
   },
-  bottomPadding: {
-    height: 20,
-  },
   refreshIndicator: {
     position: "absolute",
-    top: 100,
+    top: 60,
     alignSelf: "center",
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(28, 28, 30, 0.9)",
+    backgroundColor: "rgba(28, 28, 30, 0.95)",
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: 20,
-    zIndex: 1000,
+    borderWidth: 1,
+    borderColor: "#333",
   },
   refreshText: {
     color: "#FFD700",
