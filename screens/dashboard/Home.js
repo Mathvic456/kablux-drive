@@ -123,7 +123,10 @@ export default function Home() {
           </TouchableOpacity>
 
           {/* Right Section - Notification */}
-          <TouchableOpacity style={styles.notificationContainer} onPress={() => navigation.getParent('DrawerNavigator')?.openDrawer()}>
+          <TouchableOpacity style={styles.notificationContainer} onPress={() => {
+            navigation.getParent("DrawerNavigator")?.openDrawer();
+            console.log("opened")
+          }}>
               <MaterialCommunityIcons name="menu" size={24} color="white" />          
               <View style={styles.badge}>
               <Text style={styles.badgeText}>3</Text>
