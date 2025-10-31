@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { MaterialIcons, FontAwesome5, Feather, Entypo } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { Modal } from 'react-native';
 import { useLogoutEndPoint } from '../../services/auth.service';
+import { useProfile } from '../../services/profile.service';
 
 
 
 export default function Account() {
     const [modalVisible, setModalVisible] = useState('false');
     const navigation = useNavigation();
+     const { data: profile, isPending, isError } = useProfile();
 
     const LoginAndSecurity = () => {
         navigation.navigate('LoginAndSecurity');
@@ -43,7 +45,9 @@ export default function Account() {
         navigation.navigate('Legal');
     }
 
-    const logoutEndpoint = useLogoutEndPoint();
+  
+
+  const logoutEndpoint = useLogoutEndPoint();
     const handleLogout = async() => {
      try {
       await logoutEndpoint.mutateAsync(); 
@@ -54,6 +58,11 @@ export default function Account() {
       console.error("Logout failed:", error);
     }
   }
+
+    if (isPending) return <ActivityIndicator size="large" color="#facc15" />;
+
+  if (isError) return <Text>Error loading profile</Text>;
+
   return (
     <>
     <ScrollView style={styles.container}>
@@ -67,7 +76,7 @@ export default function Account() {
           style={styles.profileImage}
         />
         <View style={{ alignItems: 'left' }}>
-          <Text style={styles.profileName}>Ibrahim Victor</Text>
+          <Text style={styles.profileName}>{profile.first_name} {profile.last_name}</Text>
           <View style={styles.ratingRow}>
             <Text style={styles.ratingText}>4.99 </Text>
             <FontAwesome5 name="star" size={14} color="#FFC107" />

@@ -1,96 +1,14 @@
 // screens/Bookings.js
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useState } from 'react';
 import TripCard from '../components/TripCard';
-
-
-
-
+import { useRideHistory } from '../services/ride.service';
 
 export default function Bookings() {
   const [activeTab, setActiveTab] = useState('all');
-
-  // Sample data for different ride types
-  const rideData = {
-    all: [
-      {
-        id: 1,
-        status: 'completed',
-        isReturn: true,
-        rating: 5,
-        date: 'Oct 25 - 14:30',
-        from: 'Abraham Adesanya Estate',
-        to: 'Sunview Estate Ajah Lagos'
-      },
-      {
-        id: 2,
-        status: 'completed',
-        isReturn: false,
-        rating: 4,
-        date: 'Oct 24 - 09:15',
-        from: 'Lekki Phase 1',
-        to: 'Victoria Island'
-      },
-      {
-        id: 3,
-        status: 'cancelled',
-        isReturn: false,
-        rating: 0,
-        date: 'Oct 23 - 16:45',
-        from: 'Ikoyi',
-        to: 'Airport'
-      },
-      {
-        id: 4,
-        status: 'completed',
-        isReturn: true,
-        rating: 5,
-        date: 'Oct 22 - 11:20',
-        from: 'Yaba',
-        to: 'Surulere'
-      }
-    ],
-    completed: [
-      {
-        id: 1,
-        status: 'completed',
-        isReturn: true,
-        rating: 5,
-        date: 'Oct 25 - 14:30',
-        from: 'Abraham Adesanya Estate',
-        to: 'Sunview Estate Ajah Lagos'
-      },
-      {
-        id: 2,
-        status: 'completed',
-        isReturn: false,
-        rating: 4,
-        date: 'Oct 24 - 09:15',
-        from: 'Lekki Phase 1',
-        to: 'Victoria Island'
-      },
-      {
-        id: 4,
-        status: 'completed',
-        isReturn: true,
-        rating: 5,
-        date: 'Oct 22 - 11:20',
-        from: 'Yaba',
-        to: 'Surulere'
-      }
-    ],
-    cancelled: [
-      {
-        id: 3,
-        status: 'cancelled',
-        isReturn: false,
-        rating: 0,
-        date: 'Oct 23 - 16:45',
-        from: 'Ikoyi',
-        to: 'Airport'
-      }
-    ]
-  };
+  
+  // Fetch ride history
+  const { data: rideHistory, isPending, isError } = useRideHistory(true);
 
   const tabs = [
     { id: 'all', label: 'All Rides' },
@@ -98,30 +16,88 @@ export default function Bookings() {
     { id: 'cancelled', label: 'Cancelled' }
   ];
 
+  // Filter rides based on active tab
+  const getFilteredRides = () => {
+    if (!rideHistory?.results) return [];
+
+    const rides = rideHistory.results;
+
+    switch (activeTab) {
+      case 'completed':
+        return rides.filter(ride => ride.status?.toLowerCase() === 'completed');
+      case 'cancelled':
+        return rides.filter(ride => ride.status?.toLowerCase() === 'cancelled');
+      case 'all':
+      default:
+        return rides;
+    }
+  };
+
+  // Map API data to TripCard props
+  const mapRideToCardProps = (ride) => {
+    // Format date from createdAt or use date field
+    const formatDate = (dateString) => {
+      if (!dateString) return 'N/A';
+      const date = new Date(dateString);
+      const month = date.toLocaleString('en-US', { month: 'short' });
+      const day = date.getDate();
+      const time = date.toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: false 
+      });
+      return `${month} ${day} - ${time}`;
+    };
+
+    return {
+      status: ride.status?.toLowerCase() || 'unknown',
+      isReturn: ride.type?.toLowerCase() === 'return' || ride.type?.toLowerCase() === 'round_trip',
+      rating: ride.rating || 0,
+      date: formatDate(ride.createdAt || ride.date),
+      from: ride.pickupLocation || 'Unknown location',
+      to: ride.dropoffLocation || 'Unknown destination'
+    };
+  };
+
   const renderRides = () => {
-    const rides = rideData[activeTab];
+    if (isPending) {
+      return (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#FFC107" />
+          <Text style={styles.loadingText}>Loading rides...</Text>
+        </View>
+      );
+    }
+
+    if (isError) {
+      return (
+        <View style={styles.centerContainer}>
+          <Text style={styles.errorText}>Failed to load ride history</Text>
+        </View>
+      );
+    }
+
+    const rides = getFilteredRides();
     
     if (rides.length === 0) {
       return (
         <View style={styles.emptyState}>
           <Text style={styles.emptyStateText}>
-            No {activeTab === 'cancelled' ? 'cancelled' : 'completed'} rides found
+            No {activeTab === 'cancelled' ? 'cancelled' : activeTab === 'completed' ? 'completed' : ''} rides found
           </Text>
         </View>
       );
     }
 
-    return rides.map((ride) => (
-      <TripCard
-        key={ride.id}
-        status={ride.status}
-        isReturn={ride.isReturn}
-        rating={ride.rating}
-        date={ride.date}
-        from={ride.from}
-        to={ride.to}
-      />
-    ));
+    return rides.map((ride) => {
+      const cardProps = mapRideToCardProps(ride);
+      return (
+        <TripCard
+          key={ride.id}
+          {...cardProps}
+        />
+      );
+    });
   };
 
   return (
@@ -173,14 +149,12 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 20,
     paddingBottom: 20,
-    // borderBottomWidth: 1,
     borderBottomColor: '#333',
   },
   headerTitle: {
     color: 'white',
     fontSize: 24,
     fontWeight: '700',
-    // textAlign: 'center',
   },
   tabsContainer: {
     flexDirection: 'row',
@@ -188,7 +162,6 @@ const styles = StyleSheet.create({
     borderColor: '#333',
     gap: 10,
     borderRadius: 25,
-    // marginBottom: 10,
   },
   tab: {
     flex: 1,
@@ -196,7 +169,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 15,
     marginHorizontal: 4,
-    // backgroundColor: '#04223A',
   },
   tabActive: {
     backgroundColor: '#0B2633',
@@ -215,6 +187,21 @@ const styles = StyleSheet.create({
   },
   ridesContent: {
     paddingBottom: 20,
+  },
+  centerContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    color: '#888',
+    fontSize: 16,
+    marginTop: 10,
+  },
+  errorText: {
+    color: '#ff6b6b',
+    fontSize: 16,
+    textAlign: 'center',
   },
   emptyState: {
     alignItems: 'center',

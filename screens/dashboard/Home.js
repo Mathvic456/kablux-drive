@@ -17,15 +17,49 @@ import RideOrders from '../components/RideOrders';
 import OrderCard from '../components/OrderCard';
 import TierOverlay from '../components/TierOverlay';
 import { useNavigation } from "@react-navigation/native";
+import { useDriverSocket } from "../hooks/useDriverSocket";
 
 export default function Home() {
   const navigation = useNavigation();
   const [isOnline, setIsOnline] = useState(false);
   const [tierOverlayVisible, setTierOverlayVisible] = useState(false);
   const [onlineModalVisible, setOnlineModalVisible] = useState(false);
+  const [currentLat, setCurrentLat] = useState(6.5240);
+  const [currentLng, setCurrentLng] = useState(3.3790);
+  const [newRideNotification, setNewRideNotification] = useState(null);
   
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
+
+   useEffect(() => {
+    const watchId = navigator.geolocation.watchPosition((pos) => {
+      setCurrentLat(pos.coords.latitude);
+      setCurrentLng(pos.coords.longitude);
+    });
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, []);
+
+  const handleMessage = async (event) => {
+  const data = JSON.parse(event.data);
+
+  if (data.type === "new_ride_available") {
+    console.log("🚗 Ride ID received:", data.ride_id);
+
+    // Fetch full ride details
+    try {
+      //TODO: Backend URL
+      const res = await fetch(`${data.ride_id}`);
+      const rideDetails = await res.json();
+      setNewRideNotification(rideDetails); // Show UI
+    } catch (err) {
+      console.error("Failed to fetch ride details:", err);
+    }
+  }
+};
+
+
+  // Connect driver socket
+  useDriverSocket(currentLat, currentLng, setNewRideNotification);
 
   useEffect(() => {
     const randomDelay = Math.floor(Math.random() * 2000) + 3000;
