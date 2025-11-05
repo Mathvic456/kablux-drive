@@ -1,128 +1,64 @@
-import React from "react";
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  Image, 
-  TouchableOpacity, 
+import React, { useState, useEffect, useRef, useContext } from "react";
+import {
+  ActivityIndicator,
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  TouchableOpacity,
   ScrollView,
   Modal,
-  Animated
-} from 'react-native';
-import DonutChart from '../components/DonutChart';
+  Animated,
+  FlatList,
+  Pressable
+} from "react-native";
+import DonutChart from "../components/DonutChart";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { useState, useEffect, useRef } from 'react';
-import UpgradeNotificationCard from '../components/UpgradeNotificationCard';
-import RideOrders from '../components/RideOrders';
-import OrderCard from '../components/OrderCard';
-import TierOverlay from '../components/TierOverlay';
+import UpgradeNotificationCard from "../components/UpgradeNotificationCard";
+import RideOrders from "../components/RideOrders";
+import TierOverlay from "../components/TierOverlay";
 import { useNavigation } from "@react-navigation/native";
-import { useDriverSocket } from "../hooks/useDriverSocket";
+import { useProfile } from '../../services/profile.service';
+import { SocketContext } from "../../context/WebSocketProvider";
+
 
 export default function Home() {
   const navigation = useNavigation();
   const [isOnline, setIsOnline] = useState(false);
   const [tierOverlayVisible, setTierOverlayVisible] = useState(false);
   const [onlineModalVisible, setOnlineModalVisible] = useState(false);
-  const [currentLat, setCurrentLat] = useState(6.5240);
-  const [currentLng, setCurrentLng] = useState(3.3790);
-  const [newRideNotification, setNewRideNotification] = useState(null);
-  
+  const { data: profile, isPending, isError } = useProfile();  
+  const [modalVisible, setModalVisible] = useState();
+  const { rideOffers, currentLocation, isConnected } = useContext(SocketContext);
+    
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
 
-   useEffect(() => {
-    const watchId = navigator.geolocation.watchPosition((pos) => {
-      setCurrentLat(pos.coords.latitude);
-      setCurrentLng(pos.coords.longitude);
-    });
-    return () => navigator.geolocation.clearWatch(watchId);
-  }, []);
-
-  const handleMessage = async (event) => {
-  const data = JSON.parse(event.data);
-
-  if (data.type === "new_ride_available") {
-    console.log("🚗 Ride ID received:", data.ride_id);
-
-    // Fetch full ride details
-    try {
-      //TODO: Backend URL
-      const res = await fetch(`${data.ride_id}`);
-      const rideDetails = await res.json();
-      setNewRideNotification(rideDetails); // Show UI
-    } catch (err) {
-      console.error("Failed to fetch ride details:", err);
-    }
-  }
-};
 
 
-  // Connect driver socket
-  useDriverSocket(currentLat, currentLng, setNewRideNotification);
 
   useEffect(() => {
+    if (rideOffers.length === 1) setModalVisible(true);
     const randomDelay = Math.floor(Math.random() * 2000) + 3000;
-    
-    const timer = setTimeout(() => {
-      setTierOverlayVisible(true);
-    }, randomDelay);
-
+    const timer = setTimeout(() => setTierOverlayVisible(true), randomDelay);
     return () => clearTimeout(timer);
-  }, []);
+  }, [rideOffers]);
 
-  const handleToggleOnline = () => {
-    const newOnlineStatus = !isOnline;
-    setIsOnline(newOnlineStatus);
-    
-    if (newOnlineStatus) {
-      // Show modal only when going online
-      setOnlineModalVisible(true);
-      
-      // Animate the modal in
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(scaleAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start();
-
-      // Auto hide after 2 seconds
-      setTimeout(() => {
-        hideModal();
-      }, 2000);
-    }
+   const openDrawer = () => {
+    navigation.navigate("Drawer");
   };
 
-  const hideModal = () => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scaleAnim, {
-        toValue: 0.8,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      setOnlineModalVisible(false);
-    });
-  };
-
-  const openDrawer = () => {
-    navigation.navigate('Drawer');
+  function handleOpenNavigator() {
+    navigation.getParent("DrawerNavigator").openDrawer();
   }
 
+      if (isPending) return <ActivityIndicator size="large" color="#facc15" />;
+  
+    if (isError) return <Text>Error loading profile</Text>;
+
   return (
-    <ScrollView 
+    <ScrollView
       style={styles.scrollContainer}
       contentContainerStyle={styles.scrollContentContainer}
       showsVerticalScrollIndicator={false}
@@ -133,13 +69,13 @@ export default function Home() {
           {/* Left Section - Profile + Greeting */}
           <View style={styles.leftSection}>
             <Image
-              source={require('../../assets/Profileimg.png')}
+              source={require("../../assets/Profileimg.png")}
               style={styles.profileImage}
             />
-            <Text style={styles.greeting}>Hello Victor</Text>
+            <Text style={styles.greeting}>Hello {profile.first_name}</Text>
           </View>
 
-          {/* Middle Section - Status Toggle */}
+          {/* Middle Section - Status Toggle 
           <TouchableOpacity
             style={[styles.toggleContainer, isOnline && styles.toggleActive]}
             onPress={handleToggleOnline}
@@ -147,22 +83,24 @@ export default function Home() {
             <View
               style={[
                 styles.toggleCircle,
-                isOnline ? { alignSelf: "flex-end" } : { alignSelf: "flex-start" },
+                isOnline
+                  ? { alignSelf: "flex-end" }
+                  : { alignSelf: "flex-start" },
               ]}
             >
               <Text style={styles.toggleText}>
                 {isOnline ? "Online" : "Offline"}
               </Text>
             </View>
-          </TouchableOpacity>
+          </TouchableOpacity>*/}
 
           {/* Right Section - Notification */}
-          <TouchableOpacity style={styles.notificationContainer} onPress={() => {
-            navigation.getParent("DrawerNavigator")?.openDrawer();
-            console.log("opened")
-          }}>
-              <MaterialCommunityIcons name="menu" size={24} color="white" />          
-              <View style={styles.badge}>
+          <TouchableOpacity
+            style={styles.notificationContainer}
+            onPress={handleOpenNavigator}
+          >
+            <MaterialCommunityIcons name="menu" size={24} color="white" />
+            <View style={styles.badge}>
               <Text style={styles.badgeText}>3</Text>
             </View>
           </TouchableOpacity>
@@ -176,16 +114,16 @@ export default function Home() {
         {/* Upgrade Notification */}
         <UpgradeNotificationCard />
 
-        {/* Ride Orders - This will now be scrollable within the main scroll view */}
+        {/* Ride Orders */}
         <RideOrders />
 
         {/* Tier Overlay */}
-        <TierOverlay 
-          visible={tierOverlayVisible} 
-          onClose={() => setTierOverlayVisible(false)} 
+        <TierOverlay
+          visible={tierOverlayVisible}
+          onClose={() => setTierOverlayVisible(false)}
         />
 
-        {/* Online Status Modal */}
+        {/* Online Status Modal 
         <Modal
           transparent={true}
           visible={onlineModalVisible}
@@ -193,13 +131,10 @@ export default function Home() {
           onRequestClose={hideModal}
         >
           <View style={styles.modalOverlay}>
-            <Animated.View 
+            <Animated.View
               style={[
                 styles.modalContent,
-                {
-                  opacity: fadeAnim,
-                  transform: [{ scale: scaleAnim }]
-                }
+                { opacity: fadeAnim, transform: [{ scale: scaleAnim }] },
               ]}
             >
               <View style={styles.modalIconContainer}>
@@ -207,8 +142,8 @@ export default function Home() {
               </View>
               <Text style={styles.modalTitle}>You are online</Text>
               <Text style={styles.modalSubtitle}>Ready to accept rides</Text>
-              
-              <TouchableOpacity 
+
+              <TouchableOpacity
                 style={styles.modalCloseButton}
                 onPress={hideModal}
               >
@@ -216,51 +151,91 @@ export default function Home() {
               </TouchableOpacity>
             </Animated.View>
           </View>
-        </Modal>
+        </Modal>*/}
       </View>
+          <View style={styles.container}>
+      <Text style={styles.header}>
+        Driver Status: {isConnected ? "🟢 Online" : "🔴 Offline"}
+      </Text>
+
+      {currentLocation && (
+        <Text>Current Location: {currentLocation.lat.toFixed(4)}, {currentLocation.lng.toFixed(4)}</Text>
+      )}
+
+      <Text style={styles.subHeader}>Ride Offers:</Text>
+      {rideOffers.length === 0 ? (
+        <Text>No offers yet</Text>
+      ) : (
+        <FlatList
+          data={rideOffers}
+          keyExtractor={(item) => item.ride_id}
+          renderItem={({ item }) => (
+            <View style={styles.offerCard}>
+              <Text style={styles.offerText}>Ride ID: {item.ride_id}</Text>
+              <Text style={styles.offerText}>Pickup: {item.pickup.lat}, {item.pickup.lng}</Text>
+              <Text style={styles.offerText}>Destination: {item.destination.lat}, {item.destination.lng}</Text>
+              <Text style={styles.offerText}>Fare: ₦{item.estimated_fare}</Text>
+            </View>
+          )}
+        />
+      )}
+    </View>
+    {rideOffers.length === 1 &&
+      <Modal
+          animationType="slide"
+          transparent={true}
+          visible={modalVisible}
+          onRequestClose={() => {
+            setModalVisible(!modalVisible);
+          }}>
+          <View style={styles.centeredView}>
+            <View style={styles.modalView}>
+          <View style={styles.offerCard}>
+              <Text style={styles.offerText}>Ride ID: {rideOffers[0].ride_id}</Text>
+              <Text style={styles.offerText}>Pickup: {rideOffers[0].pickup.lat}, {rideOffers[0].pickup.lng}</Text>
+              <Text style={styles.offerText}>Destination: {rideOffers[0].destination.lat}, {rideOffers[0].destination.lng}</Text>
+              <Text style={styles.offerText}>Fare: ₦{rideOffers[0].estimated_fare}</Text>
+            </View>
+            
+              <Pressable
+                style={[styles.button]}
+                onPress={() => setModalVisible(!modalVisible)}>
+                <Text style={styles.textStyle}>Hide Modal</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>}
     </ScrollView>
+
+    
+
+
+
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContainer: {
-    flex: 1,
-    backgroundColor: 'black',
-  },
-  scrollContentContainer: {
-    flexGrow: 1,
-  },
+  scrollContainer: { flex: 1, backgroundColor: "black" },
+  scrollContentContainer: { flexGrow: 1 },
   container: {
     flex: 1,
-    alignItems: 'center',
-    backgroundColor: 'black',
+    alignItems: "center",
+    backgroundColor: "black",
     paddingTop: 35,
     paddingBottom: 20,
     gap: 10,
-    minHeight: '100%',
+    minHeight: "100%",
   },
   header: {
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    width: '90%', 
-    alignItems: 'center', 
-    marginBottom: 20
-  },
-  leftSection: {
     flexDirection: "row",
+    justifyContent: "space-between",
+    width: "90%",
     alignItems: "center",
+    marginBottom: 20,
   },
-  profileImage: {
-    width: 35,
-    height: 35,
-    borderRadius: 20,
-    marginRight: 10,
-  },
-  greeting: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "500",
-  },
+  leftSection: { flexDirection: "row", alignItems: "center" },
+  profileImage: { width: 35, height: 35, borderRadius: 20, marginRight: 10 },
+  greeting: { color: "white", fontSize: 16, fontWeight: "500" },
   toggleContainer: {
     width: 100,
     height: 35,
@@ -269,9 +244,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 5,
   },
-  toggleActive: {
-    backgroundColor: "#2d2d2d",
-  },
+  toggleActive: { backgroundColor: "#2d2d2d" },
   toggleCircle: {
     width: "50%",
     height: "100%",
@@ -280,14 +253,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  toggleText: {
-    color: "white",
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  notificationContainer: {
-    position: "relative",
-  },
+  toggleText: { color: "white", fontSize: 12, fontWeight: "500" },
+  notificationContainer: { position: "relative" },
   badge: {
     position: "absolute",
     top: -5,
@@ -299,58 +266,88 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  badgeText: {
-    color: "white",
-    fontSize: 10,
-    fontWeight: "bold",
-  },
-  chartContainer: {
-    marginTop: 20,
-    justifyContent: 'center',
-  },
-  // Modal Styles
+  badgeText: { color: "white", fontSize: 10, fontWeight: "bold" },
+  chartContainer: { marginTop: 20, justifyContent: "center" },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   modalContent: {
-    backgroundColor: '#2d2d2d',
+    backgroundColor: "#2d2d2d",
     borderRadius: 20,
     padding: 25,
-    alignItems: 'center',
-    width: '80%',
+    alignItems: "center",
+    width: "80%",
     maxWidth: 300,
     borderWidth: 1,
-    borderColor: '#404040',
+    borderColor: "#404040",
   },
-  modalIconContainer: {
-    marginBottom: 15,
+   container: {flex: 1, padding: 16 },
+  header: { color: "white", fontSize: 18, fontWeight: "bold", marginBottom: 12 },
+  subHeader: { color: "white", fontSize: 16, fontWeight: "bold", marginTop: 16 },
+  offerCard: { 
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#333",
+    marginBottom: 12,
+    borderRadius: 12,
+    backgroundColor: "#1a1a1a"
   },
+  offerText: {
+    color: "white",
+    fontSize: 14,
+    marginBottom: 4
+  },
+  modalIconContainer: { marginBottom: 15 },
   modalTitle: {
-    color: 'white',
+    color: "white",
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 8,
-    textAlign: 'center',
+    textAlign: "center",
   },
   modalSubtitle: {
-    color: '#ccc',
+    color: "#ccc",
     fontSize: 14,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 20,
   },
   modalCloseButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: "#4CAF50",
     paddingHorizontal: 30,
     paddingVertical: 10,
     borderRadius: 25,
     marginTop: 10,
   },
-  modalCloseButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
+  modalCloseButtonText: { color: "white", fontSize: 16, fontWeight: "600" },
+
+   centeredView: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalView: {
+    margin: 20,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 20,
+    padding: 35,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  button: {
+    borderRadius: 20,
+    padding: 10,
+    elevation: 2,
   },
 });

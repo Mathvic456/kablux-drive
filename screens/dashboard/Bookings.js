@@ -2,7 +2,7 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useState } from 'react';
 import TripCard from '../components/TripCard';
-import { useRideHistory } from '../services/ride.service';
+import { useRideHistory } from '../../services/rideHistory.service';
 
 export default function Bookings() {
   const [activeTab, setActiveTab] = useState('all');

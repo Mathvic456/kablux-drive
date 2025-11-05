@@ -4,6 +4,7 @@ import { createDrawerNavigator, DrawerContentScrollView } from '@react-navigatio
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons, Entypo } from '@expo/vector-icons';
+import { useLogoutEndPoint } from '../../services/auth.service';
 
 // Import screens
 import Leaderboard from '../dashboard/Leaderboard';
@@ -13,7 +14,19 @@ import TabNavigator from './TabNavigator';
 
 const Drawer = createDrawerNavigator();
 
+
 function CustomDrawerContent(props) {
+   const logoutEndpoint = useLogoutEndPoint();
+    const handleLogout = async() => {
+     try {
+      await logoutEndpoint.mutateAsync(); 
+    console.log("User logged out");
+     props.navigation.navigate("Login")
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  }
+
   return (
     <DrawerContentScrollView {...props} style={styles.drawerContainer}>
       <View style={styles.drawerHeader}>
@@ -79,6 +92,15 @@ function CustomDrawerContent(props) {
           <Ionicons name="settings-outline" size={20} color="#FFC107" />
           <Text style={styles.drawerLabel}>Settings</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.drawerButton}
+          onPress={handleLogout}
+        >
+          <Ionicons name="settings-outline" size={20} color="#FFC107" />
+          <Text style={styles.drawerLabel}>Logout</Text>
+        </TouchableOpacity>
+
       </View>
     </DrawerContentScrollView>
   );

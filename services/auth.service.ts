@@ -32,14 +32,20 @@ export const useLoginEndPoint = (navigation: any, remember: boolean) => {
     mutationFn: (data) => api.post("auth/login/", data),
     onSuccess: async (res) => {
       const token = res.data?.data?.access;
+      const refreshToken = res.data?.data?.refresh;
+      const userId = res.data?.data?.user?.id;
       //if (remember) {
+    
       await AsyncStorage.setItem("token", token);
+      await AsyncStorage.setItem("refreshToken", refreshToken);
+      await AsyncStorage.setItem("userId", userId)
       console.log("✅ Token saved!");
      // } else {
       //   console.log("Token not saved, remember me not checked.")
      // }
      
       navigation.replace('Tabs');
+
     },
     onError: (error) => {
       console.error("Login error:", error);
