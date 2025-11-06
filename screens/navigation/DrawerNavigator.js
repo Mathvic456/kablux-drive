@@ -5,6 +5,9 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons, Entypo } from '@expo/vector-icons';
 import { useLogoutEndPoint } from '../../services/auth.service';
+import { useContext } from 'react';
+import { SocketContext } from '../../context/WebSocketProvider';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Import screens
 import Leaderboard from '../dashboard/Leaderboard';
@@ -16,16 +19,43 @@ const Drawer = createDrawerNavigator();
 
 
 function CustomDrawerContent(props) {
-   const logoutEndpoint = useLogoutEndPoint();
-    const handleLogout = async() => {
-     try {
-      await logoutEndpoint.mutateAsync(); 
-    console.log("User logged out");
-     props.navigation.navigate("Login")
+  const logoutEndpoint = useLogoutEndPoint();
+  const { socket } = useContext(SocketContext);
+
+  const handleLogout = async () => {
+    try {
+      console.log("🚪 Starting logout process...");
+      
+      // Close WebSocket connection
+      if (socket) {
+        console.log("🔌 Closing WebSocket connection...");
+        socket.close(1000, "User logged out"); // 1000 = normal closure
+      }
+
+      // Clear tokens from storage
+      console.log("🗑️ Clearing auth tokens...");
+      await AsyncStorage.multiRemove(['token', 'refreshToken', 'pendingEmail']);
+
+      // Call logout endpoint
+      await logoutEndpoint.mutateAsync();
+      
+      console.log("✅ User logged out successfully");
+      
+      // Navigate to login
+      props.navigation.navigate("Login");
     } catch (error) {
-      console.error("Logout failed:", error);
+      console.error("❌ Logout failed:", error);
+      
+      // Even if API call fails, still clear local data and navigate
+      try {
+        if (socket) socket.close();
+        await AsyncStorage.multiRemove(['token', 'refreshToken', 'pendingEmail']);
+        props.navigation.navigate("Login");
+      } catch (cleanupError) {
+        console.error("❌ Cleanup failed:", cleanupError);
+      }
     }
-  }
+  };
 
   return (
     <DrawerContentScrollView {...props} style={styles.drawerContainer}>
@@ -93,14 +123,17 @@ function CustomDrawerContent(props) {
           <Text style={styles.drawerLabel}>Settings</Text>
         </TouchableOpacity>
 
+        {/* Logout */}
         <TouchableOpacity
-          style={styles.drawerButton}
+          style={[styles.drawerButton, styles.logoutButton]}
           onPress={handleLogout}
+          disabled={logoutEndpoint.isPending}
         >
-          <Ionicons name="settings-outline" size={20} color="#FFC107" />
-          <Text style={styles.drawerLabel}>Logout</Text>
+          <Ionicons name="log-out-outline" size={20} color="#ff4444" />
+          <Text style={[styles.drawerLabel, styles.logoutLabel]}>
+            {logoutEndpoint.isPending ? "Logging out..." : "Logout"}
+          </Text>
         </TouchableOpacity>
-
       </View>
     </DrawerContentScrollView>
   );
@@ -110,7 +143,7 @@ export default function DrawerNavigator() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Drawer.Navigator
-      id="DrawerNavigator"
+        id="DrawerNavigator"
         initialRouteName="MainTabs"
         drawerContent={(props) => <CustomDrawerContent {...props} />}
         screenOptions={{
@@ -180,5 +213,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 15,
+  },
+  logoutButton: {
+    marginTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 68, 68, 0.2)',
+    paddingTop: 25,
+  },
+  logoutLabel: {
+    color: '#ff4444',
   },
 });

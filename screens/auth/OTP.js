@@ -112,7 +112,7 @@ const OTP = ({ navigation }) => {
   const handleSuccessModalClose = () => {
     setShowSuccessModal(false);
     console.log("I shifted the navigation.navigate to after login temporarily so I can work on document upload separately");
-    // navigation.navigate('KycScreenOne');
+    navigation.navigate('Login');
   };
 
   // Calculate progress based on filled inputs
