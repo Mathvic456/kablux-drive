@@ -29,7 +29,7 @@ export default function Home() {
   const { currentLocation, isConnected } = useContext(SocketContext);
   const { data: profile, isPending: profileLoading, isError: profileError } = useProfile();  
   const { data: notifications, isPending: notificationsLoading, refetch: refetchNotifications } = useNotifications();
-
+  //EMAIL: piwin58142@nyfhk.com
   const handleOpenDrawer = () => {
     navigation.getParent("DrawerNavigator").openDrawer();
   };

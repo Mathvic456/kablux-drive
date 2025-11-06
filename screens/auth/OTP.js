@@ -16,10 +16,10 @@ import Logo from "../../assets/Logo.png";
 
 const OTP = ({ navigation }) => {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
-  const [progress, setProgress] = useState(0);
   const [email, setEmail] = useState("");
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const inputRefs = useRef([]);
+  const otpVerify = useVerifyOtpEndPoint();
 
   useEffect(() => {
     const loadEmail = async () => {
@@ -36,53 +36,89 @@ const OTP = ({ navigation }) => {
     loadEmail();
   }, []);
 
+  // Auto-focus first input on mount
   useEffect(() => {
-    const filledCount = otp.filter(digit => digit !== '').length;
-    const newProgress = (filledCount / 6) * 100;
-    setProgress(newProgress);
-  }, [otp]);
+    const timer = setTimeout(() => {
+      inputRefs.current[0]?.focus();
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleOtpChange = (text, index) => {
-    if (text.length > 1) return;
-    console.log(otp);
+    // Only allow digits
+    const sanitizedText = text.replace(/[^0-9]/g, '');
+    if (sanitizedText.length > 1) return;
+
     const newOtp = [...otp];
-    newOtp[index] = text;
+    newOtp[index] = sanitizedText;
     setOtp(newOtp);
 
-    if (text && index < 5) {
-      inputRefs.current[index + 1].focus();
+    // Auto-advance to next input
+    if (sanitizedText && index < 5) {
+      inputRefs.current[index + 1]?.focus();
     }
 
+    // Auto-submit when all 6 digits are entered
+    if (index === 5 && sanitizedText) {
+      const fullOtp = [...newOtp.slice(0, 5), sanitizedText];
+      if (fullOtp.every(digit => digit !== '')) {
+        handleVerify(fullOtp);
+      }
+    }
   };
 
   const handleKeyPress = (e, index) => {
-    if (e.nativeEvent.key === 'Backspace' && !otp[index] && index > 0) {
-      inputRefs.current[index - 1].focus();
+    if (e.nativeEvent.key === 'Backspace') {
+      if (!otp[index] && index > 0) {
+        // If current input is empty, move to previous and clear it
+        const newOtp = [...otp];
+        newOtp[index - 1] = '';
+        setOtp(newOtp);
+        inputRefs.current[index - 1]?.focus();
+      } else if (otp[index]) {
+        // If current input has value, just clear it
+        const newOtp = [...otp];
+        newOtp[index] = '';
+        setOtp(newOtp);
+      }
     }
   };
 
-  const otpVerify = useVerifyOtpEndPoint();
+  const handleVerify = async (otpArray = otp) => {
+    if (otpVerify.isPending) return;
 
-const handleVerify = async (otpArray = otp) => {
-  if (otpVerify.isPending) return;
+    const code = otpArray.join('');
+    
+    // Validate that we have exactly 6 digits
+    if (code.length !== 6) {
+      console.log("❌ OTP must be 6 digits");
+      return;
+    }
 
-  const code = otpArray.join('');
-  console.log("OTP Entered:", code); // should now always be 6 digits
-  try {
-    await otpVerify.mutateAsync({ email, otp: code });
-    console.log("✅ OTP verification successful!");
-    setShowSuccessModal(true);
-  } catch (err) {
-    console.error("❌ OTP verification failed:", err);
-  }
-};
-
+    console.log("🔢 Verifying OTP:", code);
+    
+    try {
+      await otpVerify.mutateAsync({ email, otp: code });
+      console.log("✅ OTP verification successful!");
+      setShowSuccessModal(true);
+    } catch (err) {
+      console.error("❌ OTP verification failed:", err);
+      // Clear OTP on error
+      setOtp(['', '', '', '', '', '']);
+      inputRefs.current[0]?.focus();
+    }
+  };
 
   const handleSuccessModalClose = () => {
     setShowSuccessModal(false);
-    console.log("I shifted the navigation.navigate to after login tempoarily so I can work on document upload seperately")
-    //navigation.navigate('KycScreenOne');
+    console.log("I shifted the navigation.navigate to after login temporarily so I can work on document upload separately");
+    // navigation.navigate('KycScreenOne');
   };
+
+  // Calculate progress based on filled inputs
+  const filledCount = otp.filter(digit => digit !== '').length;
+  const progress = (filledCount / 6) * 100;
+  const isOtpComplete = otp.every(digit => digit !== '');
 
   return (
     <View style={styles.container}>
@@ -132,6 +168,7 @@ const handleVerify = async (otpArray = otp) => {
               onChangeText={(text) => handleOtpChange(text, index)}
               onKeyPress={(e) => handleKeyPress(e, index)}
               editable={!otpVerify.isPending}
+              selectTextOnFocus
             />
           ))}
         </View>
@@ -139,14 +176,15 @@ const handleVerify = async (otpArray = otp) => {
         <TouchableOpacity
           style={[
             styles.verifyBtn,
-            (!otp.every(digit => digit !== '') || otpVerify.isPending) && styles.verifyBtnDisabled
+            (!isOtpComplete || otpVerify.isPending) && styles.verifyBtnDisabled
           ]}
-          onPress={handleVerify}
-          disabled={!otp.every(digit => digit !== '') || otpVerify.isPending}
+          onPress={() => handleVerify()}
+          disabled={!isOtpComplete || otpVerify.isPending}
         >
           {otpVerify.isPending ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="small" color="#000" />
+              <Text style={[styles.verifyText, { marginLeft: 8 }]}>Verifying...</Text>
             </View>
           ) : (
             <Text style={styles.verifyText}>Verify</Text>
@@ -302,7 +340,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold", 
     fontSize: 16 
   },
-  // Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',

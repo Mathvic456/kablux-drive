@@ -29,22 +29,14 @@ export const SocketContext = createContext<SocketContextValue>({
   currentLocation: null,
 });
 
-/*{
-    ride_id: "test-ride-123",
-    pickup: { lat: 6.4568, long: 3.3488 }, // Lagos coordinates
-    destination: { lat: 6.4698, long: 3.3812 },
-    estimated_fare: 2500,
-    customer_name: "Test User",
-    distance: "3.2 km",
-    duration: "15 mins",
-    payment_method: "cash"
-  }*/
-
 export const WebSocketProvider = ({ children }: { children: React.ReactNode }) => {
   const ws = useRef<WebSocket | null>(null);
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
   const locationInterval = useRef<NodeJS.Timer | null>(null);
   const currentLocationRef = useRef<{ lat: number; long: number } | null>(null);
+  const retryTimeout = useRef<NodeJS.Timeout | null>(null);
+  const retryAttempts = useRef(0);
+  const maxRetryDelay = 30000; // Max 30 seconds between retries
 
   const [isConnected, setIsConnected] = useState(false);
   const [token, setToken] = useState<string | null>(null);
@@ -144,6 +136,60 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
     console.log("🛑 Location tracking stopped");
   };
 
+  const getRetryDelay = () => {
+    // Exponential backoff: 1s, 2s, 4s, 8s, 16s, capped at 30s
+    const delay = Math.min(1000 * Math.pow(2, retryAttempts.current), maxRetryDelay);
+    retryAttempts.current++;
+    return delay;
+  };
+
+  const resetRetryAttempts = () => {
+    retryAttempts.current = 0;
+  };
+
+  const attemptConnection = async () => {
+    try {
+      // Try to get token from storage or refresh it
+      let storedToken = token || (await AsyncStorage.getItem("token"));
+      
+      if (!storedToken || isExpired(storedToken)) {
+        console.log("🔄 Token missing or expired, attempting refresh...");
+        storedToken = await refreshAccessToken();
+      }
+
+      if (storedToken) {
+        console.log("✅ Token available, connecting WebSocket...");
+        setToken(storedToken);
+        connectWebSocket(storedToken);
+        return true;
+      } else {
+        console.log("⏳ No token yet, will retry...");
+        return false;
+      }
+    } catch (err) {
+      console.error("❌ Connection attempt failed:", err);
+      return false;
+    }
+  };
+
+  const scheduleRetry = () => {
+    if (retryTimeout.current) {
+      clearTimeout(retryTimeout.current);
+    }
+
+    const delay = getRetryDelay();
+    console.log(`⏰ Scheduling connection retry in ${delay}ms (attempt ${retryAttempts.current})`);
+
+    retryTimeout.current = setTimeout(async () => {
+      const success = await attemptConnection();
+      
+      // If still no token, schedule another retry
+      if (!success) {
+        scheduleRetry();
+      }
+    }, delay);
+  };
+
   const connectWebSocket = async (accessToken: string) => {
     if (ws.current) ws.current.close();
 
@@ -153,6 +199,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
     socket.onopen = async () => {
       console.log("✅ WebSocket connected (Driver)", accessToken);
       setIsConnected(true);
+      resetRetryAttempts(); // Reset retry counter on successful connection
 
       // Start location tracking (will send initial location when ready)
       await startLocationTracking();
@@ -170,7 +217,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
 
     socket.onmessage = (event) => {
       console.log("📩 Raw incoming message:", event.data);
-    try {
+      try {
         const msg = JSON.parse(event.data);
         console.log("📩 Incoming WS message:", msg);
 
@@ -195,8 +242,8 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
       }
     };
 
-    socket.onclose = async () => {
-      console.log("🚪 WS closed (Driver)");
+    socket.onclose = async (event) => {
+      console.log("🚪 WS closed (Driver)", event.code, event.reason);
       setIsConnected(false);
       stopLocationTracking();
 
@@ -205,13 +252,8 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         locationInterval.current = null;
       }
 
-      setTimeout(async () => {
-        let storedToken = token || (await AsyncStorage.getItem("token"));
-        if (!storedToken || isExpired(storedToken)) {
-          storedToken = await refreshAccessToken();
-        }
-        if (storedToken) connectWebSocket(storedToken);
-      }, 3000);
+      // Schedule reconnection with retry logic
+      scheduleRetry();
     };
 
     socket.onerror = (err) => {
@@ -222,18 +264,22 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
 
   useEffect(() => {
     const init = async () => {
-      let storedToken = await AsyncStorage.getItem("token");
-      if (!storedToken || isExpired(storedToken)) storedToken = await refreshAccessToken();
-      if (storedToken) {
-        setToken(storedToken);
-        connectWebSocket(storedToken);
-      } else {
-        console.warn("🚫 No valid token, cannot connect WS");
+      const success = await attemptConnection();
+      
+      // If no token found, start retry loop
+      if (!success) {
+        console.log("🔄 Starting retry loop for token...");
+        scheduleRetry();
       }
     };
+    
     init();
 
     return () => {
+      // Cleanup
+      if (retryTimeout.current) {
+        clearTimeout(retryTimeout.current);
+      }
       ws.current?.close();
       stopLocationTracking();
       if (locationInterval.current) {
@@ -243,7 +289,16 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
   }, []);
 
   const setTokenFromOutside = (newToken: string) => {
+    console.log("🔑 Token received from outside, connecting...");
     setToken(newToken);
+    resetRetryAttempts(); // Reset retry counter when token is set manually
+    
+    // Clear any pending retry
+    if (retryTimeout.current) {
+      clearTimeout(retryTimeout.current);
+      retryTimeout.current = null;
+    }
+    
     connectWebSocket(newToken);
   };
 
