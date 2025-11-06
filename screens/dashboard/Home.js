@@ -18,7 +18,7 @@ import TierOverlay from "../components/TierOverlay";
 import { useNavigation } from "@react-navigation/native";
 import { useProfile } from '../../services/profile.service';
 import { SocketContext } from "../../context/WebSocketProvider";
-import { useRideOrders } from "../../services/ride.service"; // You'll need to create this
+import { useNotifications } from "../../services/notification.service";
 
 export default function Home() {
   const navigation = useNavigation();
@@ -28,15 +28,19 @@ export default function Home() {
   
   const { currentLocation, isConnected } = useContext(SocketContext);
   const { data: profile, isPending: profileLoading, isError: profileError } = useProfile();  
-  const { data: rideOrders, isPending: rideOrdersLoading, refetch: refetchRideOrders } = useRideOrders();
+  const { data: notifications, isPending: notificationsLoading, refetch: refetchNotifications } = useNotifications();
 
   const handleOpenDrawer = () => {
     navigation.getParent("DrawerNavigator").openDrawer();
   };
 
+  useEffect(() => {
+    console.log(notifications);
+  }, [notifications]);
+
   const onRefresh = async () => {
     setRefreshing(true);
-    await refetchRideOrders();
+    await refetchNotifications();
     setRefreshing(false);
   };
 
@@ -56,7 +60,8 @@ export default function Home() {
     );
   }
 
-  const rideOrdersData = rideOrders?.data || [];
+  // Extract ride orders from the notifications data
+  const rideOrders = notifications?.data || [];
 
   return (
     <ScrollView
@@ -117,16 +122,21 @@ export default function Home() {
         <UpgradeNotificationCard />
 
         {/* Ride Orders Section */}
-        {rideOrdersLoading ? (
+        {notificationsLoading ? (
           <ActivityIndicator size="small" color="#facc15" style={styles.loader} />
-        ) : rideOrdersData.length > 0 ? (
+        ) : rideOrders.length > 0 ? (
           <View style={styles.rideOffersSection}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>
-                Available Ride Orders ({rideOrdersData.length})
+                Available Ride Orders ({rideOrders.length})
               </Text>
-              <TouchableOpacity onPress={onRefresh}>
-                <Ionicons name="refresh" size={20} color="#facc15" />
+              <TouchableOpacity onPress={onRefresh} disabled={refreshing}>
+                <Ionicons 
+                  name="refresh" 
+                  size={20} 
+                  color="#facc15" 
+                  style={refreshing ? { opacity: 0.5 } : {}}
+                />
               </TouchableOpacity>
             </View>
             <TouchableOpacity 
@@ -167,7 +177,7 @@ export default function Home() {
               </View>
               
               <FlatList
-                data={rideOrdersData}
+                data={rideOrders}
                 keyExtractor={(item) => item.ride_id}
                 renderItem={({ item }) => (
                   <View style={styles.offerCard}>
@@ -217,6 +227,11 @@ export default function Home() {
                   </View>
                 )}
                 contentContainerStyle={styles.offersList}
+                ListEmptyComponent={
+                  <View style={styles.emptyList}>
+                    <Text style={styles.emptyListText}>No orders available</Text>
+                  </View>
+                }
               />
             </View>
           </View>
@@ -496,5 +511,13 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 14,
     fontWeight: "600",
+  },
+  emptyList: {
+    padding: 40,
+    alignItems: "center",
+  },
+  emptyListText: {
+    color: "#666",
+    fontSize: 14,
   },
 });
