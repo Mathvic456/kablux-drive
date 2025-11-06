@@ -8,8 +8,8 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 interface RideOffer {
   ride_id: string;
-  pickup: { lat: number; lng: number };
-  destination: { lat: number; lng: number };
+  pickup: { lat: number; long: number };
+  destination: { lat: number; long: number };
   estimated_fare: number;
   [key: string]: any;
 }
@@ -19,7 +19,7 @@ interface SocketContextValue {
   isConnected: boolean;
   rideOffers: RideOffer[];
   setTokenFromOutside?: (token: string) => void;
-  currentLocation: { lat: number; lng: number } | null;
+  currentLocation: { lat: number; long: number } | null;
 }
 
 export const SocketContext = createContext<SocketContextValue>({
@@ -31,8 +31,8 @@ export const SocketContext = createContext<SocketContextValue>({
 
 /*{
     ride_id: "test-ride-123",
-    pickup: { lat: 6.4568, lng: 3.3488 }, // Lagos coordinates
-    destination: { lat: 6.4698, lng: 3.3812 },
+    pickup: { lat: 6.4568, long: 3.3488 }, // Lagos coordinates
+    destination: { lat: 6.4698, long: 3.3812 },
     estimated_fare: 2500,
     customer_name: "Test User",
     distance: "3.2 km",
@@ -44,12 +44,12 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
   const ws = useRef<WebSocket | null>(null);
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
   const locationInterval = useRef<NodeJS.Timer | null>(null);
-  const currentLocationRef = useRef<{ lat: number; lng: number } | null>(null);
+  const currentLocationRef = useRef<{ lat: number; long: number } | null>(null);
 
   const [isConnected, setIsConnected] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [rideOffers, setRideOffers] = useState<RideOffer[]>([]);
-  const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [currentLocation, setCurrentLocation] = useState<{ lat: number; long: number } | null>(null);
 
   const isExpired = (token: string) => {
     try {
@@ -85,12 +85,12 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
     }
   };
 
-  const sendLocationUpdate = (socket: WebSocket, location: { lat: number; lng: number }) => {
+  const sendLocationUpdate = (socket: WebSocket, location: { lat: number; long: number }) => {
     console.log("🧭 Trying to send location", socket.readyState, location);
     if (socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({
         type: "location_update",
-        data: { lat: location.lat, long: location.lng },
+        data: { lat: location.lat, long: location.long },
       }));
       console.log("📍 Location update sent:", location);
     } else {
@@ -107,7 +107,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
       }
 
       const initialLocation = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const coords = { lat: initialLocation.coords.latitude, lng: initialLocation.coords.longitude };
+      const coords = { lat: initialLocation.coords.latitude, long: initialLocation.coords.longitude };
       setCurrentLocation(coords);
       currentLocationRef.current = coords;
       console.log("📍 Initial location set:", coords);
@@ -120,7 +120,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
       locationSubscription.current = await Location.watchPositionAsync(
         { accuracy: Location.Accuracy.Balanced, timeInterval: 5000, distanceInterval: 50 },
         (location) => {
-          const newCoords = { lat: location.coords.latitude, lng: location.coords.longitude };
+          const newCoords = { lat: location.coords.latitude, long: location.coords.longitude };
           setCurrentLocation(newCoords);
           currentLocationRef.current = newCoords;
           console.log("📍 Location updated:", newCoords);
@@ -151,7 +151,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
     ws.current = socket;
 
     socket.onopen = async () => {
-      console.log("✅ WebSocket connected (Driver)");
+      console.log("✅ WebSocket connected (Driver)", accessToken);
       setIsConnected(true);
 
       // Start location tracking (will send initial location when ready)

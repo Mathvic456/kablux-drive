@@ -1,7 +1,7 @@
 export type CREATEACCOUNT_TYPE = {
   email: string;
   password: string;
-  role: "rider";
+  role: "driver";
   first_name: string;
   last_name: string;
   phone_number: string;

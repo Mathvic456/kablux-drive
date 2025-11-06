@@ -88,6 +88,10 @@ const AppNavigator = () => {
         component={DriverIncomeDashboard}
       />
 
+      <Stack.Screen
+        name="OTP"
+        component={OTP}
+      />
 
       <Stack.Screen 
         name="PhotoUpload" 
