@@ -9,34 +9,36 @@ import {
   ScrollView,
   Modal,
   FlatList,
-  Pressable
+  RefreshControl,
 } from "react-native";
 import DonutChart from "../components/DonutChart";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import UpgradeNotificationCard from "../components/UpgradeNotificationCard";
-import RideOrders from "../components/RideOrders";
 import TierOverlay from "../components/TierOverlay";
 import { useNavigation } from "@react-navigation/native";
 import { useProfile } from '../../services/profile.service';
 import { SocketContext } from "../../context/WebSocketProvider";
-import { useNotifications } from "../../services/notification.service";
+import { useRideOrders } from "../../services/ride.service"; // You'll need to create this
 
 export default function Home() {
   const navigation = useNavigation();
   const [tierOverlayVisible, setTierOverlayVisible] = useState(false);
   const [rideModalVisible, setRideModalVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   
-  const { rideOffers, currentLocation, isConnected } = useContext(SocketContext);
+  const { currentLocation, isConnected } = useContext(SocketContext);
   const { data: profile, isPending: profileLoading, isError: profileError } = useProfile();  
-  const { data: notifications, isPending: notificationsLoading } = useNotifications();
+  const { data: rideOrders, isPending: rideOrdersLoading, refetch: refetchRideOrders } = useRideOrders();
 
   const handleOpenDrawer = () => {
     navigation.getParent("DrawerNavigator").openDrawer();
   };
-  useEffect(() => {
-    console.log(notifications);
-  }, [notifications])
-  const unreadCount = notifications?.data?.filter(n => !n.is_read).length || 0;
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refetchRideOrders();
+    setRefreshing(false);
+  };
 
   if (profileLoading) {
     return (
@@ -54,11 +56,21 @@ export default function Home() {
     );
   }
 
+  const rideOrdersData = rideOrders?.data || [];
+
   return (
     <ScrollView
       style={styles.scrollContainer}
       contentContainerStyle={styles.scrollContentContainer}
       showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor="#facc15"
+          colors={["#facc15"]}
+        />
+      }
     >
       <View style={styles.container}>
         {/* Header Section */}
@@ -72,17 +84,12 @@ export default function Home() {
             <Text style={styles.greeting}>Hello {profile?.first_name}</Text>
           </View>
 
-          {/* Right Section - Menu with Notification Badge */}
+          {/* Right Section - Menu */}
           <TouchableOpacity
             style={styles.notificationContainer}
             onPress={handleOpenDrawer}
           >
             <MaterialCommunityIcons name="menu" size={24} color="white" />
-            {unreadCount > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{unreadCount}</Text>
-              </View>
-            )}
           </TouchableOpacity>
         </View>
 
@@ -109,47 +116,31 @@ export default function Home() {
         {/* Upgrade Notification */}
         <UpgradeNotificationCard />
 
-        {/* Notifications Section */}
-        {notificationsLoading ? (
+        {/* Ride Orders Section */}
+        {rideOrdersLoading ? (
           <ActivityIndicator size="small" color="#facc15" style={styles.loader} />
-        ) : notifications?.data && notifications.data.length > 0 ? (
-          <View style={styles.notificationsSection}>
-            <Text style={styles.sectionTitle}>Recent Notifications</Text>
-            {notifications.data.slice(0, 3).map((notification) => (
-              <View key={notification.id} style={styles.notificationCard}>
-                <View style={styles.notificationHeader}>
-                  <Ionicons 
-                    name={notification.type === "RIDE_REQUESTED" ? "car" : "notifications"} 
-                    size={20} 
-                    color="#facc15" 
-                  />
-                  <Text style={styles.notificationTitle}>{notification.title}</Text>
-                  {!notification.is_read && <View style={styles.unreadDot} />}
-                </View>
-                <Text style={styles.notificationMessage} numberOfLines={2}>
-                  {notification.message}
-                </Text>
-                <Text style={styles.notificationTime}>
-                  {new Date(notification.created_at).toLocaleDateString()}
-                </Text>
-              </View>
-            ))}
-          </View>
-        ) : null}
-
-        {/* Ride Orders */}
-        <RideOrders />
-
-        {/* Active Ride Offers */}
-        {rideOffers.length > 0 && (
+        ) : rideOrdersData.length > 0 ? (
           <View style={styles.rideOffersSection}>
-            <Text style={styles.sectionTitle}>Active Ride Offers ({rideOffers.length})</Text>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>
+                Available Ride Orders ({rideOrdersData.length})
+              </Text>
+              <TouchableOpacity onPress={onRefresh}>
+                <Ionicons name="refresh" size={20} color="#facc15" />
+              </TouchableOpacity>
+            </View>
             <TouchableOpacity 
               style={styles.viewOffersButton}
               onPress={() => setRideModalVisible(true)}
             >
-              <Text style={styles.viewOffersButtonText}>View Offers</Text>
+              <Text style={styles.viewOffersButtonText}>View Orders</Text>
             </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.noOrdersContainer}>
+            <Ionicons name="car-outline" size={48} color="#666" />
+            <Text style={styles.noOrdersText}>No ride orders available</Text>
+            <Text style={styles.noOrdersSubtext}>Pull down to refresh</Text>
           </View>
         )}
 
@@ -159,7 +150,7 @@ export default function Home() {
           onClose={() => setTierOverlayVisible(false)}
         />
 
-        {/* Ride Offers Modal */}
+        {/* Ride Orders Modal */}
         <Modal
           animationType="slide"
           transparent={true}
@@ -169,33 +160,50 @@ export default function Home() {
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Available Ride Offers</Text>
+                <Text style={styles.modalTitle}>Available Ride Orders</Text>
                 <TouchableOpacity onPress={() => setRideModalVisible(false)}>
                   <Ionicons name="close" size={24} color="white" />
                 </TouchableOpacity>
               </View>
               
               <FlatList
-                data={rideOffers}
+                data={rideOrdersData}
                 keyExtractor={(item) => item.ride_id}
                 renderItem={({ item }) => (
                   <View style={styles.offerCard}>
+                    <View style={styles.riderInfoContainer}>
+                      <View style={styles.riderHeader}>
+                        <Ionicons name="person-circle" size={40} color="#facc15" />
+                        <View style={styles.riderDetails}>
+                          <Text style={styles.riderName}>{item.rider_name}</Text>
+                          <View style={styles.ratingContainer}>
+                            <Ionicons name="star" size={14} color="#facc15" />
+                            <Text style={styles.ratingText}>{item.rider_rating}</Text>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+
+                    <View style={styles.divider} />
+                    
                     <Text style={styles.offerLabel}>Ride ID:</Text>
                     <Text style={styles.offerValue}>{item.ride_id}</Text>
                     
-                    <Text style={styles.offerLabel}>Pickup:</Text>
+                    <Text style={styles.offerLabel}>Time to Pickup:</Text>
                     <Text style={styles.offerValue}>
-                      {item.pickup.lat.toFixed(4)}, {item.pickup.long.toFixed(4)}
+                      {Math.round(parseFloat(item.time_to_pickup) / 60)} minutes
                     </Text>
-                    
-                    <Text style={styles.offerLabel}>Destination:</Text>
-                    <Text style={styles.offerValue}>
-                      {item.destination.lat.toFixed(4)}, {item.destination.long.toFixed(4)}
-                    </Text>
+
+                    {item.address && (
+                      <>
+                        <Text style={styles.offerLabel}>Address:</Text>
+                        <Text style={styles.offerValue}>{item.address}</Text>
+                      </>
+                    )}
                     
                     <View style={styles.fareContainer}>
-                      <Text style={styles.fareLabel}>Fare:</Text>
-                      <Text style={styles.fareValue}>₦{item.estimated_fare.toLocaleString()}</Text>
+                      <Text style={styles.fareLabel}>Offer Amount:</Text>
+                      <Text style={styles.fareValue}>₦{item.offer_amount.toLocaleString()}</Text>
                     </View>
 
                     <View style={styles.offerActions}>
@@ -275,22 +283,6 @@ const styles = StyleSheet.create({
   notificationContainer: { 
     position: "relative" 
   },
-  badge: {
-    position: "absolute",
-    top: -5,
-    right: -5,
-    backgroundColor: "red",
-    borderRadius: 10,
-    width: 16,
-    height: 16,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  badgeText: { 
-    color: "white", 
-    fontSize: 10, 
-    fontWeight: "bold" 
-  },
   statusContainer: {
     width: "90%",
     backgroundColor: "#1a1a1a",
@@ -331,54 +323,16 @@ const styles = StyleSheet.create({
   loader: {
     marginVertical: 20,
   },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
   sectionTitle: {
     color: "white",
     fontSize: 18,
     fontWeight: "bold",
-    marginBottom: 12,
-    width: "90%",
-  },
-  notificationsSection: {
-    width: "100%",
-    alignItems: "center",
-    marginTop: 10,
-  },
-  notificationCard: {
-    width: "90%",
-    backgroundColor: "#1a1a1a",
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: "#333",
-  },
-  notificationHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  notificationTitle: {
-    color: "white",
-    fontSize: 14,
-    fontWeight: "600",
-    marginLeft: 8,
-    flex: 1,
-  },
-  unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#facc15",
-  },
-  notificationMessage: {
-    color: "#ccc",
-    fontSize: 13,
-    marginBottom: 6,
-    lineHeight: 18,
-  },
-  notificationTime: {
-    color: "#666",
-    fontSize: 11,
   },
   rideOffersSection: {
     width: "90%",
@@ -394,6 +348,25 @@ const styles = StyleSheet.create({
     color: "black",
     fontSize: 16,
     fontWeight: "600",
+  },
+  noOrdersContainer: {
+    width: "90%",
+    backgroundColor: "#1a1a1a",
+    borderRadius: 12,
+    padding: 40,
+    alignItems: "center",
+    marginTop: 10,
+  },
+  noOrdersText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
+    marginTop: 12,
+  },
+  noOrdersSubtext: {
+    color: "#666",
+    fontSize: 13,
+    marginTop: 4,
   },
   modalOverlay: {
     flex: 1,
@@ -433,6 +406,38 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 1,
     borderColor: "#404040",
+  },
+  riderInfoContainer: {
+    marginBottom: 12,
+  },
+  riderHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  riderDetails: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  riderName: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  ratingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  ratingText: {
+    color: "#facc15",
+    fontSize: 14,
+    marginLeft: 4,
+    fontWeight: "600",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#404040",
+    marginVertical: 12,
   },
   offerLabel: {
     color: "#999",
