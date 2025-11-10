@@ -65,10 +65,10 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
 
       if (!res.ok) throw new Error("Failed to refresh");
       const data = await res.json();
-      if (data.access) {
-        await AsyncStorage.setItem("token", data.access);
+      if (data.data.access) {
+        await AsyncStorage.setItem("token", data.data.access);
         console.log("🔁 Token refreshed!");
-        return data.access;
+        return data.data.access;
       }
       return null;
     } catch (err) {
@@ -252,7 +252,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         locationInterval.current = null;
       }
 
-      // Schedule reconnection with retry logic
+
       scheduleRetry();
     };
 
@@ -291,7 +291,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
   const setTokenFromOutside = (newToken: string) => {
     console.log("🔑 Token received from outside, connecting...");
     setToken(newToken);
-    resetRetryAttempts(); // Reset retry counter when token is set manually
+    resetRetryAttempts();
     
     // Clear any pending retry
     if (retryTimeout.current) {
