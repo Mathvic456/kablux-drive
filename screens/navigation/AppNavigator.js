@@ -31,6 +31,7 @@ import DrawerNavigator from './DrawerNavigator';
 import DriverIncomeDashboard from '../settings/DriverIncomeDashboard';
 import PriceDetails from '../ride/PriceDetails'
 import RideDetails from '../ride/RideDetails'
+import OrderScreen from '../dashboard/OrderScreen';
 
 
 const Stack = createStackNavigator();
@@ -103,7 +104,10 @@ const AppNavigator = () => {
         component={TabNavigator}
       />
 
-
+      <Stack.Screen
+      name='OrderScreen'
+      component={OrderScreen}
+      />
 
 
 

@@ -1,5 +1,5 @@
 import { FontAwesome, MaterialIcons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import {
   Image,
   StyleSheet,
@@ -11,13 +11,13 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  AsyncStorage,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import Logo from "../../assets/Logo.png";
 import { useLoginEndPoint } from "../../services/auth.service";
+import { SocketContext } from "../../context/WebSocketProvider";
 
-const Login = ({ navigation, setTokenFromOutside }) => {
+const Login = ({ navigation }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -27,7 +27,8 @@ const Login = ({ navigation, setTokenFromOutside }) => {
     password: "",
   });
 
-  const { mutate: login, isPending } = useLoginEndPoint(navigation, remember);
+  const { setTokenFromOutside } = useContext(SocketContext);
+  const { mutate: login, isPending } = useLoginEndPoint(navigation, remember, setTokenFromOutside);
 
   const validateForm = () => {
     let valid = true;
@@ -56,7 +57,6 @@ const Login = ({ navigation, setTokenFromOutside }) => {
     return valid;
   };
 
-  //TODO: add remember me validation to login endpoint
   const handleSubmit = async () => {
     if (validateForm()) {
       login({ email, password });

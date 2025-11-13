@@ -4,16 +4,20 @@ import { NavigationContainer } from '@react-navigation/native';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import AppNavigator from './screens/navigation/AppNavigator';
 import { WebSocketProvider } from './context/WebSocketProvider';
+import { navigationRef } from './screens/context/NavigationContext';
+
 
 const queryClient = new QueryClient();
 export default function App() {
   return (
+  <NavigationContainer ref={navigationRef}>
     <WebSocketProvider>
-     <NavigationContainer>
+
       <QueryClientProvider client={queryClient}>
       <AppNavigator />
       </QueryClientProvider>
-    </NavigationContainer>
+
     </WebSocketProvider>
+        </NavigationContainer>
   );
 }

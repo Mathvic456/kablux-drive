@@ -27,25 +27,32 @@ export const useRegisterEndPoint = () => {
   return mutation;
 };
 
-export const useLoginEndPoint = (navigation: any, remember: boolean) => {
+export const useLoginEndPoint = (
+  navigation: any, 
+  remember: boolean, 
+  setTokenFromOutside?: (token: string) => void
+) => {
   return useMutation({
     mutationFn: (data) => api.post("auth/login/", data),
     onSuccess: async (res) => {
       const token = res.data?.data?.access;
       const refreshToken = res.data?.data?.refresh;
       const userId = res.data?.data?.user?.id;
-      //if (remember) {
-    
+      
+      // Store tokens
       await AsyncStorage.setItem("token", token);
       await AsyncStorage.setItem("refreshToken", refreshToken);
-      await AsyncStorage.setItem("userId", userId)
+      await AsyncStorage.setItem("userId", userId);
       console.log("✅ Token saved!");
-     // } else {
-      //   console.log("Token not saved, remember me not checked.")
-     // }
-     
-      navigation.replace('Tabs');
 
+      // Connect WebSocket with new token
+      if (setTokenFromOutside) {
+        console.log("🔌 Connecting WebSocket with new token...");
+        setTokenFromOutside(token);
+      }
+     
+      // Navigate to Tabs
+      navigation.replace('Tabs');
     },
     onError: (error) => {
       console.error("Login error:", error);
