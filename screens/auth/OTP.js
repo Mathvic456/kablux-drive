@@ -213,7 +213,7 @@ const OTP = ({ navigation }) => {
               style={styles.modalButton}
               onPress={handleSuccessModalClose}
             >
-              <Text style={styles.modalButtonText}>OK</Text>
+              <Text style={styles.modalButtonText}>Login</Text>
             </TouchableOpacity>
           </View>
         </View>

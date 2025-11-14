@@ -15,7 +15,6 @@ import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import Logo from "../../assets/Logo.png";
 import { useNavigation } from '@react-navigation/native';
 import { useUploadFile } from "../../services/fileUpload.service";
-import * as FileSystem from 'expo-file-system';
 
 const KycScreenOne = ({ navigation }) => {
   const [facing, setFacing] = useState('back');
@@ -29,11 +28,9 @@ const KycScreenOne = ({ navigation }) => {
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCameraReady, setIsCameraReady] = useState(false);
   const cameraRef = useRef(null);
 
-    const CLOUD_NAME = "dynyozcjh";
-    const UPLOAD_PRESET = "unsigned_preset_dev";
-    
     const fileUploadMutation = useUploadFile();
 
   const handleIDUpload = () => {
@@ -55,51 +52,82 @@ const KycScreenOne = ({ navigation }) => {
     setShowCamera(false);
   }
 
-  const takePicture = async () => {
-    if (cameraRef.current) {
-      try {
-        const photo = await cameraRef.current.takePictureAsync();
-        const info = await FileSystem.getInfoAsync(photo.uri);
-        console.log("File path:", photo.uri);
-        console.log("File size:", info.size, "bytes");
-        setCapturedImage(photo.uri);
-        setIsLoading(true);
-
-    
-      
-      
-      const formData = new FormData();
-
-      formData.append({
-        "file": photo.uri,
-        "mimetype": "image/jpeg",
-        "name": `photo_${Date.now()}.jpg`,
-        "size": info.size,
-        
-      });
-      try {
-        const response = await fileUploadMutation.mutateAsync(formData);
-        const uploadId = response.data.id || response.data._id || response.data.fileId;
-        
-        console.log(`File uploaded successfully for ${docType}:`, uploadId);
-        
-
-        setShowCamera(false);
-        setShowSuccessModal(true);
-      } catch(error) {
-        console.log("An error occured while taking this picture", error);
-        setShowErrorModal(true);
-      } 
-    }
-      catch (error) {
-        console.error('Error taking picture:', error);
-        setShowErrorModal(true);
-      }
-
-      setIsLoading(false);
-    }
+const takePicture = async () => {
+  console.log("=== TAKE PICTURE STARTED ===");
+  console.log("Camera ref exists:", !!cameraRef.current);
+  console.log("Permission granted:", permission?.granted);
+  
+  if (!cameraRef.current) {
+    console.log("ERROR: Camera ref is null");
+    setShowErrorModal(true);
+    return;
   }
 
+  try {
+    setIsLoading(true);
+    console.log("Loading state set to true");
+
+    // Add a small delay to ensure camera is ready
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    console.log("Attempting to take picture...");
+    
+    // Step 1: Capture the photo with more options
+    const photo = await cameraRef.current.takePictureAsync({
+      quality: 0.7,
+      base64: false,
+      exif: false,
+      skipProcessing: false,
+    });
+    
+    console.log("✅ PHOTO CAPTURED SUCCESSFULLY");
+    console.log("Photo URI:", photo.uri);
+    console.log("Photo width:", photo.width);
+    console.log("Photo height:", photo.height);
+
+    // Update UI immediately with captured image
+    setCapturedImage(photo.uri);
+    console.log("Captured image state updated");
+
+    // Step 2: Upload the photo
+    try {
+      const formData = new FormData();
+      formData.append("file", {
+        uri: photo.uri,
+        name: `photo_${Date.now()}.jpg`,
+        type: "image/jpeg",
+      });
+
+      console.log("🚀 UPLOAD STARTING…");
+      const response = await fileUploadMutation.mutateAsync(formData);
+      console.log("✅ UPLOAD SUCCESS:", response.data);
+
+      setShowCamera(false);
+      setShowSuccessModal(true);
+
+    } catch (uploadError) {
+      console.log("❌ UPLOAD ERROR:");
+      console.log(uploadError);
+      console.log("Upload error response:", uploadError.response?.data);
+      console.log("Upload error message:", uploadError.message);
+      
+      setShowCamera(false);
+      setShowErrorModal(true);
+    }
+
+  } catch (captureError) {
+    console.log("❌ CAPTURE ERROR:");
+    console.log("Error name:", captureError.name);
+    console.log("Error message:", captureError.message);
+    console.log("Full error:", captureError);
+    
+    setShowErrorModal(true);
+    
+  } finally {
+    setIsLoading(false);
+    console.log("=== TAKE PICTURE FINISHED ===");
+  }
+};
 
   const toggleCameraFacing = () => {
     setFacing(current => (current === 'back' ? 'front' : 'back'));
@@ -299,55 +327,61 @@ const KycScreenOne = ({ navigation }) => {
   }
 
 
-  // Camera View
-  if (showCamera) {
-    return (
-      <View style={styles.cameraContainer}>
-        {isLoading ? (
-          // Show a spinner while processing/uploading
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <ActivityIndicator size="large" color="#fcbf24" />
-          </View>
-        ) : (
-          <CameraView
-            style={styles.camera}
-            ref={cameraRef}
-            facing={facing}
-            flash={flash}
+if (showCamera) {
+  return (
+    <View style={styles.cameraContainer}>
+      <CameraView
+        style={styles.camera}
+        ref={cameraRef}
+        facing={facing}
+        flash={flash}
+        onCameraReady={() => {
+          console.log("📷 Camera is ready!");
+          setIsCameraReady(true);
+        }}
+      >
+        {/* Document Frame Overlay */}
+        <DocumentFrame />
+
+        <View style={styles.cameraControls}>
+          <TouchableOpacity style={styles.cameraButton} onPress={closeCamera}>
+            <MaterialIcons name="close" size={24} color="white" />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.cameraButton} onPress={toggleFlash}>
+            <MaterialIcons 
+              name={flash === 'on' ? 'flash-on' : 'flash-off'} 
+              size={24} 
+              color="white" 
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.cameraButton} onPress={toggleCameraFacing}>
+            <MaterialIcons name="flip-camera-ios" size={24} color="white" />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.captureContainer}>
+          <TouchableOpacity 
+            style={styles.captureButton} 
+            onPress={takePicture}
+            disabled={!isCameraReady || isLoading}
           >
-            {/* Document Frame Overlay */}
-            <DocumentFrame />
+            <View style={styles.captureButtonInner} />
+          </TouchableOpacity>
+        </View>
 
-            <View style={styles.cameraControls}>
-              <TouchableOpacity style={styles.cameraButton} onPress={closeCamera}>
-                <MaterialIcons name="close" size={24} color="white" />
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.cameraButton} onPress={toggleFlash}>
-                <MaterialIcons 
-                  name={flash === 'on' ? 'flash-on' : 'flash-off'} 
-                  size={24} 
-                  color="white" 
-                />
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.cameraButton} onPress={toggleCameraFacing}>
-                <MaterialIcons name="flip-camera-ios" size={24} color="white" />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.captureContainer}>
-              <TouchableOpacity style={styles.captureButton} onPress={takePicture}>
-                <View style={styles.captureButtonInner} />
-              </TouchableOpacity>
-            </View>
-          </CameraView>
+        {/* Loading Overlay - SHOWN ON TOP OF CAMERA, NOT REPLACING IT */}
+        {isLoading && (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color="#fcbf24" />
+            <Text style={styles.loadingText}>Processing...</Text>
+          </View>
         )}
-       
-      </View>
-    );
-  } 
-
+      </CameraView>
+    </View>
+  );
+}
   return (
     <View style={styles.container}>
       {/* Top Banner */}

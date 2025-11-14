@@ -19,13 +19,21 @@ import { useNavigation } from "@react-navigation/native";
 import { useProfile } from '../../services/profile.service';
 import { SocketContext } from "../../context/WebSocketProvider";
 
+
 export default function Home() {
   const navigation = useNavigation();
   const [tierOverlayVisible, setTierOverlayVisible] = useState(false);
   const [rideModalVisible, setRideModalVisible] = useState(false);
+  const [updatesModalVisible, setUpdatesModalVisible] = useState(false);
+  const [uploadModalVisible, setUploadModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  
+  const [negotiationUpdates, setNegotiationUpdates] = useState({});
+  const [busyMap, setBusyMap] = useState({});
+  const [acceptedRide, setAcceptedRide] = useState(null);
+const [acceptedModalVisible, setAcceptedModalVisible] = useState(false);
+
   const { 
+    socket,
     currentLocation, 
     isConnected, 
     sessionExpired, 
@@ -37,13 +45,104 @@ export default function Home() {
   
   const { data: profile, isPending: profileLoading, isError: profileError } = useProfile();
 
+  useEffect(() => {
+    setUploadModalVisible(true);
+  }, [profileLoading]);
+
+  // Listen for negotiation updates
+  useEffect(() => {
+    if (!socket) return;
+
+    const onMessage = (ev) => {
+      try {
+        const raw = typeof ev.data === "string" ? ev.data : JSON.stringify(ev.data);
+        const msg = JSON.parse(raw);
+        
+        console.log("📩 [DRIVER HOME] Incoming message:", msg);
+
+        if (msg.type === "negotiation_update" && msg.data) {
+          const payload = msg.data;
+          const viewId = payload.ride_request_view_id;
+          
+          console.log("🔄 [DRIVER] Received negotiation update:", payload);
+
+          setNegotiationUpdates(prev => ({
+            ...prev,
+            [viewId]: {
+              ride_request_view_id: viewId,
+              counter_offer: Number(payload.counter_offer),
+              action: payload.action,
+              notification_type: payload.notification_type,
+              rider_name: payload.rider_name || "Rider",
+              timestamp: Date.now(),
+            }
+          }));
+        }
+      } catch (err) {
+        console.error("❌ [DRIVER HOME] Failed to parse message:", err);
+      }
+    };
+
+    socket.addEventListener?.("message", onMessage);
+
+    return () => {
+      socket.removeEventListener?.("message", onMessage);
+    };
+  }, [socket]);
+
+  useEffect(() => {
+  if (!socket) return;
+
+  const onMessage = (ev) => {
+    try {
+      const raw = typeof ev.data === "string" ? ev.data : JSON.stringify(ev.data);
+      const msg = JSON.parse(raw);
+
+      console.log("📩 [DRIVER HOME] Incoming message:", msg);
+
+      // Negotiation updates
+      if (msg.type === "negotiation_update" && msg.data) {
+        const payload = msg.data;
+        const viewId = payload.ride_request_view_id;
+
+        setNegotiationUpdates(prev => ({
+          ...prev,
+          [viewId]: {
+            ride_request_view_id: viewId,
+            counter_offer: Number(payload.counter_offer),
+            action: payload.action,
+            notification_type: payload.notification_type,
+            rider_name: payload.rider_name || "Rider",
+            timestamp: Date.now(),
+          }
+        }));
+      }
+
+      // Accept ride
+      if (msg.type === "accept_ride" && msg.data) {
+        setAcceptedRide(msg.data);
+        setAcceptedModalVisible(true);
+      }
+
+    } catch (err) {
+      console.error("❌ [DRIVER HOME] Failed to parse message:", err);
+    }
+  };
+
+  socket.addEventListener?.("message", onMessage);
+
+  return () => {
+    socket.removeEventListener?.("message", onMessage);
+  };
+}, [socket]);
+
+
   const handleOpenDrawer = () => {
     navigation.getParent("DrawerNavigator").openDrawer();
   };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // Simulate refresh - in real app you might want to reconnect WS or fetch additional data
     await new Promise(resolve => setTimeout(resolve, 1000));
     setRefreshing(false);
   };
@@ -52,28 +151,68 @@ export default function Home() {
     clearSessionExpired();
   };
 
-  const handleAccept = (offer: any) => {
-    console.log("✅ Accepted offer:", offer);
-    // TODO: Send acceptance to backend via WebSocket or API
-    // ws.send(JSON.stringify({ type: "accept_ride", ride_id: offer.ride_id }));
+const handleAccept = async (offer) => {
+  try {
+    // Note: setBusy is not defined in Home.js, but assuming its purpose
+    // setBusy(true); 
+
+    const rideId =
+      offer?.ride_request_view_id ??
+      offer?.ride_id ??
+      null;
+
+    if (!rideId) {
+      console.log("No valid ride ID found in offer:", offer);
+      return alert("Could not find ride ID");
+    }
+
+    const data = {
+      type: "accept_ride",
+      ride_request_view_id: rideId,
+    };
+
+    socket.send(JSON.stringify(data));
+
+    alert("Your offer has been accepted!");
     
-    // Clear this notification after accepting
-    clearNotification(offer.ride_id);
-    setRideModalVisible(false);
-  };
+    // Clear the notification/update after accepting
+    clearNotification(offer.ride_id); 
+    clearNegotiationUpdate(offer.ride_request_view_id); 
 
-  const handleCounter = (offer: any) => {
+
+  } catch (error) {
+    console.log("Error accepting offer:", error);
+  } finally {
+    // setBusy(false);
+  }
+};
+
+
+
+  const handleCounter = (offer) => {
     console.log("💰 Counter offer:", offer);
-    // Close modal and navigate to order screen
     setRideModalVisible(false);
-    navigation.navigate('OrderScreen', { item: offer });
+
+    navigation.navigate('OrderScreen', { item: offer, socket });
   };
 
-  const handleDecline = (offer: any) => {
+  const handleDecline = (offer) => {
     console.log("❌ Declined offer:", offer);
-    // Just remove from the list
     clearNotification(offer.ride_id);
   };
+
+
+
+
+  const clearNegotiationUpdate = (viewId) => {
+    setNegotiationUpdates(prev => {
+      const updated = { ...prev };
+      delete updated[viewId];
+      return updated;
+    });
+  };
+
+  const negotiationArray = Object.values(negotiationUpdates).sort((a, b) => b.timestamp - a.timestamp);
 
   if (profileLoading) {
     return (
@@ -108,7 +247,6 @@ export default function Home() {
       <View style={styles.container}>
         {/* Header Section */}
         <View style={styles.header}>
-          {/* Left Section - Profile + Greeting */}
           <View style={styles.leftSection}>
             <Image
               source={require("../../assets/Profileimg.png")}
@@ -117,16 +255,15 @@ export default function Home() {
             <Text style={styles.greeting}>Hello {profile?.first_name}</Text>
           </View>
 
-          {/* Right Section - Menu */}
           <TouchableOpacity
             style={styles.notificationContainer}
             onPress={handleOpenDrawer}
           >
             <MaterialCommunityIcons name="menu" size={24} color="white" />
-            {rideNotifications.length > 0 && (
+            {(rideNotifications.length > 0 || negotiationArray.length > 0) && (
               <View style={styles.notificationBadge}>
                 <Text style={styles.notificationBadgeText}>
-                  {rideNotifications.length}
+                  {rideNotifications.length + negotiationArray.length}
                 </Text>
               </View>
             )}
@@ -184,6 +321,26 @@ export default function Home() {
           </View>
         )}
 
+        {/* Ride Updates Section (NEW) */}
+        {negotiationArray.length > 0 && (
+          <View style={styles.rideOffersSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>
+                Ride Updates ({negotiationArray.length})
+              </Text>
+              <TouchableOpacity onPress={() => setNegotiationUpdates({})}>
+                <Ionicons name="trash-outline" size={20} color="#f44336" />
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity 
+              style={[styles.viewOffersButton, { backgroundColor: "#4CAF50" }]}
+              onPress={() => setUpdatesModalVisible(true)}
+            >
+              <Text style={styles.viewOffersButtonText}>View Updates</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Tier Overlay */}
         <TierOverlay
           visible={tierOverlayVisible}
@@ -218,6 +375,41 @@ export default function Home() {
           </View>
         </Modal>
 
+        {/* Upload documents modal */}
+        <Modal
+          animationType="fade"
+          transparent={true}
+          visible={uploadModalVisible}
+          onRequestClose={() => setUploadModalVisible(false)}
+        >
+          <View style={styles.sessionModalOverlay}>
+            <View style={styles.sessionModalContent}>
+              <View style={styles.sessionIconContainer}>
+                <Ionicons name="time-outline" size={60} color="#facc15" />
+              </View>
+              
+              <Text style={styles.sessionModalTitle}>Not verified</Text>
+              <Text style={styles.sessionModalMessage}>
+                Upload all documents for verification
+              </Text>
+
+              <TouchableOpacity
+                style={styles.sessionModalButton}
+                onPress={() => navigation.navigate('KycScreenOne')}
+              >
+                <Text style={styles.sessionModalButtonText}>OK</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.sessionModalButton, { backgroundColor: 'red', marginTop: 30}]}
+                onPress={() => setUploadModalVisible(false)}
+              >
+                <Text style={styles.sessionModalButtonText}>Later</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
         {/* Ride Orders Modal */}
         <Modal
           animationType="slide"
@@ -236,7 +428,7 @@ export default function Home() {
               
               <FlatList
                 data={rideNotifications}
-                keyExtractor={(item) => item.ride_id}
+                keyExtractor={(item) => item.ride_request_view_id}
                 renderItem={({ item }) => (
                   <View style={styles.offerCard}>
                     <View style={styles.riderInfoContainer}>
@@ -330,96 +522,234 @@ export default function Home() {
             </View>
           </View>
         </Modal>
+
+        {/* Ride Updates Modal*/}
+       <Modal
+  animationType="slide"
+  transparent={true}
+  visible={updatesModalVisible}
+  onRequestClose={() => setUpdatesModalVisible(false)}
+>
+  <KeyboardAvoidingView
+    style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)' }}
+    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+  >
+    <ScrollView
+      contentContainerStyle={{ padding: 20, paddingTop: 50, paddingBottom: 40 }}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Header */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+        <TouchableOpacity onPress={() => setUpdatesModalVisible(false)} style={{ padding: 4 }}>
+          <Ionicons name="arrow-back" size={24} color="white" />
+        </TouchableOpacity>
+        <Text style={{ color: 'white', fontSize: 20, fontWeight: 'bold' }}>Counter Offer</Text>
+        <View style={{ width: 32 }} /> {/* placeholder */}
+      </View>
+
+      {negotiationArray.map((item) => {
+        const [counterAmount, setCounterAmount] = useState(item.counter_offer);
+        const [isSubmitting, setIsSubmitting] = useState(false);
+        const difference = counterAmount - item.counter_offer;
+
+        const handleIncrease = () => setCounterAmount(prev => prev + 100);
+        const handleDecrease = () => setCounterAmount(prev => Math.max(0, prev - 100));
+
+        const handleSubmitCounter = async () => {
+          if (counterAmount <= 0) return alert("Please enter a valid counter offer");
+          if (!socket || socket.readyState !== WebSocket.OPEN) return alert("WebSocket not connected");
+
+          setIsSubmitting(true);
+          try {
+            const message = {
+              type: "create_driver_offer",
+              data: { ride_request_id: item.ride_request_view_id, counter_offer: counterAmount },
+            };
+            socket.send(JSON.stringify(message));
+            setTimeout(() => setUpdatesModalVisible(false), 300);
+          } catch (err) {
+            alert("Failed to submit counter offer");
+            setIsSubmitting(false);
+          }
+        };
+
+        return (
+          <View key={item.ride_request_view_id} style={{
+            backgroundColor: '#1a1a1a',
+            borderRadius: 12,
+            padding: 16,
+            marginBottom: 16,
+            borderWidth: 1,
+            borderColor: '#4CAF50',
+          }}>
+            {/* Rider Info */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+              <Ionicons name="person-circle" size={50} color="#facc15" />
+              <View style={{ marginLeft: 16 }}>
+                <Text style={{ color: 'white', fontSize: 18, fontWeight: '600' }}>{item.rider_name}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                  <Ionicons name="star" size={16} color="#facc15" />
+                  <Text style={{ color: '#facc15', fontSize: 16, marginLeft: 6 }}>{item.rider_rating}</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Amount Adjuster */}
+            <Text style={{ color: 'white', fontSize: 16, marginBottom: 8 }}>Your Counter Offer</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
+              <TouchableOpacity onPress={handleDecrease} disabled={isSubmitting || counterAmount <= 0} style={{ marginHorizontal: 10, padding: 12, backgroundColor: '#f44336', borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="remove" size={28} color="white" />
+                <Text style={{ color: 'white', fontWeight: 'bold', marginLeft: 5 }}>₦100</Text>
+              </TouchableOpacity>
+              <Text style={{ fontSize: 28, fontWeight: 'bold', color: '#facc15', marginHorizontal: 10 }}>₦{counterAmount.toLocaleString()}</Text>
+              <TouchableOpacity onPress={handleIncrease} disabled={isSubmitting} style={{ marginHorizontal: 10, padding: 12, backgroundColor: '#facc15', borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="add" size={28} color="black" />
+                <Text style={{ color: 'black', fontWeight: 'bold', marginLeft: 5 }}>₦100</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Difference */}
+            {difference !== 0 && (
+              <Text style={{ color: difference > 0 ? '#4CAF50' : '#f44336', textAlign: 'center', marginBottom: 16 }}>
+                Difference: {difference > 0 ? '+' : ''}₦{Math.abs(difference).toLocaleString()}
+              </Text>
+            )}
+
+            {/* Submit & Cancel */}
+            <TouchableOpacity onPress={handleSubmitCounter} disabled={isSubmitting || counterAmount <= 0} style={{ backgroundColor: '#facc15', padding: 14, borderRadius: 8, alignItems: 'center', marginBottom: 10 }}>
+              {isSubmitting ? <ActivityIndicator color="black" /> : <Text style={{ color: 'black', fontWeight: 'bold' }}>Submit Counter Offer</Text>}
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setUpdatesModalVisible(false)} disabled={isSubmitting} style={{ backgroundColor: '#333', padding: 14, borderRadius: 8, alignItems: 'center' }}>
+              <Text style={{ color: 'white', fontWeight: 'bold' }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      })}
+    </ScrollView>
+  </KeyboardAvoidingView>
+</Modal>
+
+<Modal
+  animationType="fade"
+  transparent={true}
+  visible={acceptedModalVisible}
+  onRequestClose={() => setAcceptedModalVisible(false)}
+>
+  <View style={styles.sessionModalOverlay}>
+    <View style={styles.sessionModalContent}>
+      <Ionicons name="checkmark-circle" size={60} color="#4CAF50" />
+      <Text style={styles.sessionModalTitle}>Ride Accepted!</Text>
+      <Text style={styles.sessionModalMessage}>
+        Ride with ID: {acceptedRide?.ride_id ?? "N/A"} has been accepted.
+      </Text>
+      <TouchableOpacity
+        style={styles.sessionModalButton}
+        onPress={() => setAcceptedModalVisible(false)}
+      >
+        <Text style={styles.sessionModalButtonText}>OK</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
+
       </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContainer: { 
-    flex: 1, 
-    backgroundColor: "black" 
+  // General Styles
+  scrollContainer: {
+    flex: 1,
+    backgroundColor: '#000',
   },
-  scrollContentContainer: { 
-    flexGrow: 1 
+  scrollContentContainer: {
+    paddingBottom: 40,
   },
   container: {
     flex: 1,
-    alignItems: "center",
-    backgroundColor: "black",
-    paddingTop: 35,
-    paddingBottom: 20,
-    gap: 16,
+    padding: 20,
+    backgroundColor: '#000',
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "black",
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   errorContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "black",
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   errorText: {
-    color: "red",
-    fontSize: 16,
+    color: '#f44336',
+    fontSize: 18,
   },
+
+  // Header
   header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    width: "90%",
-    alignItems: "center",
-    marginBottom: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
   },
-  leftSection: { 
-    flexDirection: "row", 
-    alignItems: "center" 
+  leftSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  profileImage: { 
-    width: 35, 
-    height: 35, 
-    borderRadius: 20, 
-    marginRight: 10 
+  profileImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 10,
+    borderWidth: 2,
+    borderColor: '#facc15',
   },
-  greeting: { 
-    color: "white", 
-    fontSize: 16, 
-    fontWeight: "500" 
+  greeting: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: 'white',
   },
-  notificationContainer: { 
-    position: "relative" 
+  notificationContainer: {
+    position: 'relative',
+    padding: 8,
   },
   notificationBadge: {
-    position: "absolute",
-    top: -6,
-    right: -6,
-    backgroundColor: "#f44336",
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    backgroundColor: '#f44336',
     borderRadius: 10,
-    minWidth: 20,
+    width: 20,
     height: 20,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   notificationBadgeText: {
-    color: "white",
-    fontSize: 11,
-    fontWeight: "bold",
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
+
+  // Status
   statusContainer: {
-    width: "90%",
-    backgroundColor: "#1a1a1a",
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 10,
   },
   statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 6,
+    borderRadius: 15,
+    backgroundColor: '#333',
   },
   statusDot: {
     width: 10,
@@ -428,288 +758,377 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   onlineDot: {
-    backgroundColor: "#4CAF50",
+    backgroundColor: '#4CAF50',
   },
   offlineDot: {
-    backgroundColor: "#f44336",
+    backgroundColor: '#f44336',
   },
   statusText: {
-    color: "white",
-    fontSize: 14,
-    fontWeight: "600",
+    color: 'white',
+    fontWeight: '600',
   },
   locationText: {
-    color: "#999",
+    color: '#aaa',
     fontSize: 12,
   },
-  chartContainer: { 
-    marginTop: 10, 
-    justifyContent: "center" 
+
+  // Chart
+  chartContainer: {
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+
+  // Ride Offers Section
+  rideOffersSection: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 20,
   },
   sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
   },
   sectionTitle: {
-    color: "white",
     fontSize: 18,
-    fontWeight: "bold",
-  },
-  rideOffersSection: {
-    width: "90%",
-    marginTop: 10,
+    fontWeight: 'bold',
+    color: 'white',
   },
   viewOffersButton: {
-    backgroundColor: "#facc15",
-    borderRadius: 12,
-    padding: 14,
-    alignItems: "center",
-  },
-  viewOffersButtonText: {
-    color: "black",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  noOrdersContainer: {
-    width: "90%",
-    backgroundColor: "#1a1a1a",
-    borderRadius: 12,
-    padding: 40,
-    alignItems: "center",
+    backgroundColor: '#facc15',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
     marginTop: 10,
   },
-  noOrdersText: {
-    color: "white",
+  viewOffersButtonText: {
+    color: 'black',
+    fontWeight: 'bold',
     fontSize: 16,
-    fontWeight: "600",
-    marginTop: 12,
+  },
+  noOrdersContainer: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    padding: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  noOrdersText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 10,
   },
   noOrdersSubtext: {
-    color: "#666",
-    fontSize: 13,
-    marginTop: 4,
+    color: '#999',
+    fontSize: 14,
+    marginTop: 5,
   },
+
+  // Modals
   sessionModalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.9)",
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   sessionModalContent: {
-    backgroundColor: "#1a1a1a",
-    borderRadius: 20,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 15,
     padding: 30,
-    width: "85%",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#333",
+    width: '80%',
+    alignItems: 'center',
   },
   sessionIconContainer: {
     marginBottom: 20,
   },
   sessionModalTitle: {
-    color: "white",
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 12,
-    textAlign: "center",
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 10,
   },
   sessionModalMessage: {
-    color: "#999",
-    fontSize: 15,
-    textAlign: "center",
-    marginBottom: 30,
-    lineHeight: 22,
+    color: '#ccc',
+    textAlign: 'center',
+    marginBottom: 25,
   },
   sessionModalButton: {
-    backgroundColor: "#facc15",
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 50,
-    width: "100%",
-    alignItems: "center",
+    backgroundColor: '#facc15',
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 8,
+    width: '100%',
   },
   sessionModalButtonText: {
-    color: "black",
+    color: 'black',
+    fontWeight: 'bold',
+    textAlign: 'center',
     fontSize: 16,
-    fontWeight: "bold",
   },
+
+  // Ride Offers Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.85)",
-    justifyContent: "flex-end",
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: "#1a1a1a",
+    backgroundColor: '#1a1a1a',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingTop: 20,
-    maxHeight: "80%",
-    borderTopWidth: 1,
-    borderColor: "#333",
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#333",
-  },
-  modalTitle: {
-    color: "white",
-    fontSize: 20,
-    fontWeight: "bold",
-  },
-  offersList: {
+    height: '75%',
     padding: 20,
   },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  offersList: {
+    paddingBottom: 20,
+  },
   offerCard: {
-    backgroundColor: "#2a2a2a",
+    backgroundColor: '#000',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    padding: 15,
+    marginBottom: 15,
     borderWidth: 1,
-    borderColor: "#404040",
+    borderColor: '#333',
   },
   riderInfoContainer: {
-    marginBottom: 12,
+    marginBottom: 10,
   },
   riderHeader: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   riderDetails: {
-    marginLeft: 12,
+    marginLeft: 10,
     flex: 1,
   },
   riderName: {
-    color: "white",
+    color: 'white',
     fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 4,
+    fontWeight: '600',
   },
   ratingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
   },
   ratingText: {
-    color: "#facc15",
+    color: '#facc15',
     fontSize: 14,
     marginLeft: 4,
-    fontWeight: "600",
   },
   rideTypeBadge: {
-    backgroundColor: "#facc15",
-    paddingHorizontal: 10,
+    backgroundColor: '#facc15',
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
   },
   rideTypeText: {
-    color: "black",
-    fontSize: 11,
-    fontWeight: "bold",
+    color: 'black',
+    fontWeight: 'bold',
+    fontSize: 10,
   },
   divider: {
     height: 1,
-    backgroundColor: "#404040",
-    marginVertical: 12,
+    backgroundColor: '#333',
+    marginVertical: 10,
   },
   offerLabel: {
-    color: "#999",
+    color: '#999',
     fontSize: 12,
-    marginTop: 8,
-    marginBottom: 4,
+    marginTop: 5,
   },
   offerValue: {
-    color: "white",
+    color: 'white',
     fontSize: 14,
-    marginBottom: 4,
+    fontWeight: '500',
+    marginBottom: 5,
   },
   fareContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 12,
-    paddingTop: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginTop: 10,
     borderTopWidth: 1,
-    borderTopColor: "#404040",
+    borderTopColor: '#333',
+    paddingTop: 10,
   },
   fareLabel: {
-    color: "#999",
-    fontSize: 12,
-    marginBottom: 4,
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
   },
   fareValue: {
-    color: "#facc15",
-    fontSize: 20,
-    fontWeight: "bold",
+    color: '#facc15',
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginTop: 5,
   },
   estimatedFareContainer: {
-    alignItems: "flex-end",
+    alignItems: 'flex-end',
   },
   estimatedLabel: {
-    color: "#666",
-    fontSize: 11,
-    marginBottom: 2,
+    color: '#666',
+    fontSize: 12,
   },
   estimatedValue: {
-    color: "#999",
-    fontSize: 14,
-    fontWeight: "600",
+    color: '#666',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   offerActions: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 15,
   },
   acceptButton: {
-    flex: 1,
-    backgroundColor: "#4CAF50",
+    flexDirection: 'row',
+    backgroundColor: '#4CAF50',
+    padding: 10,
     borderRadius: 8,
-    padding: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 8,
+    justifyContent: 'center',
   },
   acceptButtonText: {
-    color: "white",
-    fontSize: 14,
-    fontWeight: "600",
+    color: 'white',
+    fontWeight: 'bold',
+    marginLeft: 5,
   },
   counterButton: {
-    flex: 1,
-    backgroundColor: "#facc15",
+    flexDirection: 'row',
+    backgroundColor: '#2196F3',
+    padding: 10,
     borderRadius: 8,
-    padding: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 8,
+    justifyContent: 'center',
   },
   counterButtonText: {
-    color: "black",
-    fontSize: 14,
-    fontWeight: "600",
+    color: 'white',
+    fontWeight: 'bold',
+    marginLeft: 5,
   },
   declineButton: {
-    backgroundColor: "#333",
+    backgroundColor: '#333',
+    padding: 10,
     borderRadius: 8,
-    padding: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    width: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 40,
   },
   emptyList: {
-    padding: 40,
-    alignItems: "center",
+    padding: 20,
+    alignItems: 'center',
   },
   emptyListText: {
-    color: "#666",
+    color: '#999',
+    fontSize: 16,
+  },
+  
+  // Update Modal Styles (Negotiation)
+  updateCard: {
+    backgroundColor: '#000',
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#4CAF50',
+  },
+  updateHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  updateTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+  },
+  updateSubtitle: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 2,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: '#333',
+    marginVertical: 10,
+  },
+  center: {
+    alignItems: 'center',
+  },
+  negotiatedLabel: {
+    color: '#999',
     fontSize: 14,
+  },
+  negotiatedPrice: {
+    fontSize: 30,
+    fontWeight: 'bold',
+    color: '#facc15',
+    marginVertical: 5,
+  },
+  controls: {
+    flexDirection: 'row',
+    marginTop: 10,
+    marginBottom: 15,
+    justifyContent: 'center',
+  },
+  controlBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    marginHorizontal: 10,
+  },
+  controlText: {
+    color: 'white',
+    fontWeight: 'bold',
+    marginLeft: 5,
+  },
+  sendButton: {
+    backgroundColor: '#facc15',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 10,
+  },
+  sendButtonText: {
+    color: 'black',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+  dismissButton: {
+    backgroundColor: '#333',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    width: '100%',
+  },
+  dismissButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });

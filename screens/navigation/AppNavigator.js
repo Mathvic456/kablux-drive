@@ -95,6 +95,16 @@ const AppNavigator = () => {
       />
 
       <Stack.Screen 
+        name='KycScreenOne'
+        component={KycScreenOne}
+      />
+
+      <Stack.Screen 
+        name='DocumentUploads'
+        component={DocumentUploads}
+      />
+
+      <Stack.Screen 
         name="PhotoUpload" 
         component={PhotoUpload}
       />

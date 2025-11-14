@@ -59,6 +59,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
   const [rideNotifications, setRideNotifications] = useState<RideNotification[]>([]);
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; long: number } | null>(null);
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [rideUpdates, setRideUpdates] = useState<any[]>([]);
 
   const isExpired = (token: string) => {
     try {

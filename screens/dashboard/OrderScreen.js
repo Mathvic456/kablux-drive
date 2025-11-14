@@ -3,7 +3,6 @@ import {
   Text,
   StyleSheet,
   View,
-  TextInput,
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
@@ -12,15 +11,13 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { useSendOffer } from '../../services/sendOffer.service';
 
 export default function OrderScreen() {
   const navigation = useNavigation();
   const route = useRoute();
-  const { item } = route.params || {};
-  const offer = useSendOffer(item.ride_id);
+  const { item, socket } = route.params || {};
 
-  const [counterAmount, setCounterAmount] = useState("");
+  const [counterAmount, setCounterAmount] = useState(item?.offer_amount || 0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!item) {
@@ -38,32 +35,54 @@ export default function OrderScreen() {
     );
   }
 
+  const handleIncrease = () => {
+    setCounterAmount(prev => prev + 100);
+  };
+
+  const handleDecrease = () => {
+    setCounterAmount(prev => Math.max(0, prev - 100));
+  };
+
   const handleSubmitCounter = async () => {
-    if (!counterAmount || parseFloat(counterAmount) <= 0) {
+    if (counterAmount <= 0) {
       alert('Please enter a valid counter offer amount');
       return;
     }
 
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      alert('WebSocket connection is not available. Please try again.');
+      return;
+    }
+
     setIsSubmitting(true);
-    
 
     try {
-      console.log('Submitting counter offer:', {
-        ride_id: item.ride_id,
-        original_amount: item.offer_amount,
-        counter_amount: parseFloat(counterAmount),
-      });
+      const message = {
+        type: "create_driver_offer",
+        data: {
+          ride_request_id: item.ride_id,
+          counter_offer: counterAmount,
+        },
+      };
+
+      console.log('📡 [DRIVER] Sending counter offer:', JSON.stringify(message, null, 2));
       
-      const res = await offer.mutateAsync({counter_offer: counterAmount, ride_request: item.ride_id } )
-      console.log("Offer sent", res);
-      navigation.goBack();
+      socket.send(JSON.stringify(message));
+      
+      console.log('✅ [DRIVER] Counter offer sent successfully!');
+      
+      // Navigate back after a short delay to allow message to send
+      setTimeout(() => {
+        navigation.goBack();
+      }, 300);
     } catch (error) {
-      console.error('Error submitting counter offer:', error);
+      console.error('❌ [DRIVER] Error submitting counter offer:', error);
       alert('Failed to submit counter offer. Please try again.');
-    } finally {
       setIsSubmitting(false);
     }
   };
+
+  const difference = counterAmount - item.offer_amount;
 
   return (
     <KeyboardAvoidingView
@@ -134,40 +153,57 @@ export default function OrderScreen() {
           </View>
         </View>
 
-        {/* Counter Offer Input Card */}
+        {/* Counter Offer Adjuster Card */}
         <View style={styles.counterCard}>
           <Text style={styles.cardTitle}>Your Counter Offer</Text>
           <Text style={styles.counterSubtitle}>
-            Enter the amount you'd like to propose for this ride
+            Adjust the amount using the buttons below
           </Text>
 
-          <View style={styles.inputContainer}>
+          {/* Amount Display */}
+          <View style={styles.amountDisplay}>
             <Text style={styles.currencySymbol}>₦</Text>
-            <TextInput
-              style={styles.input}
-              value={counterAmount}
-              onChangeText={setCounterAmount}
-              placeholder="Enter amount"
-              placeholderTextColor="#666"
-              keyboardType="numeric"
-              editable={!isSubmitting}
-            />
+            <Text style={styles.amountText}>
+              {counterAmount.toLocaleString()}
+            </Text>
           </View>
 
-          {counterAmount && parseFloat(counterAmount) > 0 && (
+          {/* Increment/Decrement Buttons */}
+          <View style={styles.controlsContainer}>
+            <TouchableOpacity
+              style={[styles.controlButton, styles.decreaseButton]}
+              onPress={handleDecrease}
+              disabled={isSubmitting || counterAmount <= 0}
+            >
+              <Ionicons name="remove" size={32} color="white" />
+              <Text style={styles.controlButtonText}>₦100</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.controlButton, styles.increaseButton]}
+              onPress={handleIncrease}
+              disabled={isSubmitting}
+            >
+              <Ionicons name="add" size={32} color="black" />
+              <Text style={[styles.controlButtonText, styles.increaseButtonText]}>₦100</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Comparison */}
+          {difference !== 0 && (
             <View style={styles.comparisonContainer}>
               <View style={styles.comparisonRow}>
                 <Text style={styles.comparisonLabel}>Difference:</Text>
                 <Text
                   style={[
                     styles.comparisonValue,
-                    parseFloat(counterAmount) > item.offer_amount
+                    difference > 0
                       ? styles.positiveChange
                       : styles.negativeChange,
                   ]}
                 >
-                  {parseFloat(counterAmount) > item.offer_amount ? '+' : ''}
-                  ₦{Math.abs(parseFloat(counterAmount) - item.offer_amount).toLocaleString()}
+                  {difference > 0 ? '+' : ''}
+                  ₦{Math.abs(difference).toLocaleString()}
                 </Text>
               </View>
             </View>
@@ -178,10 +214,10 @@ export default function OrderScreen() {
         <TouchableOpacity
           style={[
             styles.submitButton,
-            (!counterAmount || isSubmitting) && styles.submitButtonDisabled,
+            (counterAmount <= 0 || isSubmitting) && styles.submitButtonDisabled,
           ]}
           onPress={handleSubmitCounter}
-          disabled={!counterAmount || isSubmitting}
+          disabled={counterAmount <= 0 || isSubmitting}
         >
           {isSubmitting ? (
             <ActivityIndicator color="black" />
@@ -207,6 +243,27 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'black',
+  },
+  errorContainer: {
+    flex: 1,
+    backgroundColor: 'black',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorText: {
+    color: 'white',
+    fontSize: 18,
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  backButton: {
+    backgroundColor: '#facc15',
+    padding: 10,
+    borderRadius: 8,
+  },
+  backButtonText: {
+    color: 'black',
+    fontWeight: 'bold',
   },
   scrollContainer: {
     flex: 1,
@@ -275,89 +332,119 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   detailRow: {
-    marginBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
   detailLabel: {
     color: '#999',
-    fontSize: 13,
-    marginBottom: 4,
+    fontSize: 14,
   },
   detailValue: {
     color: 'white',
-    fontSize: 15,
+    fontSize: 14,
+    maxWidth: '70%',
+    textAlign: 'right',
   },
   divider: {
     height: 1,
     backgroundColor: '#333',
-    marginVertical: 16,
+    marginVertical: 12,
   },
   offerAmountContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
   offerLabel: {
-    color: '#999',
-    fontSize: 14,
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
   offerAmount: {
-    color: '#facc15',
-    fontSize: 22,
+    color: '#f44336',
+    fontSize: 20,
     fontWeight: 'bold',
   },
   counterCard: {
     backgroundColor: '#1a1a1a',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 24,
+    marginBottom: 20,
+    alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#facc15',
+    borderColor: '#333',
   },
   counterSubtitle: {
     color: '#999',
-    fontSize: 13,
-    marginBottom: 16,
+    fontSize: 14,
+    marginBottom: 20,
+    textAlign: 'center',
   },
-  inputContainer: {
+  amountDisplay: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#2a2a2a',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: '#404040',
+    alignItems: 'baseline',
+    marginBottom: 25,
   },
   currencySymbol: {
     color: '#facc15',
-    fontSize: 20,
+    fontSize: 30,
     fontWeight: 'bold',
-    marginRight: 8,
+    marginRight: 5,
   },
-  input: {
-    flex: 1,
+  amountText: {
     color: 'white',
+    fontSize: 50,
+    fontWeight: 'bold',
+  },
+  controlsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginBottom: 20,
+  },
+  controlButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    width: '45%',
+  },
+  decreaseButton: {
+    backgroundColor: '#f44336',
+  },
+  increaseButton: {
+    backgroundColor: '#facc15',
+  },
+  controlButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
     fontSize: 18,
-    paddingVertical: 14,
-    fontWeight: '600',
+    marginLeft: 8,
+  },
+  increaseButtonText: {
+    color: 'black',
   },
   comparisonContainer: {
-    marginTop: 12,
-    backgroundColor: '#2a2a2a',
+    width: '100%',
+    padding: 10,
+    backgroundColor: '#333',
     borderRadius: 8,
-    padding: 12,
+    marginTop: 10,
   },
   comparisonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
   },
   comparisonLabel: {
-    color: '#999',
+    color: '#ccc',
     fontSize: 14,
   },
   comparisonValue: {
@@ -372,53 +459,29 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     backgroundColor: '#facc15',
-    borderRadius: 12,
-    padding: 16,
+    padding: 15,
+    borderRadius: 10,
     alignItems: 'center',
-    marginBottom: 12,
-  },
-  submitButtonDisabled: {
-    backgroundColor: '#666',
-    opacity: 0.5,
+    marginBottom: 10,
   },
   submitButtonText: {
     color: 'black',
-    fontSize: 16,
     fontWeight: 'bold',
+    fontSize: 18,
+  },
+  submitButtonDisabled: {
+    opacity: 0.5,
   },
   cancelButton: {
-    backgroundColor: '#333',
-    borderRadius: 12,
-    padding: 16,
+    padding: 15,
+    borderRadius: 10,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#333',
   },
   cancelButtonText: {
     color: 'white',
+    fontWeight: 'bold',
     fontSize: 16,
-    fontWeight: '600',
-  },
-  errorContainer: {
-    flex: 1,
-    backgroundColor: 'black',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorText: {
-    color: 'white',
-    fontSize: 16,
-    marginTop: 16,
-    marginBottom: 24,
-  },
-  backButton: {
-    backgroundColor: '#facc15',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  backButtonText: {
-    color: 'black',
-    fontSize: 14,
-    fontWeight: '600',
   },
 });

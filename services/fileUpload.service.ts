@@ -12,7 +12,13 @@ export function useUploadFile() {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      return api.post("uploads/", data, { headers });
+      return api.post("uploads/", data, {
+      headers: {
+        ...headers,
+        "Content-Type": "multipart/form-data",
+      },
+    });
+
     },
 
     onSuccess: (res) => {
