@@ -10,6 +10,9 @@ import {
   Modal,
   FlatList,
   RefreshControl,
+  KeyboardAvoidingView,
+  Platform,
+  TextInput
 } from "react-native";
 import DonutChart from "../components/DonutChart";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
@@ -19,6 +22,143 @@ import { useNavigation } from "@react-navigation/native";
 import { useProfile } from '../../services/profile.service';
 import { SocketContext } from "../../context/WebSocketProvider";
 
+// Separate component for counter offer item
+const CounterOfferItem = ({ item, onClose, socket, onAccept }) => {
+  const [counterAmount, setCounterAmount] = useState(item.counter_offer);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const difference = counterAmount - item.counter_offer;
+
+  const handleIncrease = () => setCounterAmount(prev => prev + 100);
+  const handleDecrease = () => setCounterAmount(prev => Math.max(0, prev - 100));
+
+  const handleSubmitCounter = async () => {
+    if (counterAmount <= 0) {
+      alert("Please enter a valid counter offer");
+      return;
+    }
+    
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      alert("WebSocket not connected");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const message = {
+        type: "create_driver_offer",
+        data: { 
+          ride_request_id: item.ride_request_id, 
+          counter_offer: counterAmount 
+        },
+      };
+      socket.send(JSON.stringify(message));
+      console.log("✅ Counter offer sent:", message);
+      setTimeout(() => onClose(), 300);
+    } catch (err) {
+      console.error("❌ Failed to submit counter offer:", err);
+      alert("Failed to submit counter offer");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <View style={styles.updateCard}>
+      {/* Rider Info */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+        <Ionicons name="person-circle" size={50} color="#facc15" />
+        <View style={{ marginLeft: 16 }}>
+          <Text style={{ color: 'white', fontSize: 18, fontWeight: '600' }}>
+            {item.rider_name}
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+            <Ionicons name="star" size={16} color="#facc15" />
+            <Text style={{ color: '#facc15', fontSize: 16, marginLeft: 6 }}>
+              {item.rider_rating || "N/A"}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Original Offer */}
+      <View style={styles.divider} />
+      <Text style={styles.offerLabel}>Rider's Counter Offer:</Text>
+      <Text style={[styles.negotiatedPrice, { fontSize: 20, marginVertical: 8 }]}>
+        ₦{item.counter_offer?.toLocaleString()}
+      </Text>
+
+      {/* Amount Adjuster */}
+      <Text style={{ color: 'white', fontSize: 16, marginBottom: 8, marginTop: 16 }}>
+        Your Counter Offer
+      </Text>
+      <View style={styles.controls}>
+        <TouchableOpacity 
+          onPress={handleDecrease} 
+          disabled={isSubmitting || counterAmount <= 0}
+          style={[styles.controlBtn, { backgroundColor: '#f44336' }]}
+        >
+          <Ionicons name="remove" size={24} color="white" />
+          <Text style={styles.controlText}>₦100</Text>
+        </TouchableOpacity>
+        
+        <Text style={styles.negotiatedPrice}>
+          ₦{counterAmount.toLocaleString()}
+        </Text>
+        
+        <TouchableOpacity 
+          onPress={handleIncrease} 
+          disabled={isSubmitting}
+          style={[styles.controlBtn, { backgroundColor: '#facc15' }]}
+        >
+          <Ionicons name="add" size={24} color="black" />
+          <Text style={[styles.controlText, { color: 'black' }]}>₦100</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Difference */}
+      {difference !== 0 && (
+        <Text style={{ 
+          color: difference > 0 ? '#4CAF50' : '#f44336', 
+          textAlign: 'center', 
+          marginBottom: 16,
+          fontSize: 14
+        }}>
+          Difference: {difference > 0 ? '+' : ''}₦{Math.abs(difference).toLocaleString()}
+        </Text>
+      )}
+
+      {/* Submit & Cancel */}
+      <TouchableOpacity 
+        onPress={() => onAccept(item)} 
+        disabled={isSubmitting}
+        style={[styles.acceptButton, { marginBottom: 10 }]}
+      >
+        <Ionicons name="checkmark-circle" size={20} color="white" />
+        <Text style={styles.acceptButtonText}>Accept Counter Offer</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity 
+        onPress={handleSubmitCounter} 
+        disabled={isSubmitting || counterAmount <= 0}
+        style={[styles.sendButton, (isSubmitting || counterAmount <= 0) && styles.disabledButton]}
+      >
+        {isSubmitting ? (
+          <ActivityIndicator color="black" />
+        ) : (
+          <Text style={styles.sendButtonText}>Submit New Counter Offer</Text>
+        )}
+      </TouchableOpacity>
+      
+      <TouchableOpacity 
+        onPress={onClose} 
+        disabled={isSubmitting}
+        style={styles.dismissButton}
+      >
+        <Text style={styles.dismissButtonText}>Cancel</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
 
 export default function Home() {
   const navigation = useNavigation();
@@ -28,9 +168,8 @@ export default function Home() {
   const [uploadModalVisible, setUploadModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [negotiationUpdates, setNegotiationUpdates] = useState({});
-  const [busyMap, setBusyMap] = useState({});
   const [acceptedRide, setAcceptedRide] = useState(null);
-const [acceptedModalVisible, setAcceptedModalVisible] = useState(false);
+  const [acceptedModalVisible, setAcceptedModalVisible] = useState(false);
 
   const { 
     socket,
@@ -46,10 +185,12 @@ const [acceptedModalVisible, setAcceptedModalVisible] = useState(false);
   const { data: profile, isPending: profileLoading, isError: profileError } = useProfile();
 
   useEffect(() => {
-    setUploadModalVisible(true);
-  }, [profileLoading]);
+    if (profile && !profile.is_verified) {
+      setUploadModalVisible(true);
+    }
+  }, [profile]);
 
-  // Listen for negotiation updates
+  // Single unified socket message listener
   useEffect(() => {
     if (!socket) return;
 
@@ -60,6 +201,7 @@ const [acceptedModalVisible, setAcceptedModalVisible] = useState(false);
         
         console.log("📩 [DRIVER HOME] Incoming message:", msg);
 
+        // Handle negotiation updates
         if (msg.type === "negotiation_update" && msg.data) {
           const payload = msg.data;
           const viewId = payload.ride_request_view_id;
@@ -74,10 +216,20 @@ const [acceptedModalVisible, setAcceptedModalVisible] = useState(false);
               action: payload.action,
               notification_type: payload.notification_type,
               rider_name: payload.rider_name || "Rider",
+              rider_rating: payload.rider_rating || "N/A",
               timestamp: Date.now(),
+              ride_request_id: payload.ride_request_id,
             }
           }));
         }
+
+        // Handle ride acceptance confirmation
+        if (msg.type === "accept_ride_success" && msg.data) {
+          console.log("✅ [DRIVER] Ride accepted:", msg.data);
+          setAcceptedRide(msg.data);
+          setAcceptedModalVisible(true);
+        }
+
       } catch (err) {
         console.error("❌ [DRIVER HOME] Failed to parse message:", err);
       }
@@ -89,53 +241,6 @@ const [acceptedModalVisible, setAcceptedModalVisible] = useState(false);
       socket.removeEventListener?.("message", onMessage);
     };
   }, [socket]);
-
-  useEffect(() => {
-  if (!socket) return;
-
-  const onMessage = (ev) => {
-    try {
-      const raw = typeof ev.data === "string" ? ev.data : JSON.stringify(ev.data);
-      const msg = JSON.parse(raw);
-
-      console.log("📩 [DRIVER HOME] Incoming message:", msg);
-
-      // Negotiation updates
-      if (msg.type === "negotiation_update" && msg.data) {
-        const payload = msg.data;
-        const viewId = payload.ride_request_view_id;
-
-        setNegotiationUpdates(prev => ({
-          ...prev,
-          [viewId]: {
-            ride_request_view_id: viewId,
-            counter_offer: Number(payload.counter_offer),
-            action: payload.action,
-            notification_type: payload.notification_type,
-            rider_name: payload.rider_name || "Rider",
-            timestamp: Date.now(),
-          }
-        }));
-      }
-
-      // Accept ride
-      if (msg.type === "accept_ride" && msg.data) {
-        setAcceptedRide(msg.data);
-        setAcceptedModalVisible(true);
-      }
-
-    } catch (err) {
-      console.error("❌ [DRIVER HOME] Failed to parse message:", err);
-    }
-  };
-
-  socket.addEventListener?.("message", onMessage);
-
-  return () => {
-    socket.removeEventListener?.("message", onMessage);
-  };
-}, [socket]);
-
 
   const handleOpenDrawer = () => {
     navigation.getParent("DrawerNavigator").openDrawer();
@@ -151,58 +256,55 @@ const [acceptedModalVisible, setAcceptedModalVisible] = useState(false);
     clearSessionExpired();
   };
 
-const handleAccept = async (offer) => {
-  try {
-    // Note: setBusy is not defined in Home.js, but assuming its purpose
-    // setBusy(true); 
+  const handleAccept = async (offer) => {
+    try {
+      const rideId = offer?.ride_request_view_id?? offer?.ride_id ?? null;
 
-    const rideId =
-      offer?.ride_request_view_id ??
-      offer?.ride_id ??
-      null;
+      if (!rideId) {
+        console.log("❌ No valid ride ID found in offer:", offer);
+        alert("Could not find ride ID");
+        return;
+      }
 
-    if (!rideId) {
-      console.log("No valid ride ID found in offer:", offer);
-      return alert("Could not find ride ID");
+      if (!socket || socket.readyState !== WebSocket.OPEN) {
+        alert("WebSocket not connected");
+        return;
+      }
+
+      const data = {
+        type: "accept_ride",
+        data: {
+           ride_request_view_id: rideId,
+        }
+       
+      };
+
+      socket.send(JSON.stringify(data));
+      console.log("✅ Accept ride message sent:", data);
+
+      // Clear the notification after accepting
+      clearNotification(offer.ride_id);
+      clearNegotiationUpdate(offer.ride_request_view_id);
+      
+      setRideModalVisible(false);
+
+    } catch (error) {
+      console.error("❌ Error accepting offer:", error);
+      alert("Failed to accept ride");
     }
-
-    const data = {
-      type: "accept_ride",
-      ride_request_view_id: rideId,
-    };
-
-    socket.send(JSON.stringify(data));
-
-    alert("Your offer has been accepted!");
-    
-    // Clear the notification/update after accepting
-    clearNotification(offer.ride_id); 
-    clearNegotiationUpdate(offer.ride_request_view_id); 
-
-
-  } catch (error) {
-    console.log("Error accepting offer:", error);
-  } finally {
-    // setBusy(false);
-  }
-};
-
-
+  };
 
   const handleCounter = (offer) => {
     console.log("💰 Counter offer:", offer);
     setRideModalVisible(false);
-
     navigation.navigate('OrderScreen', { item: offer, socket });
   };
 
   const handleDecline = (offer) => {
     console.log("❌ Declined offer:", offer);
     clearNotification(offer.ride_id);
+    clearNegotiationUpdate(offer.ride_request_view_id);
   };
-
-
-
 
   const clearNegotiationUpdate = (viewId) => {
     setNegotiationUpdates(prev => {
@@ -212,7 +314,9 @@ const handleAccept = async (offer) => {
     });
   };
 
-  const negotiationArray = Object.values(negotiationUpdates).sort((a, b) => b.timestamp - a.timestamp);
+  const negotiationArray = Object.values(negotiationUpdates).sort(
+    (a, b) => b.timestamp - a.timestamp
+  );
 
   if (profileLoading) {
     return (
@@ -321,7 +425,7 @@ const handleAccept = async (offer) => {
           </View>
         )}
 
-        {/* Ride Updates Section (NEW) */}
+        {/* Ride Updates Section */}
         {negotiationArray.length > 0 && (
           <View style={styles.rideOffersSection}>
             <View style={styles.sectionHeader}>
@@ -385,7 +489,7 @@ const handleAccept = async (offer) => {
           <View style={styles.sessionModalOverlay}>
             <View style={styles.sessionModalContent}>
               <View style={styles.sessionIconContainer}>
-                <Ionicons name="time-outline" size={60} color="#facc15" />
+                <Ionicons name="document-text-outline" size={60} color="#facc15" />
               </View>
               
               <Text style={styles.sessionModalTitle}>Not verified</Text>
@@ -395,13 +499,16 @@ const handleAccept = async (offer) => {
 
               <TouchableOpacity
                 style={styles.sessionModalButton}
-                onPress={() => navigation.navigate('KycScreenOne')}
+                onPress={() => {
+                  setUploadModalVisible(false);
+                  navigation.navigate('KycScreenOne');
+                }}
               >
-                <Text style={styles.sessionModalButtonText}>OK</Text>
+                <Text style={styles.sessionModalButtonText}>Upload Now</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.sessionModalButton, { backgroundColor: 'red', marginTop: 30}]}
+                style={[styles.sessionModalButton, { backgroundColor: '#333', marginTop: 10 }]}
                 onPress={() => setUploadModalVisible(false)}
               >
                 <Text style={styles.sessionModalButtonText}>Later</Text>
@@ -428,7 +535,7 @@ const handleAccept = async (offer) => {
               
               <FlatList
                 data={rideNotifications}
-                keyExtractor={(item) => item.ride_request_view_id}
+                keyExtractor={(item) => item.ride_request_view_id || item.ride_id}
                 renderItem={({ item }) => (
                   <View style={styles.offerCard}>
                     <View style={styles.riderInfoContainer}>
@@ -450,7 +557,7 @@ const handleAccept = async (offer) => {
                     <View style={styles.divider} />
                     
                     <Text style={styles.offerLabel}>Ride ID:</Text>
-                    <Text style={styles.offerValue}>{item.ride_id.slice(0, 16)}...</Text>
+                    <Text style={styles.offerValue}>{item.ride_id?.slice(0, 16)}...</Text>
                     
                     {item.distance_km && (
                       <>
@@ -523,134 +630,82 @@ const handleAccept = async (offer) => {
           </View>
         </Modal>
 
-        {/* Ride Updates Modal*/}
-       <Modal
-  animationType="slide"
-  transparent={true}
-  visible={updatesModalVisible}
-  onRequestClose={() => setUpdatesModalVisible(false)}
->
-  <KeyboardAvoidingView
-    style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)' }}
-    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-  >
-    <ScrollView
-      contentContainerStyle={{ padding: 20, paddingTop: 50, paddingBottom: 40 }}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Header */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-        <TouchableOpacity onPress={() => setUpdatesModalVisible(false)} style={{ padding: 4 }}>
-          <Ionicons name="arrow-back" size={24} color="white" />
-        </TouchableOpacity>
-        <Text style={{ color: 'white', fontSize: 20, fontWeight: 'bold' }}>Counter Offer</Text>
-        <View style={{ width: 32 }} /> {/* placeholder */}
-      </View>
-
-      {negotiationArray.map((item) => {
-        const [counterAmount, setCounterAmount] = useState(item.counter_offer);
-        const [isSubmitting, setIsSubmitting] = useState(false);
-        const difference = counterAmount - item.counter_offer;
-
-        const handleIncrease = () => setCounterAmount(prev => prev + 100);
-        const handleDecrease = () => setCounterAmount(prev => Math.max(0, prev - 100));
-
-        const handleSubmitCounter = async () => {
-          if (counterAmount <= 0) return alert("Please enter a valid counter offer");
-          if (!socket || socket.readyState !== WebSocket.OPEN) return alert("WebSocket not connected");
-
-          setIsSubmitting(true);
-          try {
-            const message = {
-              type: "create_driver_offer",
-              data: { ride_request_id: item.ride_request_view_id, counter_offer: counterAmount },
-            };
-            socket.send(JSON.stringify(message));
-            setTimeout(() => setUpdatesModalVisible(false), 300);
-          } catch (err) {
-            alert("Failed to submit counter offer");
-            setIsSubmitting(false);
-          }
-        };
-
-        return (
-          <View key={item.ride_request_view_id} style={{
-            backgroundColor: '#1a1a1a',
-            borderRadius: 12,
-            padding: 16,
-            marginBottom: 16,
-            borderWidth: 1,
-            borderColor: '#4CAF50',
-          }}>
-            {/* Rider Info */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-              <Ionicons name="person-circle" size={50} color="#facc15" />
-              <View style={{ marginLeft: 16 }}>
-                <Text style={{ color: 'white', fontSize: 18, fontWeight: '600' }}>{item.rider_name}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                  <Ionicons name="star" size={16} color="#facc15" />
-                  <Text style={{ color: '#facc15', fontSize: 16, marginLeft: 6 }}>{item.rider_rating}</Text>
-                </View>
+        {/* Ride Updates Modal */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={updatesModalVisible}
+          onRequestClose={() => setUpdatesModalVisible(false)}
+        >
+          <KeyboardAvoidingView
+            style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)' }}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
+            <ScrollView
+              contentContainerStyle={{ padding: 20, paddingTop: 50, paddingBottom: 40 }}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* Header */}
+              <View style={styles.modalHeader}>
+                <TouchableOpacity 
+                  onPress={() => setUpdatesModalVisible(false)} 
+                  style={{ padding: 4 }}
+                >
+                  <Ionicons name="arrow-back" size={24} color="white" />
+                </TouchableOpacity>
+                <Text style={styles.modalTitle}>Counter Offers</Text>
+                <View style={{ width: 32 }} />
               </View>
-            </View>
 
-            {/* Amount Adjuster */}
-            <Text style={{ color: 'white', fontSize: 16, marginBottom: 8 }}>Your Counter Offer</Text>
-            <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
-              <TouchableOpacity onPress={handleDecrease} disabled={isSubmitting || counterAmount <= 0} style={{ marginHorizontal: 10, padding: 12, backgroundColor: '#f44336', borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}>
-                <Ionicons name="remove" size={28} color="white" />
-                <Text style={{ color: 'white', fontWeight: 'bold', marginLeft: 5 }}>₦100</Text>
-              </TouchableOpacity>
-              <Text style={{ fontSize: 28, fontWeight: 'bold', color: '#facc15', marginHorizontal: 10 }}>₦{counterAmount.toLocaleString()}</Text>
-              <TouchableOpacity onPress={handleIncrease} disabled={isSubmitting} style={{ marginHorizontal: 10, padding: 12, backgroundColor: '#facc15', borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}>
-                <Ionicons name="add" size={28} color="black" />
-                <Text style={{ color: 'black', fontWeight: 'bold', marginLeft: 5 }}>₦100</Text>
-              </TouchableOpacity>
-            </View>
+              {negotiationArray.length === 0 ? (
+                <View style={styles.emptyList}>
+                  <Text style={styles.emptyListText}>No counter offers available</Text>
+                </View>
+              ) : (
+                negotiationArray.map((item) => (
+                    <CounterOfferItem
+                      key={item.ride_request_view_id}
+                      item={item}
+                      onClose={() => setUpdatesModalVisible(false)}
+                      socket={socket}
+                      onAccept={handleAccept}
+                    />
 
-            {/* Difference */}
-            {difference !== 0 && (
-              <Text style={{ color: difference > 0 ? '#4CAF50' : '#f44336', textAlign: 'center', marginBottom: 16 }}>
-                Difference: {difference > 0 ? '+' : ''}₦{Math.abs(difference).toLocaleString()}
+                ))              
+                )}
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </Modal>
+
+        {/* Accepted Ride Modal */}
+        <Modal
+          animationType="fade"
+          transparent={true}
+          visible={acceptedModalVisible}
+          onRequestClose={() => setAcceptedModalVisible(false)}
+        >
+          <View style={styles.sessionModalOverlay}>
+            <View style={styles.sessionModalContent}>
+              <Ionicons name="checkmark-circle" size={60} color="#4CAF50" />
+              <Text style={styles.sessionModalTitle}>Ride Accepted!</Text>
+              <Text style={styles.sessionModalMessage}>
+                {acceptedRide?.ride_id 
+                  ? `Ride with ID: ${acceptedRide.ride_id.slice(0, 16)}... has been accepted.`
+                  : "Your ride has been accepted successfully."
+                }
               </Text>
-            )}
-
-            {/* Submit & Cancel */}
-            <TouchableOpacity onPress={handleSubmitCounter} disabled={isSubmitting || counterAmount <= 0} style={{ backgroundColor: '#facc15', padding: 14, borderRadius: 8, alignItems: 'center', marginBottom: 10 }}>
-              {isSubmitting ? <ActivityIndicator color="black" /> : <Text style={{ color: 'black', fontWeight: 'bold' }}>Submit Counter Offer</Text>}
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setUpdatesModalVisible(false)} disabled={isSubmitting} style={{ backgroundColor: '#333', padding: 14, borderRadius: 8, alignItems: 'center' }}>
-              <Text style={{ color: 'white', fontWeight: 'bold' }}>Cancel</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.sessionModalButton}
+                onPress={() => {
+                  setAcceptedModalVisible(false);
+                  setAcceptedRide(null);
+                }}
+              >
+                <Text style={styles.sessionModalButtonText}>OK</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        );
-      })}
-    </ScrollView>
-  </KeyboardAvoidingView>
-</Modal>
-
-<Modal
-  animationType="fade"
-  transparent={true}
-  visible={acceptedModalVisible}
-  onRequestClose={() => setAcceptedModalVisible(false)}
->
-  <View style={styles.sessionModalOverlay}>
-    <View style={styles.sessionModalContent}>
-      <Ionicons name="checkmark-circle" size={60} color="#4CAF50" />
-      <Text style={styles.sessionModalTitle}>Ride Accepted!</Text>
-      <Text style={styles.sessionModalMessage}>
-        Ride with ID: {acceptedRide?.ride_id ?? "N/A"} has been accepted.
-      </Text>
-      <TouchableOpacity
-        style={styles.sessionModalButton}
-        onPress={() => setAcceptedModalVisible(false)}
-      >
-        <Text style={styles.sessionModalButtonText}>OK</Text>
-      </TouchableOpacity>
-    </View>
-  </View>
-</Modal>
+        </Modal>
 
       </View>
     </ScrollView>
@@ -690,6 +745,7 @@ const styles = StyleSheet.create({
 
   // Header
   header: {
+    marginTop: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -1041,45 +1097,21 @@ const styles = StyleSheet.create({
     color: '#999',
     fontSize: 16,
   },
-  
-  // Update Modal Styles (Negotiation)
+
   updateCard: {
-    backgroundColor: '#000',
+    backgroundColor: '#1a1a1a',
     borderRadius: 12,
     padding: 15,
     marginBottom: 15,
     borderWidth: 1,
     borderColor: '#4CAF50',
   },
-  updateHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  updateTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'white',
-  },
-  updateSubtitle: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 2,
-  },
-  separator: {
-    height: 1,
-    backgroundColor: '#333',
-    marginVertical: 10,
-  },
-  center: {
-    alignItems: 'center',
-  },
   negotiatedLabel: {
     color: '#999',
     fontSize: 14,
   },
   negotiatedPrice: {
-    fontSize: 30,
+    fontSize: 28,
     fontWeight: 'bold',
     color: '#facc15',
     marginVertical: 5,
@@ -1089,11 +1121,12 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 15,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   controlBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 10,
     paddingHorizontal: 15,
     borderRadius: 8,
     marginHorizontal: 10,
