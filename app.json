@@ -7,7 +7,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "owner": "hunchoexpo",
+    "owner": "crashingout",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -26,7 +26,7 @@
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
       ],
-      "package": "com.hunchoexpo.kabluxdrive"
+      "package": "com.crashingout.kabluxdrive"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -43,7 +43,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "ebe4b567-890d-4f8a-b8f5-51bef0ef742f"
+        "projectId": "ba89ec3d-c46f-433a-9e79-3198aab91f8c"
       }
     }
   }
