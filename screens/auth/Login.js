@@ -26,9 +26,14 @@ const Login = ({ navigation }) => {
     email: "",
     password: "",
   });
+  const [authError, setAuthError] = useState("");
 
   const { setTokenFromOutside } = useContext(SocketContext);
-  const { mutate: login, isPending } = useLoginEndPoint(navigation, remember, setTokenFromOutside);
+  const { mutate: login, isPending } = useLoginEndPoint(
+  navigation,
+  remember,
+  setTokenFromOutside
+);
 
   const validateForm = () => {
     let valid = true;
@@ -57,11 +62,25 @@ const Login = ({ navigation }) => {
     return valid;
   };
 
-  const handleSubmit = async () => {
-    if (validateForm()) {
-      login({ email, password });
-    }
-  };
+const handleSubmit = async () => {
+  setAuthError(""); 
+
+  if (validateForm()) {
+    login(
+      { email, password },
+      {
+        onError: (error) => {
+          if (error?.response?.status === 401) {
+            setAuthError("Invalid email or password");
+          } else {
+            setAuthError("Something went wrong. Please try again.");
+          }
+        }
+      }
+    );
+  }
+};
+
 
   const handleSignUpPress = () => {
     navigation.navigate('Signup');
@@ -162,6 +181,16 @@ const Login = ({ navigation }) => {
               <Text style={styles.forgot}>Forgot Password</Text>
             </TouchableOpacity>
           </View>
+          {authError ? (
+            <Text style={{ 
+              color: "#ff4444",
+              textAlign: "center",
+              marginBottom: 10,
+              fontSize: 13
+            }}>
+              {authError}
+            </Text>
+          ) : null}
 
           {/* Proceed Button */}
           <TouchableOpacity

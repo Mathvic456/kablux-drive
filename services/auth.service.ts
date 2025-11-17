@@ -34,31 +34,37 @@ export const useLoginEndPoint = (
 ) => {
   return useMutation({
     mutationFn: (data) => api.post("auth/login/", data),
+
     onSuccess: async (res) => {
       const token = res.data?.data?.access;
       const refreshToken = res.data?.data?.refresh;
       const userId = res.data?.data?.user?.id;
-      
-      // Store tokens
+
       await AsyncStorage.setItem("token", token);
       await AsyncStorage.setItem("refreshToken", refreshToken);
       await AsyncStorage.setItem("userId", userId);
       console.log("✅ Token saved!");
 
-      // Connect WebSocket with new token
       if (setTokenFromOutside) {
         console.log("🔌 Connecting WebSocket with new token...");
         setTokenFromOutside(token);
       }
-     
-      // Navigate to Tabs
-      navigation.replace('Tabs');
+
+      navigation.replace("Tabs");
     },
-    onError: (error) => {
+
+    onError: (error: any) => {
       console.error("Login error:", error);
+
+      if (error?.response?.status === 401) {
+        console.log("❌ Invalid email or password");
+      } else {
+        console.log("⚠️ Something went wrong:", error?.message);
+      }
     },
   });
 };
+
 
 
 export const useLogoutEndPoint = () => {

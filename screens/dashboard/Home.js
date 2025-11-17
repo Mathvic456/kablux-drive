@@ -223,12 +223,13 @@ export default function Home() {
           }));
         }
 
-        // Handle ride acceptance confirmation
-        if (msg.type === "accept_ride_success" && msg.data) {
-          console.log("✅ [DRIVER] Ride accepted:", msg.data);
-          setAcceptedRide(msg.data);
-          setAcceptedModalVisible(true);
-        }
+        const eventType = msg.type || msg.event;
+
+      if (eventType === "accept_ride_success") {
+        setAcceptedRide(msg.data || msg.ride_id);
+        setAcceptedModalVisible(true);
+      }
+
 
       } catch (err) {
         console.error("❌ [DRIVER HOME] Failed to parse message:", err);
