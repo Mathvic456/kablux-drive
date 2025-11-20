@@ -13,11 +13,10 @@ export function useUploadFile() {
       }
 
       return api.post("uploads/", data, {
-      headers: {
-        ...headers,
-        "Content-Type": "multipart/form-data",
-      },
-    });
+        headers: {
+          ...headers,
+        },
+      });
 
     },
 

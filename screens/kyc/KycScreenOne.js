@@ -67,7 +67,6 @@ const takePicture = async () => {
     setIsLoading(true);
     console.log("Loading state set to true");
 
-    // Add a small delay to ensure camera is ready
     await new Promise(resolve => setTimeout(resolve, 100));
     
     console.log("Attempting to take picture...");
@@ -85,16 +84,15 @@ const takePicture = async () => {
     console.log("Photo width:", photo.width);
     console.log("Photo height:", photo.height);
 
-    // Update UI immediately with captured image
+
     setCapturedImage(photo.uri);
     console.log("Captured image state updated");
 
-    // Step 2: Upload the photo
     try {
       const formData = new FormData();
-      formData.append("file", {
+      formData.append("files", {
         uri: photo.uri,
-        name: `photo_${Date.now()}.jpg`,
+        name: `photo_${Date.now()}.jpg`, 
         type: "image/jpeg",
       });
 
@@ -123,10 +121,13 @@ const takePicture = async () => {
     
     setShowErrorModal(true);
     
-  } finally {
-    setIsLoading(false);
-    console.log("=== TAKE PICTURE FINISHED ===");
-  }
+    } finally {
+        setIsLoading(false);
+        if (capturedImage) {
+            setShowCamera(false);
+        }
+        console.log("=== TAKE PICTURE FINISHED ===");
+    }
 };
 
   const toggleCameraFacing = () => {
@@ -371,7 +372,6 @@ if (showCamera) {
           </TouchableOpacity>
         </View>
 
-        {/* Loading Overlay - SHOWN ON TOP OF CAMERA, NOT REPLACING IT */}
         {isLoading && (
           <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color="#fcbf24" />
@@ -766,6 +766,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 10,
   },
+
+  loadingOverlay: {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  justifyContent: 'center',
+  alignItems: 'center',
+  zIndex: 10,
+},
+
+loadingText: {
+  color: '#fff',
+  fontSize: 14,
+  marginTop: 10,
+},
 });
 
 export default KycScreenOne;

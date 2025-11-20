@@ -3,6 +3,7 @@ import Octicons from '@expo/vector-icons/Octicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import React, { useState, useRef, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as FileSystem from 'expo-file-system';
 import {
   Image,
   StyleSheet,
@@ -19,7 +20,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import Logo from "../../assets/Logo.png";
 import { useNavigation } from '@react-navigation/native';
 
-const DocumentUploads = ({ navigation }) => {
+const DocumentUploads = () => {
   const [documents, setDocuments] = useState([
     { id: 1, name: "National Identity Card", uploaded: false, file: null, type: 'nationalId' },
     { id: 2, name: "Driver's License", uploaded: false, file: null, type: 'driversLicense' },
@@ -28,7 +29,6 @@ const DocumentUploads = ({ navigation }) => {
     { id: 5, name: "Bank Statement", uploaded: false, file: null, type: 'bankStatement' }
   ]);
   
-  // Store uploaded file IDs - using Map for easy replacement
   const [uploadedFiles, setUploadedFiles] = useState(new Map());
   
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -37,119 +37,87 @@ const DocumentUploads = ({ navigation }) => {
   const [uploadingDoc, setUploadingDoc] = useState(null);
   
   const fileUploadMutation = useUploadFile();
+  const navigation = useNavigation();
 
-  const pickDocument = async (docType) => {
-    try {
-      setUploadingDoc(docType);
-      
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ['image/*', 'application/pdf'],
-        copyToCacheDirectory: true,
-      });
-      
-      if (result.canceled) {
-        setUploadingDoc(null);
-        return;
-      }
 
-        if (result.type === 'success') {
-        console.log("URI:", result.uri);
-        console.log("Name:", result.name);
-        console.log("Size:", result.size); // <-- in bytes
-        console.log("MIME:", result.mimeType);
-      }
-      
+const pickDocument = async (docType) => {
+  try {
+    setUploadingDoc(docType);
     
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ['image/*', 'application/pdf'],
+      copyToCacheDirectory: true,
+    });
+    
+    if (result.canceled || !result.assets || result.assets.length === 0) {
+      setUploadingDoc(null);
+      return;
+    }
 
-      // Then upload to your backend with document type
-      const formData = new FormData();
+    const file = result.assets[0];
 
-      formData.append({
-        "file": result.uri,
-        "mimetype": result.mimeType,
-        "name": result.name,
-        "size": result.size,
-        
-      });
-     
+    console.log("=== FILE PICKER RESULT ===");
+    console.log("URI:", file.uri);
+    console.log("Name:", file.name);
+    console.log("Size:", file.size);
+    console.log("MIME:", file.mimeType);
+    console.log("========================");
 
-      try {
-        const response = await fileUploadMutation.mutateAsync(formData);
-        const uploadId = response.data.id || response.data._id || response.data.fileId;
-        
-        console.log(`File uploaded successfully for ${docType}:`, uploadId);
-        
-        // Store the upload ID with the document type
-        setUploadedFiles(prev => {
-          const newMap = new Map(prev);
-          newMap.set(docType, {
-            id: uploadId,
-            fileName: selectedFile.name,
-            cloudinaryUrl: cloudinaryData.secure_url,
-            publicId: cloudinaryData.public_id
-          });
-          return newMap;
+    const formData = new FormData();
+    formData.append("files", {
+      uri: file.uri,
+      name: file.name,
+      type: file.mimeType || "application/octet-stream",
+    });
+
+
+    
+    console.log("=== SENDING TO BACKEND ===");
+
+    try {
+      const response = await fileUploadMutation.mutateAsync(formData);
+      
+      console.log("=== BACKEND RESPONSE ===");
+      console.log("Full response:", JSON.stringify(response, null, 2));
+      
+      const uploadId = response.data.id || response.data._id || response.data.fileId || 'temp-id-' + Date.now();
+      
+      console.log(`File uploaded successfully for ${docType}:`, uploadId);
+      
+      setUploadedFiles(prev => {
+        const newMap = new Map(prev);
+        newMap.set(docType, {
+          id: uploadId,
+          fileName: file.name,
         });
-         await AsyncStorage.setItem(`doc_${docType}`, JSON.stringify({
-        id: uploadId,
-        fileName: selectedFile.name,
-        cloudinaryUrl: cloudinaryData.secure_url,
-        publicId: cloudinaryData.public_id
-      }));
-        
-        // Update the document state
-        setDocuments(prevDocs => 
-          prevDocs.map(doc => 
-            doc.type === docType 
-              ? { ...doc, uploaded: true, file: selectedFile }
-              : doc
-          )
-        );
-
-       
-
-      } catch (error) {
-        console.error('Error uploading to backend:', error);
-        setShowErrorModal(true);
-      }
+        return newMap;
+      });
+      
+      setDocuments(prevDocs => 
+        prevDocs.map(doc => 
+          doc.type === docType 
+            ? { ...doc, uploaded: true, file: { name: file.name } }
+            : doc
+        )
+      );
 
     } catch (error) {
-      console.error('Error picking document:', error);
+      console.error('=== BACKEND ERROR ===');
+      console.error('Error object:', error);
+      console.error('Error response:', error.response);
+      console.error('Error data:', error.response?.data);
+      console.error('Error status:', error.response?.status);
       setShowErrorModal(true);
-    } finally {
-      setUploadingDoc(null);
     }
-  };
 
-  async function handleCloudinaryUpload(file) {
-    const formData = new FormData();
-    
-    formData.append("file", {
-      uri: file.uri,
-      type: file.mimeType || "application/octet-stream",
-      name: file.name || `file_${Date.now()}`,
-    });
-    formData.append("upload_preset", UPLOAD_PRESET);
-
-    try {
-      const res = await fetch(
-        `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
-        { method: "POST", body: formData }
-      );
-      const data = await res.json();
-      
-      if (!res.ok) throw new Error(data.error?.message || "Upload failed");
-
-      return {
-        secure_url: data.secure_url,
-        public_id: data.public_id,
-      };
-    } catch (err) {
-      console.error("Cloudinary upload error:", err);
-      return null;
-    }
+  } catch (error) {
+    console.error('=== DOCUMENT PICKER ERROR ===');
+    console.error('Error picking document:', error);
+    setShowErrorModal(true);
+  } finally {
+    setUploadingDoc(null);
   }
-
+};
   const removeDocument = (docType) => {
 
     setUploadedFiles(prev => {
@@ -167,39 +135,29 @@ const DocumentUploads = ({ navigation }) => {
   };
 
   const handleSubmitVerification = async () => {
-    const allUploaded = documents.every(doc => doc.uploaded);
-    //TODO: switch to disabled button
-    if (!allUploaded) {
+    const allUploaded = documents.filter(doc => doc.type !== 'driversLicense' && doc.type !== 'bankStatement').every(doc => doc.uploaded);
+    
+    if (!allUploaded) { 
       setShowErrorModal(true);
       return;
     }
     setIsSubmitting(true);
 
-    // Convert Map to object for easy API submission
     const uploadedFilesObject = Object.fromEntries(uploadedFiles);
     
     console.log("All uploaded files with IDs:", uploadedFilesObject);
     
-  
-    // {
-    //   nationalId: { id: "123", fileName: "...", cloudinaryUrl: "...", publicId: "..." },
-    //   driversLicense: { id: "456", fileName: "...", cloudinaryUrl: "...", publicId: "..." },
-    //   ...
-    // } something in this structure.
-
-    //add kyc stuff here.
-
-   
     try {
-       await AsyncStorage.setItem("preDocuments", uploadedFilesObject);
-    console.log("Stored in async storage")
+
+      await AsyncStorage.setItem("preDocuments", JSON.stringify(uploadedFilesObject)); 
+      console.log("Stored in async storage")
       setTimeout(() => {
         setIsSubmitting(false);
         setShowSuccessModal(true);
         
         setTimeout(() => {
           setShowSuccessModal(false);
-          navigation.navigate('PaymentInformation');
+          navigation.navigate('KycScreenOne');
         }, 3000);
       }, 2000);
       
@@ -273,6 +231,8 @@ const DocumentUploads = ({ navigation }) => {
     </Modal>
   );
 
+
+
   const DocumentItem = ({ doc }) => (
     <View style={styles.docItemContainer}>
       <View style={styles.docItemHeader}>
@@ -299,9 +259,9 @@ const DocumentUploads = ({ navigation }) => {
             disabled={uploadingDoc === doc.type}
           >
             {uploadingDoc === doc.type ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator size="small" color="#000" />
             ) : (
-              <MaterialIcons name="cloud-upload" size={20} color="#fff" />
+              <MaterialIcons name="cloud-upload" size={20} color="#000" />
             )}
           </TouchableOpacity>
         )}
@@ -318,6 +278,8 @@ const DocumentUploads = ({ navigation }) => {
       )}
     </View>
   );
+
+
 
   return (
     <View style={styles.container}>

@@ -1,23 +1,24 @@
 import { Feather } from "@expo/vector-icons";
-import React, { useState, useRef, useEffect } from "react";
-import { useVerifyOtpEndPoint } from "../../services/otpVerification.service";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
+  Modal,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  ActivityIndicator,
-  Modal,
 } from "react-native";
 import Logo from "../../assets/Logo.png";
+import { useVerifyOtpEndPoint } from "../../services/otpVerification.service";
 
 const OTP = ({ navigation }) => {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [email, setEmail] = useState("");
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const inputRefs = useRef([]);
   const otpVerify = useVerifyOtpEndPoint();
 
@@ -89,7 +90,7 @@ const OTP = ({ navigation }) => {
 
     const code = otpArray.join('');
     
-    // Validate that we have exactly 6 digits
+
     if (code.length !== 6) {
       console.log("❌ OTP must be 6 digits");
       return;
@@ -102,12 +103,19 @@ const OTP = ({ navigation }) => {
       console.log("✅ OTP verification successful!");
       setShowSuccessModal(true);
     } catch (err) {
-      console.error("❌ OTP verification failed:", err);
-      // Clear OTP on error
+      console.error("OTP verification failed:", err);
+
+      if (err?.response?.data?.message) {
+        setErrorMessage(err.response.data.message);
+      } else {
+        setErrorMessage("Something went wrong. Please try again.");
+    }
+    } finally {
       setOtp(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
     }
   };
+
 
   const handleSuccessModalClose = () => {
     setShowSuccessModal(false);
@@ -172,7 +180,12 @@ const OTP = ({ navigation }) => {
             />
           ))}
         </View>
-
+          
+                {errorMessage && (
+        <Text style={{ color: "red", marginBottom: 10, textAlign: "center" }}>
+          {errorMessage}
+        </Text>
+      )}
         <TouchableOpacity
           style={[
             styles.verifyBtn,
