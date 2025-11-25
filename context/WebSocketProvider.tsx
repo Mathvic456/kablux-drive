@@ -3,6 +3,8 @@ import { jwtDecode } from "jwt-decode";
 import React, { createContext, useEffect, useRef, useState } from "react";
 import * as Location from "expo-location";
 import { navigationRef } from "../screens/context/NavigationContext";
+import { useDriverRide } from "./DriverRideContext";
+
 
 const WSS_URL = process.env.EXPO_PUBLIC_WSS_URL;
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
@@ -60,6 +62,8 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; long: number } | null>(null);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [rideUpdates, setRideUpdates] = useState<any[]>([]);
+
+  const { handleWsEvent } = useDriverRide();
 
   const isExpired = (token: string) => {
     try {
@@ -181,6 +185,8 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
       console.log("📍 Location update sent:", location);
     }
   };
+
+  
 
   const startLocationTracking = async () => {
     try {

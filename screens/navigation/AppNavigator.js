@@ -32,6 +32,7 @@ import DriverIncomeDashboard from '../settings/DriverIncomeDashboard';
 import PriceDetails from '../ride/PriceDetails'
 import RideDetails from '../ride/RideDetails'
 import OrderScreen from '../dashboard/OrderScreen';
+import DriverMapScreen from '../dashboard/DriverMapScreen';
 
 
 const Stack = createStackNavigator();
@@ -117,6 +118,11 @@ const AppNavigator = () => {
       <Stack.Screen
       name='OrderScreen'
       component={OrderScreen}
+      />
+
+      <Stack.Screen
+      name='DriverMapScreen'
+      component={DriverMapScreen}
       />
 
 

@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import AppNavigator from './screens/navigation/AppNavigator';
 import { WebSocketProvider } from './context/WebSocketProvider';
 import { navigationRef } from './screens/context/NavigationContext';
+import { DriverRideProvider } from './context/DriverRideContext';
 
 
 const queryClient = new QueryClient();
@@ -12,11 +13,11 @@ export default function App() {
   return (
   <NavigationContainer ref={navigationRef}>
     <WebSocketProvider>
-
+      <DriverRideProvider>
       <QueryClientProvider client={queryClient}>
       <AppNavigator />
       </QueryClientProvider>
-
+    </DriverRideProvider>
     </WebSocketProvider>
         </NavigationContainer>
   );

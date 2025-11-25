@@ -11,11 +11,12 @@ import {
   RefreshControl,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 
-
+// Components
 import DonutChart from "../components/DonutChart";
 import UpgradeNotificationCard from "../components/UpgradeNotificationCard";
 import TierOverlay from "../components/TierOverlay";
@@ -23,21 +24,42 @@ import RideOfferCard from "../components/RideOfferCard";
 import CounterOfferItem from "../components/CounterOfferItem";
 import HomeHeader from "../components/HomeHeader";
 import StatusBadge from "../components/StatusBadge";
+import ActiveRideSection from "../components/ActiveRideSection";
 
 // Context & Services
 import { useProfile } from "../../services/profile.service";
+import { useStartRide, useFinishRide } from "../../services/rides.service";
 import { SocketContext } from "../../context/WebSocketProvider";
+import { useDriverRide } from "../../context/DriverRideContext";
+import { api } from "../../services/api";
 
 export default function Home() {
   const navigation = useNavigation();
+  
+  // -- UI State --
   const [tierOverlayVisible, setTierOverlayVisible] = useState(false);
   const [rideModalVisible, setRideModalVisible] = useState(false);
   const [updatesModalVisible, setUpdatesModalVisible] = useState(false);
   const [uploadModalVisible, setUploadModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // -- Data State --
   const [negotiationUpdates, setNegotiationUpdates] = useState({});
   const [acceptedRide, setAcceptedRide] = useState(null);
   const [acceptedModalVisible, setAcceptedModalVisible] = useState(false);
+  const [rideDetails, setRideDetails] = useState(null);
+  const [loadingRideDetails, setLoadingRideDetails] = useState(false);
+
+  // -- Contexts --
+  const { 
+    handleWsEvent, 
+    status, 
+    rideId, 
+    riderId, 
+    startRide,
+    finishRide,
+    reset 
+  } = useDriverRide();
 
   const {
     socket,
@@ -56,23 +78,98 @@ export default function Home() {
     isError: profileError,
   } = useProfile();
 
+  // -- React Query Mutations --
+  const startRideMutation = useStartRide();
+  const finishRideMutation = useFinishRide();
+
+  // -- Helper: Fetch Ride Details --
+  const fetchRideDetails = async (id) => {
+    if (!id) {
+      console.warn("⚠️ fetchRideDetails: No ride ID provided");
+      return null;
+    }
+    
+    try {
+      console.log(`🔍 Fetching ride details for ID: ${id}`);
+      setLoadingRideDetails(true);
+      
+      const response = await api.get(`rides/${id}/details/`);
+      
+      console.log("✅ Ride details fetched successfully");
+      console.log("📦 Response data:", JSON.stringify(response.data, null, 2));
+      
+      // Extract the nested data structure
+      const rideData = response.data?.data || response.data;
+      
+      // Map the API response to a cleaner structure
+      const mappedDetails = {
+        pickup_address: rideData.ride_info?.start_address || "Pickup Location",
+        dropoff_address: rideData.ride_info?.end_address || "Dropoff Location",
+        fare: rideData.fare || 0,
+        driver_info: rideData.driver_info || {},
+        raw: rideData, // Keep raw data just in case
+      };
+      
+      console.log("🗺️ Mapped ride details:", mappedDetails);
+      
+      setRideDetails(mappedDetails);
+      return mappedDetails;
+      
+    } catch (error) {
+      console.error("❌ Fetch ride details error:", error);
+      
+      if (error.response?.status === 401) {
+        Alert.alert("Authentication Error", "Please log in again.");
+      } else if (error.response?.status === 404) {
+        Alert.alert("Error", "Ride not found.");
+      } else {
+        const errorMessage = error.response?.data?.detail || 
+                            error.response?.data?.message || 
+                            "Failed to fetch ride details";
+        Alert.alert("Error", errorMessage);
+      }
+      
+      return null;
+    } finally {
+      setLoadingRideDetails(false);
+    }
+  };
+
+  // -- Effects --
+
+  // 1. Check Profile Verification
   useEffect(() => {
     if (profile && !profile.is_verified) {
       setUploadModalVisible(true);
     }
   }, [profile]);
 
+  // 2. Fetch Ride Details when rideId changes
+  useEffect(() => {
+    if (!rideId) {
+      console.log("⚠️ No rideId, clearing ride details");
+      setRideDetails(null);
+      return;
+    }
+    
+    console.log("🔄 rideId changed, fetching details:", rideId);
+    fetchRideDetails(rideId);
+  }, [rideId]);
+
+  // 3. WebSocket Listener
   useEffect(() => {
     if (!socket) return;
 
     const onMessage = (ev) => {
       try {
-        const raw =
-          typeof ev.data === "string" ? ev.data : JSON.stringify(ev.data);
+        const raw = typeof ev.data === "string" ? ev.data : JSON.stringify(ev.data);
         const msg = JSON.parse(raw);
 
         console.log("📩 [DRIVER HOME] Incoming message:", msg);
 
+        handleWsEvent(msg);
+
+        // Handle negotiation updates
         if (msg.type === "negotiation_update" && msg.data) {
           const payload = msg.data;
           const viewId = payload.ride_request_view_id;
@@ -92,12 +189,14 @@ export default function Home() {
           }));
         }
 
-        const eventType = msg.type || msg.event;
-
-        if (eventType === "accept_ride_success") {
-          setAcceptedRide(msg.data || msg.ride_id);
+        // Handle ride created event
+        if (msg.type === "notify" && msg.event === "ride_created") {
+          console.log("✅ [DRIVER] Ride created event detected!");
+          const rideInfo = msg.payload || { ride_id: msg.ride_id };
+          setAcceptedRide(rideInfo);
           setAcceptedModalVisible(true);
         }
+
       } catch (err) {
         console.error("❌ [DRIVER HOME] Failed to parse message:", err);
       }
@@ -107,16 +206,19 @@ export default function Home() {
     return () => {
       socket.removeEventListener?.("message", onMessage);
     };
-  }, [socket]);
+  }, [socket, handleWsEvent]);
+
+  // -- Handlers --
 
   const handleOpenDrawer = () => {
-    // Try standard drawer methods
     navigation.getParent()?.getParent("DrawerNavigator")?.openDrawer();
   };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    if (rideId) {
+      await fetchRideDetails(rideId);
+    }
     setRefreshing(false);
   };
 
@@ -126,22 +228,23 @@ export default function Home() {
 
   const handleAccept = async (offer) => {
     try {
-      const rideId = offer?.ride_request_view_id ?? offer?.ride_id ?? null;
+      const rideRequestId = offer?.ride_request_view_id ?? offer?.ride_id ?? null;
 
-      if (!rideId) {
+      if (!rideRequestId) {
         alert("Could not find ride ID");
         return;
       }
-
       if (!socket || socket.readyState !== WebSocket.OPEN) {
         alert("WebSocket not connected");
         return;
       }
-
+      
+      console.log("Accepting ride:", rideRequestId);
+      
       const data = {
         type: "accept_ride",
         data: {
-          ride_request_view_id: rideId,
+          ride_request_view_id: rideRequestId,
         },
       };
 
@@ -171,6 +274,48 @@ export default function Home() {
     }
   };
 
+const handleStartRide = async () => {
+  if (!rideId || typeof rideId !== 'string') {
+    Alert.alert("Error", "No valid ride ID found");
+    return;
+  }
+
+  try {
+    console.log("🚗 Starting ride flow for:", rideId);
+    await startRideMutation.mutateAsync(rideId);
+    console.log("✅ Ride start API call completed, waiting for WS confirmation...");
+
+  } catch (error) {
+    console.error("❌ Error in handleStartRide:", error);
+  }
+};
+
+  const handleFinishRide = async () => {
+    if (!rideId || typeof rideId !== 'string') {
+      Alert.alert("Error", "No valid ride ID found");
+      return;
+    }
+
+    try {
+      console.log("🏁 Finishing ride:", rideId);
+
+      // Call the mutation
+      await finishRideMutation.mutateAsync(rideId);
+      
+      // Update context state to 'not_busy'
+      finishRide();
+      
+      // Clear local state
+      setRideDetails(null);
+      
+      console.log("✅ Ride finish completed successfully");
+
+    } catch (error) {
+      console.error("❌ Error in handleFinishRide:", error);
+      // Error alert is handled in the mutation hook
+    }
+  };
+
   const clearNegotiationUpdate = (viewId) => {
     setNegotiationUpdates((prev) => {
       const updated = { ...prev };
@@ -183,10 +328,13 @@ export default function Home() {
     (a, b) => b.timestamp - a.timestamp,
   );
 
+  // -- Render Loading/Error --
+
   if (profileLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#facc15" />
+        <Text style={styles.loadingText}>Loading profile...</Text>
       </View>
     );
   }
@@ -198,6 +346,8 @@ export default function Home() {
       </View>
     );
   }
+
+  // -- Render Main --
 
   return (
     <View style={styles.mainContainer}>
@@ -223,9 +373,28 @@ export default function Home() {
             onMenuPress={handleOpenDrawer}
           />
 
+          {/* Debug Reset Button */}
+          <TouchableOpacity style={styles.debugResetButton} onPress={() => reset()}>
+            <Ionicons name="refresh" size={18} color="white" />
+            <Text style={styles.debugResetButtonText}>Reset State</Text>
+          </TouchableOpacity>
+
           <StatusBadge
             isConnected={isConnected}
             currentLocation={currentLocation}
+          />
+
+          {/* Active Ride Section - Pure Component */}
+          <ActiveRideSection
+            status={status}
+            rideId={rideId}
+            riderId={riderId}
+            rideDetails={rideDetails}
+            onStartRide={handleStartRide}
+            onFinishRide={handleFinishRide}
+            isStarting={startRideMutation.isPending}
+            isFinishing={finishRideMutation.isPending}
+            isLoadingDetails={loadingRideDetails}
           />
 
           <View style={styles.chartContainer}>
@@ -234,8 +403,8 @@ export default function Home() {
 
           <UpgradeNotificationCard />
 
-          {/* Ride Orders Section */}
-          {rideNotifications.length > 0 ? (
+          {/* Ride Orders Section - Only show when not busy */}
+          {status === 'not_busy' && rideNotifications.length > 0 ? (
             <View style={styles.sectionContainer}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>
@@ -252,7 +421,7 @@ export default function Home() {
                 <Text style={styles.viewButtonText}>View Orders</Text>
               </TouchableOpacity>
             </View>
-          ) : (
+          ) : status === 'not_busy' ? (
             <View style={styles.emptyContainer}>
               <Ionicons name="car-outline" size={48} color="#666" />
               <Text style={styles.emptyText}>No ride orders available</Text>
@@ -260,10 +429,10 @@ export default function Home() {
                 {isConnected ? "Waiting for new requests..." : "Connecting..."}
               </Text>
             </View>
-          )}
+          ) : null}
 
           {/* Ride Updates Section */}
-          {negotiationArray.length > 0 && (
+          {negotiationArray.length > 0 && status === 'not_busy' && (
             <View style={styles.sectionContainer}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>
@@ -442,7 +611,7 @@ export default function Home() {
             <Text style={styles.alertTitle}>Ride Accepted!</Text>
             <Text style={styles.alertMessage}>
               {acceptedRide?.ride_id
-                ? `Ride with ID: ${acceptedRide.ride_id.slice(0, 16)}... has been accepted.`
+                ? `Ride ID: ${acceptedRide.ride_id.slice(0, 16)}... has been accepted. Head to the pickup location!`
                 : "Your ride has been accepted successfully."}
             </Text>
             <TouchableOpacity
@@ -452,7 +621,7 @@ export default function Home() {
                 setAcceptedRide(null);
               }}
             >
-              <Text style={styles.primaryButtonText}>OK</Text>
+              <Text style={styles.primaryButtonText}>Got it!</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -481,6 +650,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
     justifyContent: "center",
     alignItems: "center",
+  },
+  loadingText: {
+    color: "white",
+    marginTop: 10,
+    fontSize: 16,
   },
   errorContainer: {
     flex: 1,
@@ -629,7 +803,20 @@ const styles = StyleSheet.create({
     color: "#999",
     fontSize: 16,
   },
+  debugResetButton: {
+    flexDirection: "row",
+    backgroundColor: "#d32f2f",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    alignItems: "center",
+    gap: 6,
+    alignSelf: "flex-start",
+    marginBottom: 12,
+  },
+  debugResetButtonText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "600",
+  },
 });
-
-
-

@@ -8,21 +8,32 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "owner": "crashingout",
+
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "config": {
+        "googleMapsApiKey": "IzaSyD8sdkbIi1FZnlJss8U4byBQ8hFbyMG7ro"
+      }
     },
+
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
 
-      
+      "config": {
+        "googleMaps": {
+          "apiKey": "IzaSyD8sdkbIi1FZnlJss8U4byBQ8hFbyMG7ro"
+        }
+      },
+
       "edgeToEdgeEnabled": true,
 
       "permissions": [
@@ -47,6 +58,7 @@
         }
       ]
     ],
+
     "extra": {
       "eas": {
         "projectId": "ba89ec3d-c46f-433a-9e79-3198aab91f8c"
