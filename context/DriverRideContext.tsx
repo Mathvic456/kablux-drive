@@ -60,9 +60,8 @@ export const DriverRideProvider = ({ children }) => {
     await AsyncStorage.setItem("driverRideState", JSON.stringify(data));
   };
 
- const handleWsEvent = (msg: any) => {
-  // normalize
-  const event = msg.event || msg.type || msg.data?.event || msg.data?.type;
+const handleWsEvent = (msg: any) => {
+  const event = msg.data?.event || msg.event || msg.type;
 
   console.log("🔍 Handling WS event:", event, "Full message:", msg);
 
@@ -95,7 +94,6 @@ export const DriverRideProvider = ({ children }) => {
     });
   }
 };
-
 
 
 

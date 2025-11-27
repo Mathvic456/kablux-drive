@@ -16,7 +16,7 @@ const ActiveRideSection = ({
 }) => {
   const navigation = useNavigation();
   
-  // If not busy, don't render anything
+
   if (status === 'not_busy') return null;
 
   // Format currency

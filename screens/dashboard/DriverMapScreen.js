@@ -15,6 +15,8 @@ import {
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import MapViewDirections from "react-native-maps-directions";
 import { darkMapStyle } from '../../styles/darkMapStyle';
+import { useRoute } from '@react-navigation/native';
+import { useDriverRide } from '../../context/DriverRideContext';
 
 const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
 
@@ -37,15 +39,15 @@ const mockRideData = {
 
 export default function DriverMapScreen({ navigation }) {
   const mapRef = useRef(null);
+  const route = useRoute();
+  const { rideDetails } = route.params;
+  const { status } = useDriverRide();
 
   const [slideAnim] = useState(new Animated.Value(height * 0.25));
   
 
   const [currentDriverLocation, setCurrentDriverLocation] = useState(null);
-  const [rideMetrics, setRideMetrics] = useState({
-    distance: mockRideData.initialDistance,
-    duration: mockRideData.initialTime
-  });
+  const [location, setLocation] = useState(null);
 
   const locationSubscription = useRef(null);
 
@@ -92,17 +94,38 @@ export default function DriverMapScreen({ navigation }) {
 
 
   useEffect(() => {
-    if (currentDriverLocation && mockRideData.dropOffLocation && mapRef.current) {
-      mapRef.current.fitToCoordinates([currentDriverLocation, mockRideData.dropOffLocation], {
+    if (currentDriverLocation &&  location && mapRef.current) {
+      mapRef.current.fitToCoordinates([currentDriverLocation, location], {
         edgePadding: { top: 100, right: 50, bottom: 250, left: 50 }, 
         animated: true,
       });
     }
 
-  }, [currentDriverLocation === null]); 
+  }, [currentDriverLocation, location]); 
+
+  useEffect(() => {
+  if (!rideDetails) return;
+
+  const info = rideDetails.raw.ride_info;
+
+  if (status === "ride_created") {
+    setLocation({
+      latitude: info.pickup_lat,
+      longitude: info.pickup_lng,
+      address: info.start_address,
+    });
+  } else if (status === "ride_started") {
+    setLocation({
+      latitude: info.dropoff_lat,
+      longitude: info.dropoff_lng,
+      address: info.end_address,
+    });
+  }
+}, [status]);
+
 
   const handleBackPress = () => {
-    navigation.navigate('home');
+    navigation.navigate('Tabs');
   };
 
   const renderDriverMapContent = () => {
@@ -156,36 +179,42 @@ export default function DriverMapScreen({ navigation }) {
         </Marker>
 
         {/* Drop-off Location Marker (Static) */}
-        <Marker
-          coordinate={mockRideData.dropOffLocation}
-          title="Rider Drop-off"
-          description={mockRideData.dropOffLocation.address}
-        >
-          <View style={styles.destinationMarkerContainer}>
-            <FontAwesome5 name="flag-checkered" size={20} color="#1c1c1c" />
-          </View>
-        </Marker>
+  {location && (
+    <Marker
+      coordinate={location}
+      title="Rider Drop-off"
+      description={location.address}
+    >
+      <View style={styles.destinationMarkerContainer}>
+        <FontAwesome5 name="flag-checkered" size={20} color="#1c1c1c" />
+      </View>
+    </Marker>
+  )}
+
 
         {/* Route Line from Driver (Dynamic) to Drop-off */}
         <MapViewDirections
           origin={currentDriverLocation}
-          destination={mockRideData.dropOffLocation}
+          destination={location}
           apikey={GOOGLE_API_KEY}
           strokeWidth={5}
           strokeColor="#007aff"
           optimizeWaypoints={true}
-          onReady={(result) => {
-            setRideMetrics({
-              distance: `${result.distance.toFixed(1)} km`,
-              duration: `${Math.round(result.duration)} min`
-            });
-
-          }}
           onError={(errMessage) => console.warn("MapViewDirections Error:", errMessage)}
         />
       </MapView>
     );
   };
+
+  if (!location) {
+  return (
+    <View style={styles.mapPlaceholder}>
+      <ActivityIndicator size="large" color="#007aff" />
+      <Text style={styles.mapSubtext}>Loading ride location...</Text>
+    </View>
+  );
+}
+
 
   return (
     <View style={styles.container}>
@@ -212,12 +241,7 @@ export default function DriverMapScreen({ navigation }) {
         <View style={styles.infoRow}>
           <View style={styles.infoBox}>
             <Text style={styles.infoLabel}>Distance to Drop-off</Text>
-            <Text style={styles.infoValue}>{rideMetrics.distance}</Text>
-          </View>
-          <View style={styles.separator} />
-          <View style={styles.infoBox}>
-            <Text style={styles.infoLabel}>Est. Time</Text>
-            <Text style={styles.infoValue}>{rideMetrics.duration}</Text>
+            <Text style={styles.infoValue}>{location?.address || "Loading..."}</Text>
           </View>
         </View>
 
@@ -225,7 +249,7 @@ export default function DriverMapScreen({ navigation }) {
           <Feather name="map-pin" size={18} color="#007aff" style={{ marginRight: 10 }} />
           <View>
             <Text style={styles.destinationTitle}>Drop-off Location</Text>
-            <Text style={styles.destinationAddress}>{mockRideData.dropOffLocation.address}</Text>
+            <Text style={styles.destinationAddress}>{location?.address || "Loading..."}</Text>
           </View>
         </View>
 
