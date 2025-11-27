@@ -27,6 +27,7 @@ interface SocketContextValue {
   socket: WebSocket | null;
   isConnected: boolean;
   rideNotifications: RideNotification[];
+  setRideNotifications: (notifications: RideNotification[]) => void;
   setTokenFromOutside?: (token: string) => void;
   currentLocation: { lat: number; long: number } | null;
   sessionExpired: boolean;
@@ -39,6 +40,7 @@ export const SocketContext = createContext<SocketContextValue>({
   socket: null,
   isConnected: false,
   rideNotifications: [],
+  setRideNotifications: () => {},
   currentLocation: null,
   sessionExpired: false,
   clearSessionExpired: () => {},
@@ -424,6 +426,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         socket: ws.current, 
         isConnected, 
         rideNotifications,
+        setRideNotifications: setRideNotifications,
         setTokenFromOutside, 
         currentLocation,
         sessionExpired,

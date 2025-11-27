@@ -33,6 +33,8 @@ import PriceDetails from '../ride/PriceDetails'
 import RideDetails from '../ride/RideDetails'
 import OrderScreen from '../dashboard/OrderScreen';
 import DriverMapScreen from '../dashboard/DriverMapScreen';
+import ResetPasswordEmailScreen from '../auth/ResetPasswordEmailScreen';
+import ResetCredentialsScreen from '../auth/ResetCredentialsScreen';
 
 
 const Stack = createStackNavigator();
@@ -78,6 +80,16 @@ const AppNavigator = () => {
       <Stack.Screen 
         name="Login" 
         component={Login}
+      />
+
+      <Stack.Screen 
+        name="ResetPasswordEmail" 
+        component={ResetPasswordEmailScreen}
+      />
+
+      <Stack.Screen 
+        name="ResetCredentials" 
+        component={ResetCredentialsScreen}
       />
 
       <Stack.Screen 

@@ -68,6 +68,7 @@ export default function Home() {
     sessionExpired,
     clearSessionExpired,
     rideNotifications,
+    setRideNotifications,
     clearNotification,
     clearAllNotifications,
   } = useContext(SocketContext);
@@ -262,10 +263,17 @@ export default function Home() {
     }
   };
 
-  const handleCounter = (offer) => {
-    setRideModalVisible(false);
-    navigation.navigate("OrderScreen", { item: offer, socket });
-  };
+const handleCounter = (offer) => {
+  setRideModalVisible(false);
+
+  const rideRequestId = offer?.ride_request_view_id ?? offer?.ride_id;
+
+  navigation.navigate("OrderScreen", {
+    item: offer,
+    socket,
+    onCounterSubmitted: () => removeRideNotification(rideRequestId),
+  });
+};
 
   const handleDecline = (offer) => {
     clearNotification(offer.ride_id);
@@ -289,6 +297,15 @@ const handleStartRide = async () => {
     console.error("❌ Error in handleStartRide:", error);
   }
 };
+
+const removeRideNotification = (id) => {
+  setRideNotifications(prev =>
+    prev.filter(item =>
+      item.ride_request_view_id !== id && item.ride_id !== id
+    )
+  );
+};
+
 
   const handleFinishRide = async () => {
     if (!rideId || typeof rideId !== 'string') {

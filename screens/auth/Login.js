@@ -87,8 +87,7 @@ const handleSubmit = async () => {
   };
 
   const handleForgotPassword = () => {
-    // Add your forgot password navigation here
-    console.log("Forgot password pressed");
+    navigation.navigate('ResetPasswordEmail');
   };
 
   return (

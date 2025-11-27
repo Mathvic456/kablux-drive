@@ -15,7 +15,8 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 export default function OrderScreen() {
   const navigation = useNavigation();
   const route = useRoute();
-  const { item, socket } = route.params || {};
+  const { item, socket, onCounterSubmitted } = route.params || {};
+
 
   const [counterAmount, setCounterAmount] = useState(item?.offer_amount || 0);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -43,44 +44,46 @@ export default function OrderScreen() {
     setCounterAmount(prev => Math.max(0, prev - 100));
   };
 
-  const handleSubmitCounter = async () => {
-    if (counterAmount <= 0) {
-      alert('Please enter a valid counter offer amount');
-      return;
+const handleSubmitCounter = async () => {
+  if (counterAmount <= 0) {
+    alert('Please enter a valid counter offer amount');
+    return;
+  }
+
+  if (!socket || socket.readyState !== WebSocket.OPEN) {
+    alert('WebSocket connection is not available.');
+    return;
+  }
+
+  setIsSubmitting(true);
+
+  try {
+    const message = {
+      type: "create_driver_offer",
+      data: {
+        ride_request_id: item.ride_id,
+        counter_offer: counterAmount,
+      },
+    };
+
+    socket.send(JSON.stringify(message));
+
+    // Call the callback to remove the item from the FlatList
+    if (onCounterSubmitted) {
+      onCounterSubmitted();
     }
 
-    if (!socket || socket.readyState !== WebSocket.OPEN) {
-      alert('WebSocket connection is not available. Please try again.');
-      return;
-    }
+    // navigate back
+    setTimeout(() => {
+      navigation.goBack();
+    }, 300);
 
-    setIsSubmitting(true);
-
-    try {
-      const message = {
-        type: "create_driver_offer",
-        data: {
-          ride_request_id: item.ride_id,
-          counter_offer: counterAmount,
-        },
-      };
-
-      console.log('📡 [DRIVER] Sending counter offer:', JSON.stringify(message, null, 2));
-      
-      socket.send(JSON.stringify(message));
-      
-      console.log('✅ [DRIVER] Counter offer sent successfully!');
-      
-      // Navigate back after a short delay to allow message to send
-      setTimeout(() => {
-        navigation.goBack();
-      }, 300);
-    } catch (error) {
-      console.error('❌ [DRIVER] Error submitting counter offer:', error);
-      alert('Failed to submit counter offer. Please try again.');
-      setIsSubmitting(false);
-    }
-  };
+  } catch (error) {
+    console.error('Error submitting counter:', error);
+    alert('Failed to submit counter offer.');
+    setIsSubmitting(false);
+  }
+};
 
   const difference = counterAmount - item.offer_amount;
 
