@@ -4,14 +4,12 @@ import { AxiosResponse } from "axios";
 import { api } from "./api";
 import { CREATEACCOUNT_TYPE } from "./type";
 
-
 // Types for modal control
 export type AuthResult = {
   success: boolean;
   message: string;
   data?: any;
 };
-
 
 export const useRegisterEndPoint = () => {
   const mutation = useMutation<AxiosResponse<any>, any, CREATEACCOUNT_TYPE>({
@@ -28,9 +26,9 @@ export const useRegisterEndPoint = () => {
 };
 
 export const useLoginEndPoint = (
-  navigation: any, 
-  remember: boolean, 
-  setTokenFromOutside?: (token: string) => void
+  navigation: any,
+  remember: boolean,
+  setTokens: (access: string, refresh: string, remember: boolean) => Promise<void>
 ) => {
   return useMutation({
     mutationFn: (data) => api.post("auth/login/", data),
@@ -40,16 +38,22 @@ export const useLoginEndPoint = (
       const refreshToken = res.data?.data?.refresh;
       const userId = res.data?.data?.user?.id;
 
-      await AsyncStorage.setItem("token", token);
-      await AsyncStorage.setItem("refreshToken", refreshToken);
-      await AsyncStorage.setItem("userId", userId);
-      console.log("✅ Token saved!");
-
-      if (setTokenFromOutside) {
-        console.log("🔌 Connecting WebSocket with new token...");
-        setTokenFromOutside(token);
+      if (!token || !refreshToken) {
+        console.error("❌ Missing tokens in response");
+        throw new Error("Invalid login response");
       }
 
+      console.log(`🔑 Login successful (Remember Me: ${remember})`);
+
+      // Store tokens in AuthContext
+      // This will handle both Context (in-memory) and AsyncStorage (if remember = true)
+      await setTokens(token, refreshToken, remember);
+
+      // Store userId separately (this is not auth-related, so keep in AsyncStorage)
+      await AsyncStorage.setItem("userId", userId);
+      console.log("✅ User ID saved");
+
+      // Navigate to main app
       navigation.replace("Tabs");
     },
 
@@ -65,21 +69,26 @@ export const useLoginEndPoint = (
   });
 };
 
-
-
-export const useLogoutEndPoint = () => {
+export const useLogoutEndPoint = (
+  clearTokens: () => Promise<void>
+) => {
   return useMutation({
     mutationFn: async () => {
-      await AsyncStorage.removeItem("token");
+      // Clear all auth tokens through AuthContext
+      // This handles: token, refreshToken, and rememberMe flag
+      await clearTokens();
+      
+      // Clear other non-auth data
+      await AsyncStorage.multiRemove(['userId', 'pendingEmail']);
+      
+      console.log("🗑️ Cleared all user data");
       return true;
     },
     onSuccess: () => {
-      console.log("User logged out");
-      // Don't show alert here - let component handle the modal
+      console.log("✅ User logged out successfully");
     },
     onError: (error: any) => {
-      console.error("Logout error:", error);
-      // Return error for component to handle
+      console.error("❌ Logout error:", error);
     },
   });
 };

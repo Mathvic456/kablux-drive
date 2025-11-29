@@ -1,15 +1,16 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios, { AxiosInstance, RawAxiosRequestHeaders } from "axios";
 import { API_URL } from "../constants/api";
-//import Constants from "expo-constants";
-
-/*if (!Constants.expoConfig?.extra?.apiUrl) {
-  throw new Error("API URL is missing in expoConfig.extra");
-}*/
-//Constants.expoConfig.extra.apiUrl; => use this when building
-
 
 console.log("🔧 [API Config] Base URL:", API_URL);
+
+// Store a reference to getValidToken function
+// This will be set by the AuthProvider after initialization
+let getValidTokenFn: (() => Promise<string | null>) | null = null;
+
+export const setAuthTokenGetter = (fn: () => Promise<string | null>) => {
+  getValidTokenFn = fn;
+  console.log("✅ Auth token getter registered");
+};
 
 export const api: AxiosInstance = axios.create({
   baseURL: API_URL,
@@ -28,14 +29,21 @@ api.interceptors.request.use(async (config) => {
 
     // Skip token for all auth routes
     if (!config.url?.includes("auth/")) {
-      const token = await AsyncStorage.getItem("token");
-      console.log(`🔐 [API Request ${requestId}] Token found in storage:`, !!token);
+      // Use AuthContext's getValidToken if available
+      let token: string | null = null;
+      
+      if (getValidTokenFn) {
+        token = await getValidTokenFn();
+        console.log(`🔐 [API Request ${requestId}] Token from Context:`, !!token);
+      } else {
+        console.warn(`⚠️ [API Request ${requestId}] Auth getter not initialized yet`);
+      }
 
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
         console.log(`✅ [API Request ${requestId}] Authorization header set`);
       } else {
-        console.log(`❌ [API Request ${requestId}] No token found`);
+        console.log(`❌ [API Request ${requestId}] No valid token available`);
       }
     } else {
       console.log(`⚡ [API Request ${requestId}] Skipping token for auth endpoint`);
@@ -55,11 +63,11 @@ api.interceptors.request.use(async (config) => {
   }
 
   if (config.url?.includes("auth/") && config.headers.Authorization) {
-  delete config.headers.Authorization;
-}
+    delete config.headers.Authorization;
+  }
+  
   return config;
 });
-
 
 api.interceptors.response.use(
   (response) => {
@@ -77,28 +85,20 @@ api.interceptors.response.use(
     console.error(`🚨 [API Error ${requestId}] Message:`, error.message);
     
     if (error.response) {
-      // Server responded with error status
       console.error(`🚨 [API Error ${requestId}] Response headers:`, error.response.headers);
       console.error(`🚨 [API Error ${requestId}] Response data:`, error.response.data);
       
-      // Specific handling for common errors
       if (error.response.status === 401) {
         console.error(`🔐 [API Error ${requestId}] AUTHENTICATION ERROR - Invalid or missing token`);
-        // Check if we have a token stored
-        AsyncStorage.getItem("token").then(token => {
-          console.log(`🔐 [API Error ${requestId}] Current stored token:`, token ? `Exists (${token.length} chars)` : "None");
-        });
       } else if (error.response.status === 404) {
         console.error(`🔍 [API Error ${requestId}] ENDPOINT NOT FOUND`);
       } else if (error.response.status === 500) {
         console.error(`💥 [API Error ${requestId}] SERVER ERROR`);
       }
     } else if (error.request) {
-      // Request was made but no response received
       console.error(`🌐 [API Error ${requestId}] NETWORK ERROR - No response received`);
       console.error(`🌐 [API Error ${requestId}] Request:`, error.request);
     } else {
-      // Something else happened
       console.error(`⚡ [API Error ${requestId}] UNKNOWN ERROR:`, error.message);
     }
     
@@ -107,29 +107,6 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-
-// Test function to verify API configuration
-export const testApiConnection = async () => {
-  console.log("🧪 [API Test] Testing API connection...");
-  
-  try {
-    const token = await AsyncStorage.getItem("token");
-    console.log("🧪 [API Test] Stored token:", token ? `Exists (${token.length} chars)` : "None");
-    
-    console.log("🧪 [API Test] Base URL:", API_URL);
-    console.log("🧪 [API Test] All storage keys:", await AsyncStorage.getAllKeys());
-    
-    return {
-      hasToken: !!token,
-      tokenLength: token?.length || 0,
-      baseUrl: API_URL,
-      storageKeys: await AsyncStorage.getAllKeys()
-    };
-  } catch (error) {
-    console.error("🧪 [API Test] Error during test:", error);
-    throw error;
-  }
-};
 
 export const logoutApi: AxiosInstance = axios.create({
   baseURL: API_URL,

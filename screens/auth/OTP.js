@@ -3,6 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert, // Added Alert
   Image,
   Modal,
   StyleSheet,
@@ -12,15 +13,23 @@ import {
   View,
 } from "react-native";
 import Logo from "../../assets/Logo.png";
-import { useVerifyOtpEndPoint } from "../../services/otpVerification.service";
+// 👇 Import both hooks
+import { useVerifyOtpEndPoint, useResendOtpEndPoint } from "../../services/otpVerification.service";
 
 const OTP = ({ navigation }) => {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [email, setEmail] = useState("");
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  
+  // 👇 Timer state for resend cooldown
+  const [resendTimer, setResendTimer] = useState(0);
+
   const inputRefs = useRef([]);
   const otpVerify = useVerifyOtpEndPoint();
+  
+  // 👇 Initialize Resend Hook
+  const otpResend = useResendOtpEndPoint();
 
   useEffect(() => {
     const loadEmail = async () => {
@@ -45,8 +54,34 @@ const OTP = ({ navigation }) => {
     return () => clearTimeout(timer);
   }, []);
 
+  // 👇 Timer Logic: Countdown every second
+  useEffect(() => {
+    let interval;
+    if (resendTimer > 0) {
+      interval = setInterval(() => {
+        setResendTimer((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [resendTimer]);
+
+  // 👇 Handle Resend Action
+  const handleResend = async () => {
+    if (!email) return;
+    setErrorMessage("");
+    
+    try {
+      await otpResend.mutateAsync({ email });
+      Alert.alert("Sent!", "A new code has been sent to your email.");
+      setResendTimer(30); // Start 30s cooldown
+    } catch (err) {
+        // Handle error silently or show simple message
+        const msg = err?.response?.data?.message || "Failed to resend.";
+        setErrorMessage(msg);
+    }
+  };
+
   const handleOtpChange = (text, index) => {
-    // Only allow digits
     const sanitizedText = text.replace(/[^0-9]/g, '');
     if (sanitizedText.length > 1) return;
 
@@ -54,12 +89,10 @@ const OTP = ({ navigation }) => {
     newOtp[index] = sanitizedText;
     setOtp(newOtp);
 
-    // Auto-advance to next input
     if (sanitizedText && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
 
-    // Auto-submit when all 6 digits are entered
     if (index === 5 && sanitizedText) {
       const fullOtp = [...newOtp.slice(0, 5), sanitizedText];
       if (fullOtp.every(digit => digit !== '')) {
@@ -71,13 +104,11 @@ const OTP = ({ navigation }) => {
   const handleKeyPress = (e, index) => {
     if (e.nativeEvent.key === 'Backspace') {
       if (!otp[index] && index > 0) {
-        // If current input is empty, move to previous and clear it
         const newOtp = [...otp];
         newOtp[index - 1] = '';
         setOtp(newOtp);
         inputRefs.current[index - 1]?.focus();
       } else if (otp[index]) {
-        // If current input has value, just clear it
         const newOtp = [...otp];
         newOtp[index] = '';
         setOtp(newOtp);
@@ -90,7 +121,6 @@ const OTP = ({ navigation }) => {
 
     const code = otpArray.join('');
     
-
     if (code.length !== 6) {
       console.log("❌ OTP must be 6 digits");
       return;
@@ -116,14 +146,12 @@ const OTP = ({ navigation }) => {
     }
   };
 
-
   const handleSuccessModalClose = () => {
     setShowSuccessModal(false);
     console.log("I shifted the navigation.navigate to after login temporarily so I can work on document upload separately");
     navigation.navigate('Login');
   };
 
-  // Calculate progress based on filled inputs
   const filledCount = otp.filter(digit => digit !== '').length;
   const progress = (filledCount / 6) * 100;
   const isOtpComplete = otp.every(digit => digit !== '');
@@ -181,11 +209,12 @@ const OTP = ({ navigation }) => {
           ))}
         </View>
           
-                {errorMessage && (
-        <Text style={{ color: "red", marginBottom: 10, textAlign: "center" }}>
-          {errorMessage}
-        </Text>
-      )}
+        {errorMessage ? (
+            <Text style={{ color: "red", marginBottom: 10, textAlign: "center" }}>
+              {errorMessage}
+            </Text>
+        ) : null}
+
         <TouchableOpacity
           style={[
             styles.verifyBtn,
@@ -203,6 +232,27 @@ const OTP = ({ navigation }) => {
             <Text style={styles.verifyText}>Verify</Text>
           )}
         </TouchableOpacity>
+
+        {/* 👇 RESEND UI SECTION */}
+        <View style={styles.resendContainer}>
+            <Text style={styles.resendLabel}>Didn't receive code? </Text>
+            <TouchableOpacity 
+                onPress={handleResend}
+                disabled={resendTimer > 0 || otpResend.isPending}
+            >
+                {otpResend.isPending ? (
+                    <ActivityIndicator size="small" color="#fcbf24" />
+                ) : (
+                    <Text style={[
+                        styles.resendLink,
+                        resendTimer > 0 && styles.resendLinkDisabled
+                    ]}>
+                        {resendTimer > 0 ? `Resend in ${resendTimer}s` : "Resend"}
+                    </Text>
+                )}
+            </TouchableOpacity>
+        </View>
+
       </View>
 
       <Modal
@@ -353,6 +403,26 @@ const styles = StyleSheet.create({
     fontWeight: "bold", 
     fontSize: 16 
   },
+  // 👇 NEW STYLES
+  resendContainer: {
+    marginTop: 25,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  resendLabel: {
+    color: '#888',
+    fontSize: 14,
+  },
+  resendLink: {
+    color: '#fcbf24',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  resendLinkDisabled: {
+    color: '#666',
+  },
+  // Modal Styles...
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',

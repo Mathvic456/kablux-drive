@@ -6,13 +6,15 @@ import { Modal } from 'react-native';
 import { useLogoutEndPoint } from '../../services/auth.service';
 import { useProfile } from '../../services/profile.service';
 import { SocketContext } from '../../context/WebSocketProvider';
+import { useAuth } from '../../context/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function Account() {
   const [modalVisible, setModalVisible] = useState(false);
   const navigation = useNavigation();
   const { data: profile, isPending, isError } = useProfile();
-  const logoutEndpoint = useLogoutEndPoint();
+  const { clearTokens } = useAuth();
+  const { mutate: logout, isPending: isLoggingOut } = useLogoutEndPoint(clearTokens);
   const { socket } = useContext(SocketContext);
 
   const LoginAndSecurity = () => {
@@ -48,40 +50,46 @@ export default function Account() {
   }
 
   const handleLogout = async () => {
-    try {
-      console.log("🚪 Starting logout process...");
-      
-      // Close WebSocket connection
-      if (socket) {
-        console.log("🔌 Closing WebSocket connection...");
-        socket.close(1000, "User logged out"); // 1000 = normal closure
-      }
+    console.log("🚪 Starting logout process...");
 
-      // Clear tokens from storage
-      console.log("🗑️ Clearing auth tokens...");
-      await AsyncStorage.multiRemove(['token', 'refreshToken', 'pendingEmail']);
-
-      // Call logout endpoint
-      await logoutEndpoint.mutateAsync();
-      
-      console.log("✅ User logged out successfully");
-      
-      // Close modal and navigate to login
-      setModalVisible(false);
-      navigation.navigate("Login");
-    } catch (error) {
-      console.error("❌ Logout failed:", error);
-      
-      // Even if API call fails, still clear local data and navigate
-      try {
-        if (socket) socket.close();
-        await AsyncStorage.multiRemove(['token', 'refreshToken', 'pendingEmail']);
-        setModalVisible(false);
-        navigation.navigate("Login");
-      } catch (cleanupError) {
-        console.error("❌ Cleanup failed:", cleanupError);
-      }
+    // Close WebSocket connection first
+    if (socket) {
+      console.log("🔌 Closing WebSocket connection...");
+      socket.close(1000, "User logged out");
     }
+
+    // Call logout mutation which will:
+    // 1. Clear tokens through AuthContext (both Context and AsyncStorage)
+    // 2. Clear other non-auth data (like userId, pendingEmail)
+    logout(undefined, {
+      onSuccess: () => {
+        console.log("✅ Logout successful");
+        setModalVisible(false);
+        
+        // Navigate to login screen
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Login' }],
+        });
+      },
+      onError: async (error) => {
+        console.error("❌ Logout error:", error);
+        
+        // Even if API fails, still clear local data and navigate
+        try {
+          await AsyncStorage.removeItem('userId');
+          await AsyncStorage.removeItem('pendingEmail');
+          setModalVisible(false);
+          
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Login' }],
+          });
+        } catch (cleanupError) {
+          console.error("❌ Cleanup failed:", cleanupError);
+        }
+      }
+    });
   };
 
   if (isPending) {
@@ -173,7 +181,7 @@ export default function Account() {
               <TouchableOpacity
                 style={[styles.button, styles.buttonCancel]}
                 onPress={() => setModalVisible(false)}
-                disabled={logoutEndpoint.isPending}
+                disabled={isLoggingOut}
               >
                 <Text style={styles.cancelText}>Cancel</Text>
               </TouchableOpacity>
@@ -181,9 +189,9 @@ export default function Account() {
               <TouchableOpacity
                 style={[styles.button, styles.buttonLogout]}
                 onPress={handleLogout}
-                disabled={logoutEndpoint.isPending}
+                disabled={isLoggingOut}
               >
-                {logoutEndpoint.isPending ? (
+                {isLoggingOut ? (
                   <ActivityIndicator size="small" color="white" />
                 ) : (
                   <Text style={styles.logoutText}>Log Out</Text>

@@ -1,13 +1,10 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { jwtDecode } from "jwt-decode";
-import React, { createContext, useEffect, useRef, useState } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import * as Location from "expo-location";
 import { navigationRef } from "../screens/context/NavigationContext";
 import { useDriverRide } from "./DriverRideContext";
-
+import { useAuth } from "./AuthContext";
 
 const WSS_URL = process.env.EXPO_PUBLIC_WSS_URL;
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 interface RideNotification {
   ride_id: string;
@@ -28,7 +25,6 @@ interface SocketContextValue {
   isConnected: boolean;
   rideNotifications: RideNotification[];
   setRideNotifications: (notifications: RideNotification[]) => void;
-  setTokenFromOutside?: (token: string) => void;
   currentLocation: { lat: number; long: number } | null;
   sessionExpired: boolean;
   clearSessionExpired: () => void;
@@ -59,48 +55,12 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
   const shouldReconnect = useRef(true);
 
   const [isConnected, setIsConnected] = useState(false);
-  const [token, setToken] = useState<string | null>(null);
   const [rideNotifications, setRideNotifications] = useState<RideNotification[]>([]);
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; long: number } | null>(null);
   const [sessionExpired, setSessionExpired] = useState(false);
-  const [rideUpdates, setRideUpdates] = useState<any[]>([]);
 
   const { handleWsEvent } = useDriverRide();
-
-  const isExpired = (token: string) => {
-    try {
-      const { exp } = jwtDecode<{ exp: number }>(token);
-      return exp * 1000 < Date.now();
-    } catch {
-      return true;
-    }
-  };
-
-  const refreshAccessToken = async (): Promise<string | null> => {
-    try {
-      const refresh = await AsyncStorage.getItem("refreshToken");
-      if (!refresh) throw new Error("No refresh token");
-
-      const res = await fetch(`${API_URL}auth/refresh/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh }),
-      });
-
-      if (!res.ok) throw new Error("Failed to refresh");
-      const data = await res.json();
-      if (data.data.access) {
-        await AsyncStorage.setItem("token", data.data.access);
-        console.log("🔁 Token refreshed!");
-        return data.data.access;
-      }
-      return null;
-    } catch (err) {
-      console.error("Token refresh failed:", err);
-      handleLogout();
-      return null;
-    }
-  };
+  const { token, getValidToken, clearTokens, isTokenExpired } = useAuth();
 
   const handleLogout = async () => {
     console.log("🚪 Session expired - logging out...");
@@ -120,13 +80,11 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
     stopLocationTracking();
 
     if (locationInterval.current) {
-      clearInterval(locationInterval.current);
+      clearInterval(locationInterval.current as unknown as number);
       locationInterval.current = null;
     }
 
-    await AsyncStorage.removeItem("token");
-    await AsyncStorage.removeItem("refreshToken");
-
+    await clearTokens();
     setSessionExpired(true);
 
     setTimeout(() => {
@@ -155,7 +113,6 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
 
   const parseRideNotification = (event: any): RideNotification | null => {
     try {
-      // Extract relevant data from the message
       const messageMatch = event.message?.match(/Rider offer: (\d+)/);
       const distanceMatch = event.message?.match(/approximately ([\d.]+) km/);
       
@@ -166,7 +123,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         message: event.message,
         rider_name: event.rider_name || "Unknown Rider",
         rider_rating: event.rider_rating || "4.5",
-        time_to_pickup: distanceMatch ? String((parseFloat(distanceMatch[1]) / 0.5) * 60) : "0", // Rough estimate
+        time_to_pickup: distanceMatch ? String((parseFloat(distanceMatch[1]) / 0.5) * 60) : "0",
         address: event.pickup_address || "Address not provided",
         offer_amount: messageMatch ? parseInt(messageMatch[1]) : event.estimated_fare || 0,
         estimated_fare: event.estimated_fare,
@@ -187,8 +144,6 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
       console.log("📍 Location update sent:", location);
     }
   };
-
-  
 
   const startLocationTracking = async () => {
     try {
@@ -251,17 +206,12 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
     }
 
     try {
-      let storedToken = token || (await AsyncStorage.getItem("token"));
-      
-      if (!storedToken || isExpired(storedToken)) {
-        console.log("🔄 Token missing or expired, attempting refresh...");
-        storedToken = await refreshAccessToken();
-      }
+      // Use AuthContext to get valid token
+      const validToken = await getValidToken();
 
-      if (storedToken) {
+      if (validToken) {
         console.log("✅ Token available, connecting WebSocket...");
-        setToken(storedToken);
-        connectWebSocket(storedToken);
+        connectWebSocket(validToken);
         return true;
       } else {
         console.log("❌ No valid token available");
@@ -302,7 +252,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
     ws.current = socket;
 
     socket.onopen = async () => {
-      console.log("✅ WebSocket connected (Driver)", accessToken);
+      console.log("✅ WebSocket connected (Driver)");
       setIsConnected(true);
       resetRetryAttempts();
 
@@ -329,7 +279,6 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
               
               if (notification) {
                 setRideNotifications(prev => {
-                  // Avoid duplicates
                   const exists = prev.some(n => n.ride_id === notification.ride_id);
                   if (exists) {
                     console.log("⚠️ Duplicate notification ignored");
@@ -359,7 +308,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
       stopLocationTracking();
 
       if (locationInterval.current) {
-        clearInterval(locationInterval.current);
+        clearInterval(locationInterval.current as unknown as number);
         locationInterval.current = null;
       }
 
@@ -376,15 +325,18 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
     };
   };
 
+  // Initial connection attempt on mount
   useEffect(() => {
     const init = async () => {
       shouldReconnect.current = true;
       
-      const success = await attemptConnection();
+      const validToken = await getValidToken();
       
-      if (!success && shouldReconnect.current) {
-        console.log("🔄 Starting retry loop for token...");
-        scheduleRetry();
+      if (validToken) {
+        console.log("✅ Token available on mount, connecting...");
+        await attemptConnection();
+      } else {
+        console.log("⚠️ No token available on mount");
       }
     };
     
@@ -399,26 +351,33 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
       ws.current?.close();
       stopLocationTracking();
       if (locationInterval.current) {
-        clearInterval(locationInterval.current);
+        clearInterval(locationInterval.current as unknown as number);
       }
     };
   }, []);
 
-  const setTokenFromOutside = (newToken: string) => {
-    console.log("🔑 Token received from outside, connecting...");
-    setToken(newToken);
-    resetRetryAttempts();
+  // Watch for token changes and connect when token becomes available
+  useEffect(() => {
+    const checkAndConnect = async () => {
+      // Only try to connect if we have a token and we're not already connected
+      if (token && !isConnected && shouldReconnect.current) {
+        console.log("🔑 Token detected in context, attempting WebSocket connection...");
+        
+        // Clear any pending retry
+        if (retryTimeout.current) {
+          clearTimeout(retryTimeout.current);
+          retryTimeout.current = null;
+        }
+        
+        // Reset retry attempts for fresh connection
+        resetRetryAttempts();
+        
+        await attemptConnection();
+      }
+    };
     
-    shouldReconnect.current = true;
-    setSessionExpired(false);
-    
-    if (retryTimeout.current) {
-      clearTimeout(retryTimeout.current);
-      retryTimeout.current = null;
-    }
-    
-    connectWebSocket(newToken);
-  };
+    checkAndConnect();
+  }, [token, isConnected]);
 
   return (
     <SocketContext.Provider 
@@ -426,8 +385,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         socket: ws.current, 
         isConnected, 
         rideNotifications,
-        setRideNotifications: setRideNotifications,
-        setTokenFromOutside, 
+        setRideNotifications,
         currentLocation,
         sessionExpired,
         clearSessionExpired,

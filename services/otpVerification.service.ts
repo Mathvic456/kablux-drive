@@ -17,3 +17,17 @@ export const useVerifyOtpEndPoint = () => {
 };
 
 
+export const useResendOtpEndPoint = () => {
+  return useMutation({
+    mutationFn: (data: { email: string }) => 
+      api.post("auth/resend_otp/", data), // Ensure this endpoint matches your backend
+
+    onSuccess: (res) => {
+      console.log("✅ OTP Resent:", res.data);
+    },
+
+    onError: (error: any) => {
+      console.error("❌ OTP Resend failed:", error.response?.data || error);
+    },
+  });
+};

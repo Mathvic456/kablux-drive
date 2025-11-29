@@ -1,5 +1,5 @@
 import { FontAwesome, MaterialIcons } from "@expo/vector-icons";
-import React, { useState, useContext } from "react";
+import React, { useState } from "react";
 import {
   Image,
   StyleSheet,
@@ -15,7 +15,7 @@ import {
 import { Feather } from "@expo/vector-icons";
 import Logo from "../../assets/Logo.png";
 import { useLoginEndPoint } from "../../services/auth.service";
-import { SocketContext } from "../../context/WebSocketProvider";
+import { useAuth } from "../../context/AuthContext";
 
 const Login = ({ navigation }) => {
   const [email, setEmail] = useState("");
@@ -28,12 +28,15 @@ const Login = ({ navigation }) => {
   });
   const [authError, setAuthError] = useState("");
 
-  const { setTokenFromOutside } = useContext(SocketContext);
+  // Get setTokens from AuthContext
+  const { setTokens } = useAuth();
+
+  // Pass setTokens to the login hook
   const { mutate: login, isPending } = useLoginEndPoint(
-  navigation,
-  remember,
-  setTokenFromOutside
-);
+    navigation,
+    remember,
+    setTokens
+  );
 
   const validateForm = () => {
     let valid = true;
@@ -62,25 +65,24 @@ const Login = ({ navigation }) => {
     return valid;
   };
 
-const handleSubmit = async () => {
-  setAuthError(""); 
+  const handleSubmit = async () => {
+    setAuthError("");
 
-  if (validateForm()) {
-    login(
-      { email, password },
-      {
-        onError: (error) => {
-          if (error?.response?.status === 401) {
-            setAuthError("Invalid email or password");
-          } else {
-            setAuthError("Something went wrong. Please try again.");
+    if (validateForm()) {
+      login(
+        { email, password },
+        {
+          onError: (error) => {
+            if (error?.response?.status === 401) {
+              setAuthError("Invalid email or password");
+            } else {
+              setAuthError("Something went wrong. Please try again.");
+            }
           }
         }
-      }
-    );
-  }
-};
-
+      );
+    }
+  };
 
   const handleSignUpPress = () => {
     navigation.navigate('Signup');

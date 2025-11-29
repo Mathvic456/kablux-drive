@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -68,14 +69,27 @@ const handleSubmitCounter = async () => {
 
     socket.send(JSON.stringify(message));
 
-    // Call the callback to remove the item from the FlatList
-    if (onCounterSubmitted) {
-      onCounterSubmitted();
-    }
 
-    // navigate back
+    Alert.alert('Submitted', 'Your offer has been sent to the rider', [
+      {
+        text: 'OK',
+        onPress: () => {
+        if (onCounterSubmitted) {
+          onCounterSubmitted();
+          navigation.goBack();
+        }
+
+      },
+    },
+    ]);
+
+
+
+
+
+        // navigate back
     setTimeout(() => {
-      navigation.goBack();
+     
     }, 300);
 
   } catch (error) {
