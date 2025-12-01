@@ -1,24 +1,60 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { MaterialIcons, Entypo } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+// 1. Import the hook
+import { useGetMyBalance } from "../../services/funding.service"
+
+// Helper function to format the balance
+const formatCurrency = (amount) => {
+  if (typeof amount !== 'number') return '0.00';
+  return amount.toLocaleString('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
+    minimumFractionDigits: 2,
+  });
+};
 
 export default function BalanceCard() {
-  const [isLoading, setIsLoading] = useState(false);
   const navigation = useNavigation();
 
-  const handleWithdraw = async () => {
-    // Set loading state
-    setIsLoading(true);
+  const { 
+    data: balanceData, 
+    isLoading: isBalanceLoading, 
+    isError: isBalanceError 
+  } = useGetMyBalance();
+  
+  const balance = balanceData?.balance ?? 0;
+  
+  const handleWithdraw = () => {
+    navigation.navigate('Withdraw'); 
+  };
+
+  const renderBalanceContent = () => {
+    if (isBalanceLoading) {
+      return (
+        <View style={styles.amountRow}>
+          <ActivityIndicator size="large" color="white" />
+          <Text style={styles.loadingText}>Fetching Balance...</Text>
+        </View>
+      );
+    }
+
+    if (isBalanceError) {
+      return (
+        <View style={styles.amountRow}>
+          <Text style={styles.errorText}>Error loading balance</Text>
+          <Entypo name="warning" size={22} color="red" />
+        </View>
+      );
+    }
     
-    // Simulate API call or processing delay
-    setTimeout(() => {
-      // Reset loading state
-      setIsLoading(false);
-      
-      // Navigate to withdrawal screen
-      navigation.navigate('Withdraw');
-    }, 2000); // 2 second delay to simulate processing
+    return (
+      <View style={styles.amountRow}>
+        <Text style={styles.amount}>{formatCurrency(balance)}</Text>
+        <Entypo name="chevron-right" size={22} color="white" />
+      </View>
+    );
   };
 
   return (
@@ -32,29 +68,16 @@ export default function BalanceCard() {
         <Entypo name="help-with-circle" size={18} color="#FFC107" />
       </View>
 
-      {/* Balance */}
-      <View style={styles.amountRow}>
-        <Text style={styles.amount}>NGN5,396</Text>
-        <Entypo name="chevron-right" size={22} color="white" />
-      </View>
+      {renderBalanceContent()}
 
       {/* Withdraw Button */}
       <TouchableOpacity 
-        style={[
-          styles.button,
-          isLoading && styles.buttonDisabled
-        ]}
+        style={styles.button}
         onPress={handleWithdraw}
-        disabled={isLoading}
+        // Disable if balance is loading, or on error
+        disabled={isBalanceLoading || isBalanceError} 
       >
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color="#04223A" />
-            <Text style={styles.buttonText}>Processing...</Text>
-          </View>
-        ) : (
-          <Text style={styles.buttonText}>Withdraw</Text>
-        )}
+        <Text style={styles.buttonText}>Withdraw</Text>
       </TouchableOpacity>
     </View>
   );
@@ -93,24 +116,26 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700',
   },
+  loadingText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '500',
+    marginLeft: 10,
+  },
+  errorText: {
+    color: 'red',
+    fontSize: 16,
+    fontWeight: '500',
+  },
   button: {
     backgroundColor: '#FFC107',
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: 'center',
   },
-  buttonDisabled: {
-    backgroundColor: '#FFC10799', // Semi-transparent when disabled
-    opacity: 0.7,
-  },
   buttonText: {
     color: '#04223A',
     fontSize: 16,
     fontWeight: '600',
-  },
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
   },
 });

@@ -356,7 +356,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
     };
   }, []);
 
-  // Watch for token changes and connect when token becomes available
+  
   useEffect(() => {
     const checkAndConnect = async () => {
       // Only try to connect if we have a token and we're not already connected

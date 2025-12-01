@@ -8,10 +8,11 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-const CounterOfferItem = ({ item, onClose, socket, onAccept }) => {
+const CounterOfferItem = ({ item, onClose, socket, onAccept, onCounterSubmit }) => {
   const [counterAmount, setCounterAmount] = useState(item.counter_offer);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const difference = counterAmount - item.counter_offer;
+  const hasAdjusted = counterAmount !== item.counter_offer;
 
   const handleIncrease = () => setCounterAmount((prev) => prev + 100);
   const handleDecrease = () =>
@@ -39,6 +40,13 @@ const CounterOfferItem = ({ item, onClose, socket, onAccept }) => {
       };
       socket.send(JSON.stringify(message));
       console.log("✅ Counter offer sent:", message);
+      
+      // Clear this item from the parent's negotiationUpdates
+      if (onCounterSubmit) {
+        onCounterSubmit(item.ride_request_view_id);
+      }
+      
+      // Close the modal after a brief delay
       setTimeout(() => onClose(), 300);
     } catch (err) {
       console.error("❌ Failed to submit counter offer:", err);
@@ -111,8 +119,12 @@ const CounterOfferItem = ({ item, onClose, socket, onAccept }) => {
       {/* Submit & Cancel */}
       <TouchableOpacity
         onPress={() => onAccept(item)}
-        disabled={isSubmitting}
-        style={[styles.acceptButton, { marginBottom: 10 }]}
+        disabled={isSubmitting || hasAdjusted}
+        style={[
+          styles.acceptButton, 
+          { marginBottom: 10 },
+          (isSubmitting || hasAdjusted) && styles.disabledButton
+        ]}
       >
         <Ionicons name="checkmark-circle" size={20} color="white" />
         <Text style={styles.acceptButtonText}>Accept Counter Offer</Text>
@@ -120,10 +132,10 @@ const CounterOfferItem = ({ item, onClose, socket, onAccept }) => {
 
       <TouchableOpacity
         onPress={handleSubmitCounter}
-        disabled={isSubmitting || counterAmount <= 0}
+        disabled={isSubmitting || counterAmount <= 0 || !hasAdjusted}
         style={[
           styles.sendButton,
-          (isSubmitting || counterAmount <= 0) && styles.disabledButton,
+          (isSubmitting || counterAmount <= 0 || !hasAdjusted) && styles.disabledButton,
         ]}
       >
         {isSubmitting ? (
@@ -291,6 +303,3 @@ const styles = StyleSheet.create({
 });
 
 export default CounterOfferItem;
-
-
-

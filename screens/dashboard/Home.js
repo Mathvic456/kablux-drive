@@ -29,28 +29,28 @@ import ActiveRideSection from "../components/ActiveRideSection";
 // Context & Services
 import { useProfile } from "../../services/profile.service";
 import { useStartRide, useFinishRide } from "../../services/rides.service";
+import { useGetMyBalance } from "../../services/funding.service";
 import { SocketContext } from "../../context/WebSocketProvider";
 import { useDriverRide } from "../../context/DriverRideContext";
 import { api } from "../../services/api";
 
 export default function Home() {
   const navigation = useNavigation();
-  
-  // -- UI State --
+
   const [tierOverlayVisible, setTierOverlayVisible] = useState(false);
   const [rideModalVisible, setRideModalVisible] = useState(false);
   const [updatesModalVisible, setUpdatesModalVisible] = useState(false);
   const [uploadModalVisible, setUploadModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  
-  // -- Data State --
+  const [showAvailableRides, setShowAvailableRides] = useState(true);
   const [negotiationUpdates, setNegotiationUpdates] = useState({});
   const [acceptedRide, setAcceptedRide] = useState(null);
   const [acceptedModalVisible, setAcceptedModalVisible] = useState(false);
   const [rideDetails, setRideDetails] = useState(null);
   const [loadingRideDetails, setLoadingRideDetails] = useState(false);
 
-  // -- Contexts --
+
+
   const { 
     handleWsEvent, 
     status, 
@@ -78,6 +78,11 @@ export default function Home() {
     isPending: profileLoading,
     isError: profileError,
   } = useProfile();
+
+  const {
+    data: balanceData,
+    isLoading: balanceLoading,
+  } = useGetMyBalance();
 
   // -- React Query Mutations --
   const startRideMutation = useStartRide();
@@ -144,6 +149,23 @@ export default function Home() {
       setUploadModalVisible(true);
     }
   }, [profile]);
+
+  // 1.5. Check Wallet Balance
+  useEffect(() => {
+    if (balanceData) {
+      const balance = balanceData.balance || 0;
+      console.log("💰 Wallet balance:", balance);
+      
+      if (balance <= 0) {
+        console.log("⚠️ Wallet not funded");
+        //TODO: I switched false with true for testing, switch back!
+        setShowAvailableRides(true);
+      } else {
+        console.log("Wallet funded");
+        setShowAvailableRides(false);
+      }
+    }
+  }, [balanceData]);
 
   // 2. Fetch Ride Details when rideId changes
   useEffect(() => {
@@ -306,6 +328,23 @@ const removeRideNotification = (id) => {
   );
 };
 
+{/*This is for ride updates */}
+const handleCounterSubmit = (ride_request_view_id) => {
+  console.log("🗑️ Clearing negotiation update:", ride_request_view_id);
+  
+
+  setNegotiationUpdates((prev) => {
+    const updated = { ...prev };
+    delete updated[ride_request_view_id];
+    return updated;
+  });
+  
+  const remainingUpdates = Object.keys(negotiationUpdates).length - 1;
+  if (remainingUpdates === 0) {
+    setUpdatesModalVisible(false);
+  }
+};
+
 
   const handleFinishRide = async () => {
     if (!rideId || typeof rideId !== 'string') {
@@ -421,7 +460,8 @@ const removeRideNotification = (id) => {
           <UpgradeNotificationCard />
 
           {/* Ride Orders Section - Only show when not busy */}
-          {status === 'not_busy' && rideNotifications.length > 0 ? (
+          {showAvailableRides? 
+              (status === 'not_busy' && rideNotifications.length > 0 ? (
             <View style={styles.sectionContainer}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>
@@ -446,7 +486,22 @@ const removeRideNotification = (id) => {
                 {isConnected ? "Waiting for new requests..." : "Connecting..."}
               </Text>
             </View>
-          ) : null}
+          ) : null) :
+            (<View style={styles.emptyContainer}>
+              <Ionicons name="car-outline" size={48} color="#666" />
+              <Text style={styles.emptyText}>Wallet not up to minimum amount</Text>
+              <Text style={styles.emptySubtext}>
+                Fund your wallet to start recieving ride orders!
+              </Text>
+              <TouchableOpacity 
+                style={styles.walletButton}
+                onPress={() => navigation.navigate('Tabs', { screen: 'Wallet' })}
+              >
+                <Text style={styles.walletButtonText}>Go to Wallet</Text>
+              </TouchableOpacity>
+            </View>)
+          }
+          
 
           {/* Ride Updates Section */}
           {negotiationArray.length > 0 && status === 'not_busy' && (
@@ -591,26 +646,27 @@ const removeRideNotification = (id) => {
               <View style={{ width: 24 }} />
             </View>
 
-            <FlatList
-              data={negotiationArray}
-              keyExtractor={(item) => item.ride_request_view_id}
-              renderItem={({ item }) => (
-                <CounterOfferItem
-                  item={item}
-                  onClose={() => setUpdatesModalVisible(false)}
-                  socket={socket}
-                  onAccept={handleAccept}
-                />
-              )}
-              contentContainerStyle={styles.listContent}
-              ListEmptyComponent={
-                <View style={styles.emptyList}>
-                  <Text style={styles.emptyListText}>
-                    No counter offers available
-                  </Text>
-                </View>
-              }
-            />
+<FlatList
+  data={negotiationArray}
+  keyExtractor={(item) => item.ride_request_view_id}
+  renderItem={({ item }) => (
+    <CounterOfferItem
+      item={item}
+      onClose={() => setUpdatesModalVisible(false)}
+      socket={socket}
+      onAccept={handleAccept}
+      onCounterSubmit={handleCounterSubmit} // <-- ADD THIS PROP
+    />
+  )}
+  contentContainerStyle={styles.listContent}
+  ListEmptyComponent={
+    <View style={styles.emptyList}>
+      <Text style={styles.emptyListText}>
+        No counter offers available
+      </Text>
+    </View>
+  }
+/>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -835,5 +891,18 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 14,
     fontWeight: "600",
+  },
+  walletButton: {
+    backgroundColor: "#facc15",
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 8,
+    marginTop: 15,
+    alignItems: "center",
+  },
+  walletButtonText: {
+    color: "#000",
+    fontWeight: "bold",
+    fontSize: 16,
   },
 });

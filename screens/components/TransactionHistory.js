@@ -6,30 +6,74 @@ import {
   ScrollView,
   TouchableOpacity,
   Linking,
+  ActivityIndicator,
+  FlatList,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useGetMyTransactions } from "../../services/funding.service";
 
 export default function TransactionHistory() {
-  const transactions = [
-    { 
-      id: 1, 
-      title: "Ride to Airport", 
-      date: "Oct 5, 2023", 
-      amount: "-$25.00" 
-    },
-    { 
-      id: 2, 
-      title: "Ride from Mall", 
-      date: "Oct 12, 2023", 
-      amount: "-$15.00" 
-    },
-    { 
-      id: 3, 
-      title: "Ride to Downtown", 
-      date: "Oct 20, 2023", 
-      amount: "-$30.00" 
-    },
-  ];
+  
+  const transactionsFetch = useGetMyTransactions();
+
+  // Extract transactions array - handle both nested and flat structures
+  const transactionsArray = transactionsFetch.data?.data || transactionsFetch.data?.results || [];
+  
+  console.log("Full transaction response:", transactionsFetch.data);
+  console.log("Extracted transactions array:", transactionsArray);
+  console.log("Array length:", transactionsArray.length);
+
+  // Loading state
+  if (transactionsFetch.isLoading) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.header}>Transaction History</Text>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FEB914" />
+          <Text style={styles.loadingText}>Loading transactions...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Error state
+  if (transactionsFetch.isError) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.header}>Transaction History</Text>
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={40} color="#f44336" />
+          <Text style={styles.errorText}>Failed to load transactions</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Empty state
+  if (!transactionsArray || transactionsArray.length === 0) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.header}>Transaction History</Text>
+        <View style={styles.emptyContainer}>
+          <Ionicons name="wallet-outline" size={40} color="#666" />
+          <Text style={styles.emptyText}>No transactions yet</Text>
+          <Text style={styles.emptySubtext}>Your transactions will appear here</Text>
+        </View>
+      </View>
+    );
+  }
+
+  const groupedTransactions = transactionsArray.reduce((acc, transaction) => {
+    const dateStr = transaction.date || transaction.created_at || new Date().toISOString();
+    const date = new Date(dateStr);
+    const monthKey = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    
+    if (!acc[monthKey]) {
+      acc[monthKey] = [];
+    }
+    acc[monthKey].push(transaction);
+    return acc;
+  }, {});
 
   return (
     <View style={styles.container}>
@@ -39,46 +83,79 @@ export default function TransactionHistory() {
       </Text>
 
       {/* Transactions Card */}
-      <View style={styles.card}>
-        {/* Month Label */}
-        <View style={styles.monthContainer}>
-          <Text style={styles.monthText}>October</Text>
-        </View>
-
-        {/* Transactions List */}
-        {transactions.map((transaction, index) => (
-          <View
-            key={transaction.id}
-            style={[
-              styles.transactionItem,
-              index !== transactions.length - 1 && styles.borderBottom
-            ]}
-          >
-            {/* Transaction Title */}
-            <Text style={styles.title}>
-              {transaction.title}
-            </Text>
-
-            {/* Date */}
-            <View style={styles.dateContainer}>
-              <Ionicons name="calendar-outline" size={14} color="#FEB914" />
-              <Text style={styles.dateText}>{transaction.date}</Text>
+      <ScrollView style={styles.card} showsVerticalScrollIndicator={false}>
+        {Object.entries(groupedTransactions).map(([month, monthTransactions]) => (
+          <View key={month}>
+            {/* Month Label */}
+            <View style={styles.monthContainer}>
+              <Text style={styles.monthText}>{month}</Text>
             </View>
 
-            {/* Amount */}
-            <Text style={styles.amount}>
-              {transaction.amount}
-            </Text>
+            {/* Transactions List */}
+            {monthTransactions.map((transaction, index) => {
+              // Flexibly handle different response formats
+              const title = transaction.description || transaction.title || 'Transaction';
+              const amount = transaction.amount || 0;
+              const type = transaction.type || 'unknown';
+              const status = transaction.status || 'completed';
+              const dateStr = transaction.date || transaction.created_at || new Date().toISOString();
+              const displayDate = new Date(dateStr).toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric',
+                year: 'numeric'
+              });
+
+              // Determine amount color based on type
+              const amountColor = type === 'credit' || type === 'deposit' ? '#4CAF50' : '#f44336';
+              const amountPrefix = type === 'credit' || type === 'deposit' ? '+' : '-';
+
+              return (
+                <View
+                  key={transaction.id || index}
+                  style={[
+                    styles.transactionItem,
+                    index !== monthTransactions.length - 1 && styles.borderBottom
+                  ]}
+                >
+                  {/* Transaction Title */}
+                  <Text style={styles.title}>
+                    {title}
+                  </Text>
+
+                  {/* Status Badge (if applicable) */}
+                  {status && status !== 'completed' && (
+                    <Text style={[
+                      styles.statusBadge,
+                      status === 'pending' && styles.statusPending,
+                      status === 'failed' && styles.statusFailed,
+                    ]}>
+                      {status.charAt(0).toUpperCase() + status.slice(1)}
+                    </Text>
+                  )}
+
+                  {/* Date */}
+                  <View style={styles.dateContainer}>
+                    <Ionicons name="calendar-outline" size={14} color="#FEB914" />
+                    <Text style={styles.dateText}>{displayDate}</Text>
+                  </View>
+
+                  {/* Amount */}
+                  <Text style={[styles.amount, { color: amountColor }]}>
+                    {amountPrefix}₦{Math.abs(amount).toLocaleString()}
+                  </Text>
+                </View>
+              );
+            })}
           </View>
         ))}
-      </View>
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    marginTop: 20,
   },
   header: {
     color: "#fff",
@@ -89,11 +166,64 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: "#111",
-    // marginHorizontal: 20,
+    marginHorizontal: 20,
     borderRadius: 12,
     padding: 15,
     borderWidth: 1,
     borderColor: "#FEB914",
+    maxHeight: 400,
+  },
+  loadingContainer: {
+    backgroundColor: "#111",
+    marginHorizontal: 20,
+    borderRadius: 12,
+    padding: 40,
+    borderWidth: 1,
+    borderColor: "#FEB914",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingText: {
+    color: "#aaa",
+    marginTop: 10,
+    fontSize: 14,
+  },
+  errorContainer: {
+    backgroundColor: "#111",
+    marginHorizontal: 20,
+    borderRadius: 12,
+    padding: 40,
+    borderWidth: 1,
+    borderColor: "#f44336",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  errorText: {
+    color: "#f44336",
+    marginTop: 10,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  emptyContainer: {
+    backgroundColor: "#111",
+    marginHorizontal: 20,
+    borderRadius: 12,
+    padding: 40,
+    borderWidth: 1,
+    borderColor: "#FEB914",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyText: {
+    color: "#aaa",
+    marginTop: 10,
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  emptySubtext: {
+    color: "#666",
+    marginTop: 5,
+    fontSize: 14,
   },
   monthContainer: {
     alignSelf: "flex-end",
@@ -121,6 +251,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "500",
   },
+  statusBadge: {
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 4,
+    alignSelf: "flex-start",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  statusPending: {
+    color: "#FEB914",
+    backgroundColor: "#FEB91422",
+  },
+  statusFailed: {
+    color: "#f44336",
+    backgroundColor: "#f4433622",
+  },
   dateContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -132,7 +279,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   amount: {
-    color: "#fff",
     fontSize: 16,
     fontWeight: "bold",
     marginTop: 5,

@@ -35,6 +35,7 @@ import OrderScreen from '../dashboard/OrderScreen';
 import DriverMapScreen from '../dashboard/DriverMapScreen';
 import ResetPasswordEmailScreen from '../auth/ResetPasswordEmailScreen';
 import ResetCredentialsScreen from '../auth/ResetCredentialsScreen';
+import PaystackWebView from '../dashboard/PaystackWebView';
 
 
 const Stack = createStackNavigator();
@@ -126,6 +127,8 @@ const AppNavigator = () => {
         name="Tabs" 
         component={TabNavigator}
       />
+
+      <Stack.Screen name="PaystackWebView" component={PaystackWebView} />
 
       <Stack.Screen
       name='OrderScreen'
