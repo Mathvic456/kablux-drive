@@ -1,5 +1,4 @@
-// screens/HomeScreen.js
-import { View, Text, StyleSheet, Modal, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useState } from 'react';
 import BalanceCard from '../components/BalanceCard';
 import ActionButtons from '../components/ActionButtons';
@@ -15,53 +14,18 @@ export default function Wallet() {
   const fundWalletMutation = useFundWalletEndPoint();
 
   const goToBankTransfer = () => {
-    setAddFundsModalVisible(true);
+    navigation.navigate("PaystackWebView")
   }
 
   const goToTopUp = () => {
     navigation.navigate('TopUp');
   }
 
-  const handleAddFunds = async () => {
-    if (!amount || amount.trim() === '') {
-      Alert.alert('Error', 'Please enter an amount');
-      return;
-    }
 
-    const numAmount = parseFloat(amount);
-    if (isNaN(numAmount) || numAmount <= 0) {
-      Alert.alert('Error', 'Please enter a valid amount');
-      return;
-    }
 
-    try {
-      console.log('💳 Initiating fund wallet with amount:', numAmount);
-      const response = await fundWalletMutation.mutateAsync({
-        amount: numAmount,
-        channel: 'card',
-      });
-
-      console.log('✅ Fund wallet response:', response);
-
-    
-      const paystackUrl = response.data?.data?.authorization_url;
-      if (paystackUrl) {
-        console.log('🔗 Redirecting to Paystack:', paystackUrl);
-        setAddFundsModalVisible(false);
-        setAmount('');
-        navigation.navigate('PaystackWebView', { url: paystackUrl });
-      } else {
-        Alert.alert('Error', 'No checkout URL received from server');
-      }
-    } catch (error) {
-      console.error('❌ Fund wallet error:', error);
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to process payment';
-      Alert.alert('Error', errorMessage);
-    }
-  };
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}>
       <BalanceCard />
 
       <View style={{marginTop:30, gap:15}}>
@@ -80,72 +44,13 @@ export default function Wallet() {
 
       <TransactionHistory />
 
-      {/* Add Funds Modal */}
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={addFundsModalVisible}
-        onRequestClose={() => setAddFundsModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add Funds</Text>
-              <TouchableOpacity onPress={() => setAddFundsModalVisible(false)}>
-                <Ionicons name="close" size={24} color="white" />
-              </TouchableOpacity>
-            </View>
 
-            <Text style={styles.modalLabel}>Enter Amount (₦)</Text>
-            <TextInput
-              style={styles.amountInput}
-              placeholder="0.00"
-              placeholderTextColor="#666"
-              keyboardType="decimal-pad"
-              value={amount}
-              onChangeText={setAmount}
-              editable={!fundWalletMutation.isPending}
-            />
-
-            <Text style={styles.amountNote}>
-              Payment will be processed through Paystack
-            </Text>
-
-            <TouchableOpacity
-              style={[
-                styles.fundButton,
-                fundWalletMutation.isPending && styles.fundButtonDisabled,
-              ]}
-              onPress={handleAddFunds}
-              disabled={fundWalletMutation.isPending || !amount}
-            >
-              {fundWalletMutation.isPending ? (
-                <ActivityIndicator color="#000" />
-              ) : (
-                <Text style={styles.fundButtonText}>Add Funds</Text>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={() => {
-                setAddFundsModalVisible(false);
-                setAmount('');
-              }}
-              disabled={fundWalletMutation.isPending}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     padding:20,
     paddingTop:50,
     backgroundColor: '#000000',

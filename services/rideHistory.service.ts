@@ -1,23 +1,22 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "./api";
 
+// 1. Updated Type based on your JSON logs
 export type RideHistoryItem = {
-  id: number;
-  vehicle?: {
-    model: string;
-    type: string;
-  };
-  driver?: {
-    name: string;
-  };
-  createdAt?: string;
-  date?: string;
+  driver: string;
+  rider: string;
+  pickup_address: string;  // Changed from pickupLocation
+  dropoff_address: string; // Changed from dropoffLocation
+  fare: number;            // Changed from price
+  start_time: string;      // Changed from createdAt/date
+  end_time: string;
+  status: string;
+  // Note: 'id', 'rating', and 'type' were missing from your logs.
+  // I kept them optional in case the backend adds them later, 
+  // but we will use index as key if ID is missing.
+  id?: number; 
   rating?: number;
-  type?: string;
-  status?: string;
-  pickupLocation?: string;
-  dropoffLocation?: string;
-  price?: number;
+  type?: string; 
 };
 
 export type RideHistoryResponse = {
@@ -33,10 +32,10 @@ export const useRideHistory = (enabled: boolean) => {
   return useQuery({
     queryKey: ["rideHistory"],
     queryFn: async () => {
-      const res = await api.get<{ data: RideHistoryResponse }>("rides/history/");
+      const res = await api.get<RideHistoryResponse>("rides/history/");
       console.log("Ride history API response:", res.data);
-      return res.data?.data ?? []; 
+      return res.data ?? { count: 0, results: [], message: "", status: "" }; 
     },
-    enabled, // Only fetch when true
+    enabled,
   });
 };

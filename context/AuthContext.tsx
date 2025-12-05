@@ -38,6 +38,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
         if (storedRememberMe === "true") {
           const storedToken = await AsyncStorage.getItem("token");
+          console.log("Token:", token)
           const storedRefresh = await AsyncStorage.getItem("refreshToken");
           
           if (storedToken && storedRefresh) {
@@ -55,7 +56,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     initAuth();
-  }, []);
+  }, [token]);
 
   const isTokenExpired = (token: string): boolean => {
     try {

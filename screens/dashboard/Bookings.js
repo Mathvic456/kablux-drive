@@ -1,14 +1,13 @@
-// screens/Bookings.js
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useState } from 'react';
-import TripCard from '../components/TripCard';
+import RideCard from '../components/RideCard'; // Make sure path matches your structure
 import { useRideHistory } from '../../services/rideHistory.service';
 
 export default function Bookings() {
   const [activeTab, setActiveTab] = useState('all');
   
   // Fetch ride history
-  const { data: rideHistory, isPending, isError } = useRideHistory(true);
+  const { data: rideHistoryResponse, isPending, isError } = useRideHistory(true);
 
   const tabs = [
     { id: 'all', label: 'All Rides' },
@@ -18,9 +17,8 @@ export default function Bookings() {
 
   // Filter rides based on active tab
   const getFilteredRides = () => {
-    if (!rideHistory?.results) return [];
-
-    const rides = rideHistory.results;
+    // Access .results safely
+    const rides = rideHistoryResponse?.results || [];
 
     switch (activeTab) {
       case 'completed':
@@ -33,29 +31,33 @@ export default function Bookings() {
     }
   };
 
-  // Map API data to TripCard props
+  // CORRECTED MAPPING FUNCTION
   const mapRideToCardProps = (ride) => {
-    // Format date from createdAt or use date field
+    // Format date from start_time
     const formatDate = (dateString) => {
       if (!dateString) return 'N/A';
       const date = new Date(dateString);
+      
       const month = date.toLocaleString('en-US', { month: 'short' });
       const day = date.getDate();
       const time = date.toLocaleTimeString('en-US', { 
         hour: '2-digit', 
         minute: '2-digit',
-        hour12: false 
+        hour12: true 
       });
-      return `${month} ${day} - ${time}`;
+      return `${month} ${day}, ${time}`;
     };
 
     return {
-      status: ride.status?.toLowerCase() || 'unknown',
-      isReturn: ride.type?.toLowerCase() === 'return' || ride.type?.toLowerCase() === 'round_trip',
-      rating: ride.rating || 0,
-      date: formatDate(ride.createdAt || ride.date),
-      from: ride.pickupLocation || 'Unknown location',
-      to: ride.dropoffLocation || 'Unknown destination'
+      status: ride.status || 'unknown',
+      // Map API 'fare' to prop 'price'
+      price: ride.fare || 0,
+      // Map API 'start_time' to prop 'date'
+      date: formatDate(ride.start_time),
+      // Map API 'pickup_address' to prop 'from'
+      from: ride.pickup_address || 'Unknown location',
+      // Map API 'dropoff_address' to prop 'to'
+      to: ride.dropoff_address || 'Unknown destination',
     };
   };
 
@@ -83,17 +85,20 @@ export default function Bookings() {
       return (
         <View style={styles.emptyState}>
           <Text style={styles.emptyStateText}>
-            No {activeTab === 'cancelled' ? 'cancelled' : activeTab === 'completed' ? 'completed' : ''} rides found
+            No {activeTab === 'all' ? '' : activeTab} rides found
           </Text>
         </View>
       );
     }
 
-    return rides.map((ride) => {
+    return rides.map((ride, index) => {
       const cardProps = mapRideToCardProps(ride);
+      // Using index as key fallback since ID is missing in your specific JSON log
+      const key = ride.id || index; 
+      
       return (
-        <TripCard
-          key={ride.id}
+        <RideCard
+          key={key}
           {...cardProps}
         />
       );
@@ -158,23 +163,26 @@ const styles = StyleSheet.create({
   },
   tabsContainer: {
     flexDirection: 'row',
+    marginHorizontal: 20,
+    marginBottom: 20,
     borderWidth: 1,
     borderColor: '#333',
-    gap: 10,
+    gap: 5,
     borderRadius: 25,
+    padding: 4,
+    backgroundColor: '#111',
   },
   tab: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 10,
     alignItems: 'center',
-    borderRadius: 15,
-    marginHorizontal: 4,
+    borderRadius: 20,
   },
   tabActive: {
-    backgroundColor: '#0B2633',
+    backgroundColor: '#333', // Adjusted specifically for dark mode contrast
   },
   tabText: {
-    color: 'white',
+    color: '#888',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -184,14 +192,16 @@ const styles = StyleSheet.create({
   },
   ridesContainer: {
     flex: 1,
+    paddingHorizontal: 20,
   },
   ridesContent: {
-    paddingBottom: 20,
+    paddingBottom: 40,
   },
   centerContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     padding: 40,
+    marginTop: 50,
   },
   loadingText: {
     color: '#888',
@@ -207,9 +217,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 40,
+    marginTop: 50,
   },
   emptyStateText: {
-    color: '#888',
+    color: '#666',
     fontSize: 16,
     textAlign: 'center',
   },

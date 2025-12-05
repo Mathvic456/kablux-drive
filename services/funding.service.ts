@@ -19,21 +19,7 @@ export type PaystackInitResponse = {
 export type WalletBalanceResponse = {
   balance: number;
 };
-export type Transaction = {
-  id: number;
-  amount: number;
-  type: "credit" | "debit";
-  description: string;
-  status: "success" | "pending" | "failed";
-  date: string;
-};
 
-export type TransactionsResponse = {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: Transaction[];
-};
 
 // --- New Types for Withdrawal ---
 export type WithdrawPayload = {
@@ -45,6 +31,23 @@ export type WithdrawResponse = {
   message: string;
 };
 
+export type Transaction = {
+  id: string;
+  amount: string | null;
+  channel: string;
+  direction: "credit" | "debit" | "";
+  reference: string;
+  status: "success" | "pending" | "failed";
+  type: string; // Empty in your data
+  // Add date?: string; if you update the backend
+};
+
+export type TransactionsResponse = {
+  data: Transaction[];
+  errors: Record<string, unknown>;
+  message: string;
+  status: "success" | "error";
+};
 
 export type CreateRecipientResponse = {
   status: number;

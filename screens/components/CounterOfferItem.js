@@ -14,9 +14,9 @@ const CounterOfferItem = ({ item, onClose, socket, onAccept, onCounterSubmit }) 
   const difference = counterAmount - item.counter_offer;
   const hasAdjusted = counterAmount !== item.counter_offer;
 
-  const handleIncrease = () => setCounterAmount((prev) => prev + 100);
+  const handleIncrease = () => setCounterAmount((prev) => prev + 10000);
   const handleDecrease = () =>
-    setCounterAmount((prev) => Math.max(0, prev - 100));
+    setCounterAmount((prev) => Math.max(0, prev - 10000));
 
   const handleSubmitCounter = async () => {
     if (counterAmount <= 0) {
@@ -74,7 +74,7 @@ const CounterOfferItem = ({ item, onClose, socket, onAccept, onCounterSubmit }) 
       <View style={styles.divider} />
       <Text style={styles.offerLabel}>Rider's Counter Offer:</Text>
       <Text style={styles.originalPrice}>
-        ₦{item.counter_offer?.toLocaleString()}
+        ₦{(item.counter_offer / 100)?.toLocaleString()}
       </Text>
 
       {/* Amount Adjuster */}
@@ -90,7 +90,7 @@ const CounterOfferItem = ({ item, onClose, socket, onAccept, onCounterSubmit }) 
         </TouchableOpacity>
 
         <Text style={styles.counterPrice}>
-          ₦{counterAmount.toLocaleString()}
+          ₦{(counterAmount / 100).toLocaleString()}
         </Text>
 
         <TouchableOpacity
@@ -112,7 +112,7 @@ const CounterOfferItem = ({ item, onClose, socket, onAccept, onCounterSubmit }) 
           ]}
         >
           Difference: {difference > 0 ? "+" : ""}₦
-          {Math.abs(difference).toLocaleString()}
+          {(Math.abs(difference) / 100).toLocaleString()}
         </Text>
       )}
 

@@ -4,10 +4,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
-  Linking,
   ActivityIndicator,
-  FlatList,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useGetMyTransactions } from "../../services/funding.service";
@@ -94,10 +91,14 @@ export default function TransactionHistory() {
             {/* Transactions List */}
             {monthTransactions.map((transaction, index) => {
               // Flexibly handle different response formats
-              const title = transaction.description || transaction.title || 'Transaction';
-              const amount = transaction.amount || 0;
-              const type = transaction.type || 'unknown';
+              const channel = (transaction.channel || 'Unknown').charAt(0).toUpperCase() + (transaction.channel || 'unknown').slice(1);
+              const direction = transaction.direction ? transaction.direction.charAt(0).toUpperCase() + transaction.direction.slice(1) : '';
               const status = transaction.status || 'completed';
+              const title = transaction.description || transaction.title || 
+                (status === 'pending' ? `Pending ${channel} Transaction` : `${channel} ${direction}`.trim()) || 
+                'Transaction';
+              const rawAmount = transaction.amount;
+              const amount = rawAmount ? parseFloat(rawAmount) : null;
               const dateStr = transaction.date || transaction.created_at || new Date().toISOString();
               const displayDate = new Date(dateStr).toLocaleDateString('en-US', { 
                 month: 'short', 
@@ -105,9 +106,10 @@ export default function TransactionHistory() {
                 year: 'numeric'
               });
 
-              // Determine amount color based on type
-              const amountColor = type === 'credit' || type === 'deposit' ? '#4CAF50' : '#f44336';
-              const amountPrefix = type === 'credit' || type === 'deposit' ? '+' : '-';
+              // Determine amount color and prefix based on direction (fallback to type if direction missing)
+              const effectiveType = transaction.direction || transaction.type || 'debit'; // Default to debit for safety
+              const amountColor = (effectiveType === 'credit' || effectiveType === 'deposit') ? '#4CAF50' : '#f44336';
+              const amountPrefix = (effectiveType === 'credit' || effectiveType === 'deposit') ? '+' : '-';
 
               return (
                 <View
@@ -123,7 +125,7 @@ export default function TransactionHistory() {
                   </Text>
 
                   {/* Status Badge (if applicable) */}
-                  {status && status !== 'completed' && (
+                  {status && status !== 'completed' && status !== 'success' && (
                     <Text style={[
                       styles.statusBadge,
                       status === 'pending' && styles.statusPending,
@@ -140,9 +142,15 @@ export default function TransactionHistory() {
                   </View>
 
                   {/* Amount */}
-                  <Text style={[styles.amount, { color: amountColor }]}>
-                    {amountPrefix}₦{Math.abs(amount).toLocaleString()}
-                  </Text>
+                  {amount !== null ? (
+                    <Text style={[styles.amount, { color: amountColor }]}>
+                      {amountPrefix}₦{Math.abs(amount).toLocaleString()}
+                    </Text>
+                  ) : (
+                    <Text style={[styles.amount, { color: '#aaa' }]}>
+                      Pending
+                    </Text>
+                  )}
                 </View>
               );
             })}

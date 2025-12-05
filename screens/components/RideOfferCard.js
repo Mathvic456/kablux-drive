@@ -61,14 +61,14 @@ const RideOfferCard = ({ item, onAccept, onCounter, onDecline }) => {
         <View style={styles.fareMain}>
           <Text style={styles.fareLabel}>Rider Offer</Text>
           <Text style={styles.fareValue}>
-            ₦{item.offer_amount?.toLocaleString()}
+            ₦{(item.offer_amount / 100)?.toLocaleString()}
           </Text>
         </View>
         {item.estimated_fare && (
           <View style={styles.fareSecondary}>
             <Text style={styles.estimatedLabel}>Estimated</Text>
             <Text style={styles.estimatedValue}>
-              ₦{item.estimated_fare.toLocaleString()}
+              ₦{(item.estimated_fare / 100).toLocaleString()}
             </Text>
           </View>
         )}
