@@ -1,17 +1,42 @@
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { useState } from 'react';
+import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import { useState, useCallback } from 'react';
 import BalanceCard from '../components/BalanceCard';
 import ActionButtons from '../components/ActionButtons';
 import TransactionHistory from '../components/TransactionHistory';
-import { Ionicons, MaterialCommunityIcons, MaterialIcons, Entypo } from "@expo/vector-icons";
+import { MaterialIcons, Entypo } from "@expo/vector-icons";
 import { useNavigation } from '@react-navigation/native';
-import { useFundWalletEndPoint } from '../../services/funding.service';
- 
+// Import the hooks here instead
+import { useGetMyBalance, useGetMyTransactions } from '../../services/funding.service';
+
 export default function Wallet() {
   const navigation = useNavigation();
-  const [addFundsModalVisible, setAddFundsModalVisible] = useState(false);
-  const [amount, setAmount] = useState('');
-  const fundWalletMutation = useFundWalletEndPoint();
+  const [refreshing, setRefreshing] = useState(false);
+
+  // 1. Call hooks here to get access to data and refetch functions
+  const { 
+    data: balanceData, 
+    isLoading: isBalanceLoading, 
+    isError: isBalanceError,
+    refetch: refetchBalance 
+  } = useGetMyBalance();
+
+  const { 
+    data: transactionsData, 
+    isLoading: isTxLoading, 
+    isError: isTxError,
+    refetch: refetchTransactions 
+  } = useGetMyTransactions();
+
+  // 2. Create the refresh handler
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    // Refetch both simultaneously and wait for them to finish
+    await Promise.all([
+      refetchBalance(), 
+      refetchTransactions()
+    ]);
+    setRefreshing(false);
+  }, [refetchBalance, refetchTransactions]);
 
   const goToBankTransfer = () => {
     navigation.navigate("PaystackWebView")
@@ -21,12 +46,24 @@ export default function Wallet() {
     navigation.navigate('TopUp');
   }
 
-
-
-
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <BalanceCard />
+    <ScrollView 
+      contentContainerStyle={styles.container}
+      // 3. Attach the RefreshControl
+      refreshControl={
+        <RefreshControl 
+          refreshing={refreshing} 
+          onRefresh={onRefresh}
+          tintColor="#FFC107" // Match your theme color
+        />
+      }
+    >
+      {/* 4. Pass data and state down as props */}
+      <BalanceCard 
+        balanceData={balanceData}
+        isLoading={isBalanceLoading}
+        isError={isBalanceError}
+      />
 
       <View style={{marginTop:30, gap:15}}>
        <ActionButtons
@@ -38,12 +75,15 @@ export default function Wallet() {
         label="Top up"
         icon={<Entypo name="plus" size={20} color="#FFC107" />}
         onPress={goToTopUp}
-
       />
       </View>
 
-      <TransactionHistory />
-
+      {/* 5. Pass transaction data down */}
+      <TransactionHistory 
+        data={transactionsData}
+        isLoading={isTxLoading}
+        isError={isTxError}
+      />
 
     </ScrollView>
   );

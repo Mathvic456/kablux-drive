@@ -12,10 +12,14 @@ import {
   View,
 } from "react-native";
 import { WebView } from "react-native-webview";
+import { useNavigation } from "@react-navigation/native";
+// if 'new URL()' crashes on older android versions
+// import 'react-native-url-polyfill/auto'; 
 
 const DynamicPayStackWebViewScreen = () => {
   const [amount, setAmount] = useState("");
   const [paystackUrl, setPaystackUrl] = useState(null);
+  const navigation = useNavigation();
 
   const { mutate: initiateFunding, isPending } = useFundWalletEndPoint();
 
@@ -57,24 +61,31 @@ const DynamicPayStackWebViewScreen = () => {
 
   const handleNavigation = (navState) => {
     const { url } = navState;
-    if (url.includes("checkout.paystack.com") && url.includes("close")) {
-      const reference = new URL(url).searchParams.get("reference");
-      if (reference) {
-        Alert.alert(
-          "Payment Successful!",
-          `Reference: ${reference}\n\nYour wallet has been credited.`,
-          [
-            {
-              text: "Done",
-              onPress: () => {
-                setPaystackUrl(null);
-                setAmount("");
-                goBack?.();
-              },
+    if (url.includes("reference=") && url.includes("trxref=")) {
+      setPaystackUrl(null); 
+
+      Alert.alert(
+        "Payment Successful!",
+        "Your wallet has been credited.",
+        [
+          {
+            text: "Done",
+            onPress: () => {
+              setAmount("");
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                navigation.navigate("Tabs", { screen: "Wallet" });
+              }
             },
-          ]
-        );
-      }
+          },
+        ]
+      );
+    }
+    
+    // 3. Handle the specific "Close" button inside Paystack (if user cancels)
+    else if (url.includes("close") || url.includes("cancel")) {
+        setPaystackUrl(null);
     }
   };
 
@@ -83,6 +94,11 @@ const DynamicPayStackWebViewScreen = () => {
   return (
     <>
       <ScrollView contentContainerStyle={styles.container}>
+        <View style={styles.headerRow}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Text style={{ fontSize: 26, fontWeight: "bold" }}>←</Text>
+          </TouchableOpacity>
+        </View>
         <Text style={styles.title}>Add Funds to Wallet</Text>
 
         <View style={styles.form}>
@@ -126,6 +142,7 @@ const DynamicPayStackWebViewScreen = () => {
         </View>
       </ScrollView>
 
+      {/* Paystack Modal */}
       <Modal visible={!!paystackUrl} animationType="slide">
         <View style={{ flex: 1, backgroundColor: "white" }}>
           <View style={styles.modalHeader}>
@@ -160,6 +177,7 @@ const DynamicPayStackWebViewScreen = () => {
 
 const styles = StyleSheet.create({
   container: { flexGrow: 1, padding: 20, backgroundColor: "#f8f9fa" },
+  headerRow: { marginBottom: 10 }, 
   title: {
     fontSize: 28,
     fontWeight: "bold",
@@ -213,6 +231,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     padding: 15,
+    paddingTop: 50, 
     borderBottomWidth: 1,
     borderColor: "#eee",
     backgroundColor: "#f9fafb",

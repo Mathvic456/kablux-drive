@@ -2,8 +2,6 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { MaterialIcons, Entypo } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-// 1. Import the hook
-import { useGetMyBalance } from "../../services/funding.service"
 
 // Helper function to format the balance
 const formatCurrency = (amount) => {
@@ -15,14 +13,11 @@ const formatCurrency = (amount) => {
   });
 };
 
-export default function BalanceCard() {
+// Accept props now
+export default function BalanceCard({ balanceData, isLoading, isError }) {
   const navigation = useNavigation();
-
-  const { 
-    data: balanceData, 
-    isLoading: isBalanceLoading, 
-    isError: isBalanceError 
-  } = useGetMyBalance();
+  
+  // No hook call here anymore!
   
   const balance = balanceData?.balance ?? 0;
   
@@ -31,7 +26,7 @@ export default function BalanceCard() {
   };
 
   const renderBalanceContent = () => {
-    if (isBalanceLoading) {
+    if (isLoading) {
       return (
         <View style={styles.amountRow}>
           <ActivityIndicator size="large" color="white" />
@@ -40,7 +35,7 @@ export default function BalanceCard() {
       );
     }
 
-    if (isBalanceError) {
+    if (isError) {
       return (
         <View style={styles.amountRow}>
           <Text style={styles.errorText}>Error loading balance</Text>
@@ -74,8 +69,7 @@ export default function BalanceCard() {
       <TouchableOpacity 
         style={styles.button}
         onPress={handleWithdraw}
-        // Disable if balance is loading, or on error
-        disabled={isBalanceLoading || isBalanceError} 
+        disabled={isLoading || isError} 
       >
         <Text style={styles.buttonText}>Withdraw</Text>
       </TouchableOpacity>
@@ -83,6 +77,7 @@ export default function BalanceCard() {
   );
 }
 
+// styles remain the same...
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#04223A',

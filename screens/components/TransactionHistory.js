@@ -7,21 +7,16 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useGetMyTransactions } from "../../services/funding.service";
+// Remove hook import
 
-export default function TransactionHistory() {
+// Accept props
+export default function TransactionHistory({ data, isLoading, isError }) {
   
-  const transactionsFetch = useGetMyTransactions();
-
-  // Extract transactions array - handle both nested and flat structures
-  const transactionsArray = transactionsFetch.data?.data || transactionsFetch.data?.results || [];
+  // Extract transactions array from the prop passed down
+  const transactionsArray = data?.data || data?.results || [];
   
-  console.log("Full transaction response:", transactionsFetch.data);
-  console.log("Extracted transactions array:", transactionsArray);
-  console.log("Array length:", transactionsArray.length);
-
-  // Loading state
-  if (transactionsFetch.isLoading) {
+  // Use isLoading prop
+  if (isLoading) {
     return (
       <View style={styles.container}>
         <Text style={styles.header}>Transaction History</Text>
@@ -33,8 +28,8 @@ export default function TransactionHistory() {
     );
   }
 
-  // Error state
-  if (transactionsFetch.isError) {
+  // Use isError prop
+  if (isError) {
     return (
       <View style={styles.container}>
         <Text style={styles.header}>Transaction History</Text>
@@ -46,7 +41,8 @@ export default function TransactionHistory() {
     );
   }
 
-  // Empty state
+  // ... The rest of the logic remains exactly the same ...
+  
   if (!transactionsArray || transactionsArray.length === 0) {
     return (
       <View style={styles.container}>
@@ -74,23 +70,20 @@ export default function TransactionHistory() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <Text style={styles.header}>
         Transaction History
       </Text>
 
-      {/* Transactions Card */}
-      <ScrollView style={styles.card} showsVerticalScrollIndicator={false}>
+      {/* Note: In nested ScrollViews, simpler to just map View or use FlatList, 
+          but keeping your ScrollView logic for now */}
+      <View style={styles.card}>
         {Object.entries(groupedTransactions).map(([month, monthTransactions]) => (
           <View key={month}>
-            {/* Month Label */}
             <View style={styles.monthContainer}>
               <Text style={styles.monthText}>{month}</Text>
             </View>
 
-            {/* Transactions List */}
             {monthTransactions.map((transaction, index) => {
-              // Flexibly handle different response formats
               const channel = (transaction.channel || 'Unknown').charAt(0).toUpperCase() + (transaction.channel || 'unknown').slice(1);
               const direction = transaction.direction ? transaction.direction.charAt(0).toUpperCase() + transaction.direction.slice(1) : '';
               const status = transaction.status || 'completed';
@@ -106,8 +99,7 @@ export default function TransactionHistory() {
                 year: 'numeric'
               });
 
-              // Determine amount color and prefix based on direction (fallback to type if direction missing)
-              const effectiveType = transaction.direction || transaction.type || 'debit'; // Default to debit for safety
+              const effectiveType = transaction.direction || transaction.type || 'debit';
               const amountColor = (effectiveType === 'credit' || effectiveType === 'deposit') ? '#4CAF50' : '#f44336';
               const amountPrefix = (effectiveType === 'credit' || effectiveType === 'deposit') ? '+' : '-';
 
@@ -119,12 +111,8 @@ export default function TransactionHistory() {
                     index !== monthTransactions.length - 1 && styles.borderBottom
                   ]}
                 >
-                  {/* Transaction Title */}
-                  <Text style={styles.title}>
-                    {title}
-                  </Text>
-
-                  {/* Status Badge (if applicable) */}
+                  <Text style={styles.title}>{title}</Text>
+                  
                   {status && status !== 'completed' && status !== 'success' && (
                     <Text style={[
                       styles.statusBadge,
@@ -135,13 +123,11 @@ export default function TransactionHistory() {
                     </Text>
                   )}
 
-                  {/* Date */}
                   <View style={styles.dateContainer}>
                     <Ionicons name="calendar-outline" size={14} color="#FEB914" />
                     <Text style={styles.dateText}>{displayDate}</Text>
                   </View>
 
-                  {/* Amount */}
                   {amount !== null ? (
                     <Text style={[styles.amount, { color: amountColor }]}>
                       {amountPrefix}₦{Math.abs(amount).toLocaleString()}
@@ -156,11 +142,12 @@ export default function TransactionHistory() {
             })}
           </View>
         ))}
-      </ScrollView>
+      </View>
     </View>
   );
 }
 
+// Styles remain the same...
 const styles = StyleSheet.create({
   container: {
     marginTop: 20,
@@ -179,7 +166,7 @@ const styles = StyleSheet.create({
     padding: 15,
     borderWidth: 1,
     borderColor: "#FEB914",
-    maxHeight: 400,
+    // Removed maxHeight to allow the card to grow within the parent ScrollView
   },
   loadingContainer: {
     backgroundColor: "#111",
