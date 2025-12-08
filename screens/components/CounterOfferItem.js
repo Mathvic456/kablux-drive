@@ -74,7 +74,7 @@ const CounterOfferItem = ({ item, onClose, socket, onAccept, onCounterSubmit }) 
       <View style={styles.divider} />
       <Text style={styles.offerLabel}>Rider's Counter Offer:</Text>
       <Text style={styles.originalPrice}>
-        ₦{(item.counter_offer / 100)?.toLocaleString()}
+        ₦{(item.counter_offer)?.toLocaleString()}
       </Text>
 
       {/* Amount Adjuster */}
@@ -90,7 +90,7 @@ const CounterOfferItem = ({ item, onClose, socket, onAccept, onCounterSubmit }) 
         </TouchableOpacity>
 
         <Text style={styles.counterPrice}>
-          ₦{(counterAmount / 100).toLocaleString()}
+          ₦{(counterAmount).toLocaleString()}
         </Text>
 
         <TouchableOpacity
@@ -112,7 +112,7 @@ const CounterOfferItem = ({ item, onClose, socket, onAccept, onCounterSubmit }) 
           ]}
         >
           Difference: {difference > 0 ? "+" : ""}₦
-          {(Math.abs(difference) / 100).toLocaleString()}
+          {(Math.abs(difference)).toLocaleString()}
         </Text>
       )}
 

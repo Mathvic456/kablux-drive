@@ -159,11 +159,10 @@ export default function Home() {
       
       if (balance <= 0) {
         console.log("⚠️ Wallet not funded");
-        //TODO: I switched false with true for testing, switch back!
-        setShowAvailableRides(true);
+        setShowAvailableRides(false);
       } else {
         console.log("Wallet funded");
-        setShowAvailableRides(false);
+        setShowAvailableRides(true);
       }
     }
   }, [balanceData]);
