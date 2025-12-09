@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "owner": "crashingout",
 
     "splash": {
@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": true,
       "config": {
-        "googleMapsApiKey": "IzaSyD8sdkbIi1FZnlJss8U4byBQ8hFbyMG7ro"
+        "googleMapsApiKey": "AIzaSyD8sdkbIi1FZnlJss8U4byBQ8hFbyMG7ro"
       }
     },
 
@@ -30,15 +30,14 @@
 
       "config": {
         "googleMaps": {
-          "apiKey": "IzaSyD8sdkbIi1FZnlJss8U4byBQ8hFbyMG7ro"
+          "apiKey": "AIzaSyD8sdkbIi1FZnlJss8U4byBQ8hFbyMG7ro"
         }
       },
 
       "edgeToEdgeEnabled": true,
 
       "permissions": [
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.CAMERA"
       ],
 
       "package": "com.crashingout.kabluxdrive"
@@ -52,8 +51,8 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow $(kablux) to access your camera",
-          "microphonePermission": "Allow $(Kablux) to access your microphone",
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera",
+          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone",
           "recordAudioAndroid": true
         }
       ]
