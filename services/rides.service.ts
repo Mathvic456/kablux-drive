@@ -1,16 +1,15 @@
-// services/ride.service.js
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api";
 import { Alert } from "react-native";
 
-// ==================== Query Keys ====================
+
 export const rideKeys = {
   all: ["rides"] as const,
   details: (id: string) => [...rideKeys.all, "details", id] as const,
   active: () => [...rideKeys.all, "active"] as const,
 };
 
-// ==================== API Functions ====================
+
 
 const fetchRideDetails = async (rideId: string) => {
   console.log(`🔍 Fetching ride details for ID: ${rideId}`);
@@ -23,6 +22,13 @@ const startRide = async (rideId: string) => {
   console.log(`🚗 Starting ride: ${rideId}`);
   const { data } = await api.patch(`rides/${rideId}/start/`);
   console.log("✅ Ride started successfully");
+  return data;
+};
+
+const arriveRide = async (rideId: string) => {
+  console.log(`📍 Driver arrived for ride: ${rideId}`);
+  const { data } = await api.patch(`rides/${rideId}/driver_arrived/`);
+  console.log("✅ Driver arrival registered successfully");
   return data;
 };
 
@@ -93,6 +99,39 @@ export const useStartRide = () => {
     },
   });
 };
+
+
+export const useArriveRide = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (rideId: string) => arriveRide(rideId),
+
+    onSuccess: (data, rideId) => {
+      console.log("✅ Driver arrival mutation successful");
+
+      // Refresh ride details (status, timestamps, etc.)
+      queryClient.invalidateQueries({ queryKey: rideKeys.details(rideId) });
+
+      Alert.alert(
+        "Arrived",
+        "You have arrived at the pickup location."
+      );
+    },
+
+    onError: (error: any) => {
+      console.error("❌ Error marking arrival:", error);
+
+      const errorMessage =
+        error.response?.data?.detail ||
+        error.response?.data?.message ||
+        "Failed to mark arrival";
+
+      Alert.alert("Error", errorMessage);
+    },
+  });
+};
+
 
 /**
  * Hook to finish a ride

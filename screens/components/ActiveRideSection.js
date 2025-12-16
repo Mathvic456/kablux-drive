@@ -1,25 +1,27 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Image, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
 const ActiveRideSection = ({ 
   status, 
   rideId, 
-  riderId, 
   rideDetails, 
   onStartRide, 
   onFinishRide,
   isStarting = false,
   isFinishing = false,
   isLoadingDetails = false,
+  onArrived,
+  isArriving,
 }) => {
   const navigation = useNavigation();
   
-
+  // Logic to determine phases
+  const isPickupPhase = status === 'ride_created' || status === 'driver_on_way';
+  
   if (status === 'not_busy') return null;
 
-  // Format currency
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-NG', {
       style: 'currency',
@@ -28,150 +30,105 @@ const ActiveRideSection = ({
     }).format(amount);
   };
 
-  // Get driver rating stars
-  const renderRating = (rating) => {
-    const stars = [];
-    const numRating = Number(rating) || 0;
-    for (let i = 1; i <= 5; i++) {
-      stars.push(
-        <Ionicons
-          key={i}
-          name={i <= numRating ? 'star' : 'star-outline'}
-          size={14}
-          color="#facc15"
-        />
-      );
-    }
-    return stars;
-  };
-
   return (
     <View style={styles.container}>
+      {/* Header Status Bar */}
       <View style={styles.header}>
-        <Ionicons 
-          name={status === 'ride_created' ? 'navigate-circle' : 'car'} 
-          size={32} 
-          color="#facc15" 
-        />
-        <Text style={styles.title}>
-          {status === 'ride_created' ? 'Passenger Pickup' : 'Ride in Progress'}
-        </Text>
+        <View style={styles.headerLeft}>
+          <View style={[styles.statusDot, !isPickupPhase && styles.activeDot]} />
+          <Text style={styles.headerTitle}>
+            {isPickupPhase ? 'Heading to Passenger' : 'Ride in Progress'}
+          </Text>
+        </View>
+        <Text style={styles.rideId}>#{rideId ? rideId.slice(0, 5) : '...'}</Text>
       </View>
 
       {/* Loading State */}
       {isLoadingDetails && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator color="#facc15" size="small" />
-          <Text style={styles.loadingText}>Loading ride details...</Text>
+          <Text style={styles.loadingText}>Syncing details...</Text>
         </View>
       )}
 
-      {/* Ride Info */}
-      <View style={styles.infoContainer}>
-        <View style={styles.infoRow}>
-          <Text style={styles.label}>Ride ID:</Text>
-          <Text style={styles.value}>{rideId ? rideId.slice(0, 8) : 'N/A'}...</Text>
+      {/* RIDER INFO CARD */}
+      {rideDetails?.rider && (
+        <View style={styles.riderCard}>
+          <View style={styles.riderAvatar}>
+             {/* UPDATED: Changed .image to .profile_image based on your JSON logs */}
+            {rideDetails.rider.profile_image ? (
+                <Image source={{uri: rideDetails.rider.profile_image}} style={styles.avatarImage} />
+            ) : (
+                <Ionicons name="person" size={24} color="#facc15" />
+            )}
+          </View>
+          <View style={styles.riderDetails}>
+            <Text style={styles.riderLabel}>PASSENGER</Text>
+            <Text style={styles.riderName}>{rideDetails.rider.name || "Passenger"}</Text>
+          </View>
         </View>
-        
-        {riderId && (
-          <View style={styles.infoRow}>
-            <Text style={styles.label}>Rider ID:</Text>
-            <Text style={styles.value}>{riderId.slice(0, 8)}...</Text>
-          </View>
-        )}
+      )}
 
-        {/* Fare Display */}
-        {rideDetails?.fare && (
-          <View style={styles.infoRow}>
-            <Text style={styles.label}>Fare:</Text>
-            <Text style={[styles.value, styles.fareText]}>
-              {formatCurrency(rideDetails.fare)}
-            </Text>
-          </View>
-        )}
+      <View style={styles.divider} />
 
-        {/* Addresses */}
-        {rideDetails && (
-          <>
-            <View style={styles.divider} />
-            
-            {/* Pickup Address */}
-            <View style={styles.addressContainer}>
-              <View style={styles.addressHeader}>
-                <Ionicons name="location" size={18} color="#facc15" />
-                <Text style={styles.addressLabel}>Pickup</Text>
-              </View>
-              <Text style={styles.addressText} numberOfLines={2}>
-                {rideDetails.pickup_address || "Pickup Location"}
-              </Text>
+      {/* ROUTE INFO */}
+      <View style={styles.routeContainer}>
+        {/* Pickup */}
+        <View style={styles.addressRow}>
+            <View style={styles.timelineContainer}>
+                <Ionicons name="ellipse" size={12} color="#facc15" />
+                <View style={styles.timelineLine} />
             </View>
-
-            {/* Dropoff Address */}
-            <View style={styles.addressContainer}>
-              <View style={styles.addressHeader}>
-                <Ionicons name="flag" size={18} color="#4CAF50" />
-                <Text style={styles.addressLabel}>Destination</Text>
-              </View>
-              <Text style={styles.addressText} numberOfLines={2}>
-                {rideDetails.dropoff_address || "Dropoff Location"}
-              </Text>
+            <View style={styles.addressContent}>
+                <Text style={styles.addressLabel}>PICKUP</Text>
+                <Text style={styles.addressText} numberOfLines={2}>
+                    {rideDetails?.pickup_address || "Pickup location not set"}
+                </Text>
             </View>
+        </View>
 
-            {/* Driver Info (if available) */}
-            {rideDetails.driver_info && (
+        {/* Dropoff */}
+        <View style={styles.addressRow}>
+            <View style={styles.timelineContainer}>
+                <Ionicons name="location" size={12} color="#4CAF50" />
+            </View>
+            <View style={styles.addressContent}>
+                <Text style={styles.addressLabel}>DROPOFF</Text>
+                <Text style={styles.addressText} numberOfLines={2}>
+                    {rideDetails?.dropoff_address || "Destination not set"}
+                </Text>
+            </View>
+        </View>
+      </View>
+
+      {/* FARE INFO */}
+      {rideDetails?.fare !== undefined && (
+        <View style={styles.fareContainer}>
+            <Text style={styles.fareLabel}>Est. Fare</Text>
+            <Text style={styles.fareValue}>{formatCurrency(rideDetails.fare)}</Text>
+        </View>
+      )}
+
+      {/* ACTION BUTTONS */}
+      <View style={styles.actionContainer}>
+        {isPickupPhase && (
+          <TouchableOpacity 
+            style={[styles.primaryButton, isArriving && styles.buttonDisabled]}
+            onPress={onArrived}
+            disabled={isArriving}
+          >
+            {isArriving ? (
+              <ActivityIndicator color="black" size="small" />
+            ) : (
               <>
-                <View style={styles.divider} />
-                <View style={styles.driverInfoSection}>
-                  <Text style={styles.sectionTitle}>Driver Info</Text>
-                  
-                  {rideDetails.driver_info.phone_number && (
-                    <View style={styles.driverInfoRow}>
-                      <Ionicons name="call-outline" size={16} color="#999" />
-                      <Text style={styles.driverInfoText}>
-                        {rideDetails.driver_info.phone_number}
-                      </Text>
-                    </View>
-                  )}
-
-                  {rideDetails.driver_info.rating && (
-                    <View style={styles.driverInfoRow}>
-                      <View style={styles.ratingContainer}>
-                        {renderRating(rideDetails.driver_info.rating)}
-                      </View>
-                      <Text style={styles.ratingText}>
-                        ({rideDetails.driver_info.rating})
-                      </Text>
-                    </View>
-                  )}
-
-                  {/* Vehicle Info */}
-                  {rideDetails.driver_info.vehicle && 
-                   Object.keys(rideDetails.driver_info.vehicle).length > 0 && (
-                    <View style={styles.vehicleInfo}>
-                      <Ionicons name="car-sport-outline" size={16} color="#999" />
-                      <Text style={styles.driverInfoText}>
-                        {rideDetails.driver_info.vehicle.make} {rideDetails.driver_info.vehicle.model}
-                      </Text>
-                    </View>
-                  )}
-                </View>
+                <Ionicons name="location" size={20} color="black" />
+                <Text style={styles.primaryButtonText}>I Have Arrived</Text>
               </>
             )}
-          </>
+          </TouchableOpacity>
         )}
-      </View>
 
-      {/* Status Badge */}
-      <View style={styles.statusBadge}>
-        <View style={[styles.statusDot, status === 'ride_started' && styles.activeDot]} />
-        <Text style={styles.statusText}>
-          {status === 'ride_created' ? 'Heading to pickup location' : 'Passenger on board'}
-        </Text>
-      </View>
-
-      {/* Action Buttons */}
-      {status === 'ride_created' && (
-        <>
+        {status === "arrived" && (
           <TouchableOpacity 
             style={[styles.primaryButton, isStarting && styles.buttonDisabled]}
             onPress={onStartRide}
@@ -181,48 +138,39 @@ const ActiveRideSection = ({
               <ActivityIndicator color="black" size="small" />
             ) : (
               <>
-                <Ionicons name="checkmark-circle" size={20} color="black" />
-                <Text style={styles.primaryButtonText}>I Have Arrived</Text>
+                <Ionicons name="play" size={20} color="black" />
+                <Text style={styles.primaryButtonText}>Start Trip</Text>
               </>
             )}
           </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.secondaryButton}
-            onPress={() => navigation.navigate('DriverMapScreen', { rideDetails })}
-          >
-            <Ionicons name="map" size={20} color="white" />
-            <Text style={styles.secondaryButtonText}>View on Map</Text>
-          </TouchableOpacity>
-        </>
-      )}
+        )}
 
-      {status === 'ride_started' && (
-        <>
-          <TouchableOpacity 
-            style={[styles.primaryButton, styles.finishButton, isFinishing && styles.buttonDisabled]}
-            onPress={onFinishRide}
-            disabled={isFinishing}
-          >
-            {isFinishing ? (
-              <ActivityIndicator color="black" size="small" />
-            ) : (
-              <>
-                <Ionicons name="flag" size={20} color="black" />
-                <Text style={styles.primaryButtonText}>Complete Ride</Text>
-              </>
-            )}
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.secondaryButton}
-            onPress={() => navigation.navigate('DriverMapScreen', { rideDetails })}
-          >
-            <Ionicons name="map" size={20} color="white" />
-            <Text style={styles.secondaryButtonText}>View on Map</Text>
-          </TouchableOpacity>
-        </>
-      )}
+        {status === 'ride_started' && (
+          <View style={styles.startedButtons}>
+            <TouchableOpacity 
+              style={[styles.primaryButton, styles.finishButton, isFinishing && styles.buttonDisabled]}
+              onPress={onFinishRide}
+              disabled={isFinishing}
+            >
+              {isFinishing ? (
+                <ActivityIndicator color="black" size="small" />
+              ) : (
+                <>
+                  <Ionicons name="flag" size={20} color="black" />
+                  <Text style={styles.primaryButtonText}>Complete Ride</Text>
+                </>
+              )}
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.mapButton}
+              onPress={() => navigation.navigate('DriverMapScreen', { rideDetails })}
+            >
+              <Ionicons name="map-outline" size={24} color="white" />
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
     </View>
   );
 };
@@ -230,180 +178,213 @@ const ActiveRideSection = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#1a1a1a',
-    borderRadius: 12,
-    padding: 20,
+    borderRadius: 16,
+    padding: 16,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#facc15',
+    borderColor: '#333',
+    elevation: 4,
   },
   header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 16,
   },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: 'white',
-    marginLeft: 10,
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#facc15', // Yellow for pickup
+    marginRight: 8,
+  },
+  activeDot: {
+    backgroundColor: '#4CAF50', // Green for active trip
+  },
+  headerTitle: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  rideId: {
+    color: '#666',
+    fontSize: 12,
+    fontFamily: 'monospace',
   },
   loadingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-    backgroundColor: '#0a0a0a',
+    backgroundColor: '#252525',
+    padding: 8,
     borderRadius: 8,
     marginBottom: 12,
   },
   loadingText: {
     color: '#999',
     marginLeft: 8,
-    fontSize: 14,
+    fontSize: 12,
   },
-  infoContainer: {
-    backgroundColor: '#0a0a0a',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 15,
-  },
-  infoRow: {
+  /* RIDER CARD STYLES */
+  riderCard: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
     alignItems: 'center',
+    marginBottom: 16,
   },
-  label: {
-    color: '#999',
-    fontSize: 14,
+  riderAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#333',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#facc15',
+    overflow: 'hidden', // Ensures image stays in circle
   },
-  value: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
+  avatarImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
-  fareText: {
-    color: '#facc15',
-    fontSize: 16,
+  riderDetails: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  riderLabel: {
+    color: '#666',
+    fontSize: 10,
     fontWeight: 'bold',
+    marginBottom: 2,
+  },
+  riderName: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  ratingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#facc15',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginRight: 10,
+    gap: 4,
+  },
+  ratingText: {
+    color: 'black',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  callButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#facc15',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   divider: {
     height: 1,
     backgroundColor: '#333',
-    marginVertical: 12,
+    marginBottom: 16,
   },
-  addressContainer: {
-    marginBottom: 12,
+  /* ROUTE STYLES */
+  routeContainer: {
+    marginBottom: 16,
   },
-  addressHeader: {
+  addressRow: {
     flexDirection: 'row',
+    marginBottom: 0,
+  },
+  timelineContainer: {
     alignItems: 'center',
-    marginBottom: 4,
-    gap: 6,
+    width: 20,
+    marginRight: 12,
+  },
+  timelineLine: {
+    width: 1,
+    flex: 1,
+    backgroundColor: '#444',
+    minHeight: 25,
+  },
+  addressContent: {
+    flex: 1,
+    paddingBottom: 16,
   },
   addressLabel: {
-    color: '#facc15',
-    fontSize: 13,
-    fontWeight: '600',
+    color: '#666',
+    fontSize: 10,
+    fontWeight: 'bold',
+    marginBottom: 4,
   },
   addressText: {
-    color: '#ccc',
+    color: '#eee',
     fontSize: 14,
-    paddingLeft: 24,
     lineHeight: 20,
   },
-  driverInfoSection: {
-    paddingTop: 8,
-  },
-  sectionTitle: {
-    color: '#facc15',
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  driverInfoRow: {
+  /* FARE STYLES */
+  fareContainer: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
-    gap: 8,
+    backgroundColor: '#252525',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
   },
-  driverInfoText: {
-    color: '#ccc',
-    fontSize: 14,
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    gap: 2,
-  },
-  ratingText: {
+  fareLabel: {
     color: '#999',
-    fontSize: 13,
-    marginLeft: 4,
+    fontSize: 14,
   },
-  vehicleInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  fareValue: {
+    color: '#facc15',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0a0a0a',
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    marginBottom: 15,
-    alignSelf: 'flex-start',
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#facc15',
-    marginRight: 8,
-  },
-  activeDot: {
-    backgroundColor: '#4CAF50',
-  },
-  statusText: {
-    color: '#ccc',
-    fontSize: 13,
+  /* BUTTONS */
+  actionContainer: {
+    marginTop: 4,
   },
   primaryButton: {
     backgroundColor: '#facc15',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 15,
-    borderRadius: 8,
+    padding: 16,
+    borderRadius: 12,
     gap: 8,
+    flex: 1,
   },
   finishButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#4CAF50', // Green
   },
-  buttonDisabled: {
-    opacity: 0.6,
+  mapButton: {
+    backgroundColor: '#333',
+    width: 54,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 12,
+    marginLeft: 10,
+  },
+  startedButtons: {
+    flexDirection: 'row',
   },
   primaryButtonText: {
     color: 'black',
     fontWeight: 'bold',
     fontSize: 16,
+    textTransform: 'uppercase',
   },
-  secondaryButton: {
-    backgroundColor: '#007aff',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 15,
-    borderRadius: 8,
-    gap: 8,
-    marginTop: 10,
-  },
-  secondaryButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
+  buttonDisabled: {
+    opacity: 0.6,
+  }
 });
 
 export default ActiveRideSection;

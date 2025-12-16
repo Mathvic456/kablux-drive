@@ -53,82 +53,59 @@ const KycScreenOne = ({ navigation }) => {
   }
 
 const takePicture = async () => {
-  console.log("=== TAKE PICTURE STARTED ===");
-  console.log("Camera ref exists:", !!cameraRef.current);
-  console.log("Permission granted:", permission?.granted);
-  
   if (!cameraRef.current) {
-    console.log("ERROR: Camera ref is null");
     setShowErrorModal(true);
     return;
   }
 
   try {
     setIsLoading(true);
-    console.log("Loading state set to true");
 
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    console.log("Attempting to take picture...");
-    
-    // Step 1: Capture the photo with more options
     const photo = await cameraRef.current.takePictureAsync({
       quality: 0.7,
       base64: false,
       exif: false,
-      skipProcessing: false,
     });
-    
-    console.log("✅ PHOTO CAPTURED SUCCESSFULLY");
-    console.log("Photo URI:", photo.uri);
-    console.log("Photo width:", photo.width);
-    console.log("Photo height:", photo.height);
-
 
     setCapturedImage(photo.uri);
-    console.log("Captured image state updated");
 
-    try {
-      const formData = new FormData();
-      formData.append("files", {
-        uri: photo.uri,
-        name: `photo_${Date.now()}.jpg`, 
-        type: "image/jpeg",
-      });
+  
+    const formData = new FormData();
+    formData.append("name", "kyc_document");
 
-      console.log("🚀 UPLOAD STARTING…");
-      const response = await fileUploadMutation.mutateAsync(formData);
-      console.log("✅ UPLOAD SUCCESS:", response.data);
+    const filename = photo.uri.split("/").pop() || "kyc.jpg";
 
-      setShowCamera(false);
-      setShowSuccessModal(true);
+    formData.append("files", {
+      uri: photo.uri,
+      type: "image/jpeg",
+      name: filename,
+    } as any);
 
-    } catch (uploadError) {
-      console.log("❌ UPLOAD ERROR:");
-      console.log(uploadError);
-      console.log("Upload error response:", uploadError.response?.data);
-      console.log("Upload error message:", uploadError.message);
-      
-      setShowCamera(false);
+    const res = await fileUploadMutation.mutateAsync(formData);
+
+    const fileId = res.data?.results?.[0]?.id;
+    const fileUrl = res.data?.results?.[0]?.file;
+    console.log("Response:", res);
+    console.log(fileUrl);
+
+    console.log("UPLOAD RESULT", res.data);
+
+    if (!fileId) {
       setShowErrorModal(true);
+      return;
     }
 
-  } catch (captureError) {
-    console.log("❌ CAPTURE ERROR:");
-    console.log("Error name:", captureError.name);
-    console.log("Error message:", captureError.message);
-    console.log("Full error:", captureError);
-    
+    setShowCamera(false);
+    setShowSuccessModal(true);
+
+  } catch (error: any) {
+    console.log("UPLOAD ERROR:", error.response?.data || error);
     setShowErrorModal(true);
-    
-    } finally {
-        setIsLoading(false);
-        if (capturedImage) {
-            setShowCamera(false);
-        }
-        console.log("=== TAKE PICTURE FINISHED ===");
-    }
+  } finally {
+    setIsLoading(false);
+  }
 };
+
 
   const toggleCameraFacing = () => {
     setFacing(current => (current === 'back' ? 'front' : 'back'));

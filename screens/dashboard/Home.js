@@ -16,6 +16,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import DebugStateModal from "../components/DebugStateModal";
 
 // Components
 import DonutChart from "../components/DonutChart";
@@ -33,10 +34,12 @@ import { useStartRide, useFinishRide } from "../../services/rides.service";
 import { useGetMyBalance } from "../../services/funding.service";
 import { SocketContext } from "../../context/WebSocketProvider";
 import { useDriverRide } from "../../context/DriverRideContext";
+import { useArriveRide } from "../../services/rides.service";
 import { api } from "../../services/api";
 
 export default function Home() {
   const navigation = useNavigation();
+  
 
   const [tierOverlayVisible, setTierOverlayVisible] = useState(false);
   const [rideModalVisible, setRideModalVisible] = useState(false);
@@ -49,19 +52,23 @@ export default function Home() {
   const [acceptedModalVisible, setAcceptedModalVisible] = useState(false);
   const [rideDetails, setRideDetails] = useState(null);
   const [loadingRideDetails, setLoadingRideDetails] = useState(false);
+  const [debugModalVisible, setDebugModalVisible] = useState(false);
 
 
 
-  const { 
-    handleWsEvent, 
-    status, 
-    rideId, 
-    riderId, 
-    startRide,
-    finishRide,
-    reset 
-  } = useDriverRide();
+const {
+  handleWsEvent,
+  status,
+  rideId,
+  riderId,
+  startRide,
+  finishRide,
+  arrive,
+  reset,
+  loadPersisted
+} = useDriverRide();
 
+  
   const {
     socket,
     currentLocation,
@@ -88,9 +95,10 @@ export default function Home() {
   // -- React Query Mutations --
   const startRideMutation = useStartRide();
   const finishRideMutation = useFinishRide();
+  const arriveRideMutation = useArriveRide();
 
   // -- Helper: Fetch Ride Details --
-  const fetchRideDetails = async (id) => {
+const fetchRideDetails = async (id) => {
     if (!id) {
       console.warn("⚠️ fetchRideDetails: No ride ID provided");
       return null;
@@ -105,16 +113,22 @@ export default function Home() {
       console.log("✅ Ride details fetched successfully");
       console.log("📦 Response data:", JSON.stringify(response.data, null, 2));
       
-      // Extract the nested data structure
+      // Extract the nested data structure (handling both data.data and direct data)
       const rideData = response.data?.data || response.data;
       
-      // Map the API response to a cleaner structure
+      // Map the API response to match your Component structure
       const mappedDetails = {
-        pickup_address: rideData.ride_info?.start_address || "Pickup Location",
-        dropoff_address: rideData.ride_info?.end_address || "Dropoff Location",
-        fare: rideData.fare || 0,
-        driver_info: rideData.driver_info || {},
-        raw: rideData, // Keep raw data just in case
+        id: rideData.id,
+        // Match JSON: keys are at the root, not inside 'ride_info'
+        pickup_address: rideData.pickup_address || rideData.ride_info?.start_address || "Pickup Location",
+        dropoff_address: rideData.dropoff_address || rideData.ride_info?.end_address || "Dropoff Location",
+        // Match JSON: 'fare' is a string in the JSON
+        fare: rideData.fare ? parseFloat(rideData.fare) : 0,
+        // Match JSON: 'rider' object exists in JSON
+        rider: rideData.rider || {}, 
+        driver: rideData.driver || {},
+        status: rideData.status,
+        raw: rideData, 
       };
       
       console.log("🗺️ Mapped ride details:", mappedDetails);
@@ -131,8 +145,8 @@ export default function Home() {
         Alert.alert("Error", "Ride not found.");
       } else {
         const errorMessage = error.response?.data?.detail || 
-                            error.response?.data?.message || 
-                            "Failed to fetch ride details";
+                             error.response?.data?.message || 
+                             "Failed to fetch ride details";
         Alert.alert("Error", errorMessage);
       }
       
@@ -141,6 +155,29 @@ export default function Home() {
       setLoadingRideDetails(false);
     }
   };
+
+  const handleForceSetState = async ({ status, rideId, riderId }) => {
+  try {
+    console.log("🔧 [DEBUG] Force setting state:", { status, rideId, riderId });
+    
+    // Directly update AsyncStorage
+    const stateData = {
+      status,
+      rideId,
+      riderId,
+    };
+    
+    await AsyncStorage.setItem("driverRideState", JSON.stringify(stateData));
+    
+    // Force reload the persisted state in context
+    await loadPersisted();
+    
+    Alert.alert("Success", `State set to: ${status}`);
+  } catch (error) {
+    console.error("❌ Error forcing state:", error);
+    Alert.alert("Error", "Failed to set state");
+  }
+};
 
   // -- Effects --
 
@@ -167,7 +204,7 @@ export default function Home() {
     }
   }, [balanceData]);
 
-  // 2. Fetch Ride Details when rideId changes
+  
   useEffect(() => {
     if (!rideId) {
       console.log("⚠️ No rideId, clearing ride details");
@@ -179,7 +216,11 @@ export default function Home() {
     fetchRideDetails(rideId);
   }, [rideId]);
 
-  // 3. WebSocket Listener
+  useEffect(() => {
+    if (status === "ride_created") {
+      setAcceptedModalVisible(true);
+    }
+  }, [status]);
   useEffect(() => {
     if (!socket) return;
 
@@ -212,10 +253,9 @@ export default function Home() {
           }));
         }
 
-        // Handle ride created event
         if (msg.type === "notify" && msg.event === "ride_created") {
           console.log("✅ [DRIVER] Ride created event detected!");
-          const rideInfo = msg.payload || { ride_id: msg.ride_id };
+          const rideInfo = msg.payload || { ride_request_id: msg.ride_request_id };
           setAcceptedRide(rideInfo);
           setAcceptedModalVisible(true);
         }
@@ -251,7 +291,7 @@ export default function Home() {
 
   const handleAccept = async (offer) => {
     try {
-      const rideRequestId = offer?.ride_request_view_id ?? offer?.ride_id ?? null;
+      const rideRequestId = offer?.ride_request_view_id ?? offer?.ride_request_id ?? null;
 
       if (!rideRequestId) {
         alert("Could not find ride ID");
@@ -273,7 +313,7 @@ export default function Home() {
 
       socket.send(JSON.stringify(data));
 
-      clearNotification(offer.ride_id);
+      clearNotification(offer.ride_request_id);
       if (offer.ride_request_view_id) {
         clearNegotiationUpdate(offer.ride_request_view_id);
       }
@@ -286,44 +326,68 @@ export default function Home() {
   };
 
 const handleCounter = (offer) => {
-  setRideModalVisible(false);
+    setRideModalVisible(false);
 
-  const rideRequestId = offer?.ride_request_view_id ?? offer?.ride_id;
+    const rideRequestId = offer?.ride_request_id;
 
-  navigation.navigate("OrderScreen", {
-    item: offer,
-    socket,
-    onCounterSubmitted: () => removeRideNotification(rideRequestId),
-  });
-};
+    navigation.navigate("OrderScreen", {
+      item: offer,
+      onCounterSubmitted: () => removeRideNotification(rideRequestId),
+    });
+  };
 
   const handleDecline = (offer) => {
-    clearNotification(offer.ride_id);
+    clearNotification(offer.ride_request_id);
     if (offer.ride_request_view_id) {
       clearNegotiationUpdate(offer.ride_request_view_id);
     }
   };
 
 const handleStartRide = async () => {
-  if (!rideId || typeof rideId !== 'string') {
+  if (!rideId || typeof rideId !== "string") {
     Alert.alert("Error", "No valid ride ID found");
     return;
   }
 
   try {
     console.log("🚗 Starting ride flow for:", rideId);
-    await startRideMutation.mutateAsync(rideId);
-    console.log("✅ Ride start API call completed, waiting for WS confirmation...");
 
+    await startRideMutation.mutateAsync(rideId);
+
+    // 🔥 IMMEDIATELY update local + persisted state
+    startRide();
+
+    console.log("✅ Ride started locally (no WS wait)");
   } catch (error) {
     console.error("❌ Error in handleStartRide:", error);
+  }
+};
+
+
+const handleArrived = async () => {
+  if (!rideId || typeof rideId !== "string") {
+    Alert.alert("Error", "No valid ride ID found");
+    return;
+  }
+
+  try {
+    console.log("📍 Marking driver as arrived for:", rideId);
+
+    await arriveRideMutation.mutateAsync(rideId);
+
+    // LOCAL state update only AFTER API success
+    arrive();
+
+    console.log("✅ Arrival flow completed");
+  } catch (error) {
+    console.error("❌ Error in handleArrived:", error);
   }
 };
 
 const removeRideNotification = (id) => {
   setRideNotifications(prev =>
     prev.filter(item =>
-      item.ride_request_view_id !== id && item.ride_id !== id
+      item.ride_request_view_id !== id && item.ride_request_id !== id
     )
   );
 };
@@ -429,11 +493,13 @@ const handleCounterSubmit = (ride_request_view_id) => {
             onMenuPress={handleOpenDrawer}
           />
 
-          {/* Debug Reset Button */}
-          <TouchableOpacity style={styles.debugResetButton} onPress={() => reset()}>
-            <Ionicons name="refresh" size={18} color="white" />
-            <Text style={styles.debugResetButtonText}>Reset State</Text>
-          </TouchableOpacity>
+          <TouchableOpacity 
+  style={styles.debugResetButton} 
+  onPress={() => setDebugModalVisible(true)}
+>
+  <Ionicons name="settings" size={18} color="white" />
+  <Text style={styles.debugResetButtonText}>Debug State</Text>
+</TouchableOpacity>
 
           <StatusBadge
             isConnected={isConnected}
@@ -441,17 +507,20 @@ const handleCounterSubmit = (ride_request_view_id) => {
           />
 
           {/* Active Ride Section - Pure Component */}
-          <ActiveRideSection
-            status={status}
-            rideId={rideId}
-            riderId={riderId}
-            rideDetails={rideDetails}
-            onStartRide={handleStartRide}
-            onFinishRide={handleFinishRide}
-            isStarting={startRideMutation.isPending}
-            isFinishing={finishRideMutation.isPending}
-            isLoadingDetails={loadingRideDetails}
-          />
+        <ActiveRideSection
+          status={status}
+          rideId={rideId}
+          riderId={riderId}
+          rideDetails={rideDetails}
+          onArrived={handleArrived}
+          onStartRide={handleStartRide}
+          onFinishRide={handleFinishRide}
+          isArriving={arriveRideMutation.isPending}
+          isStarting={startRideMutation.isPending}
+          isFinishing={finishRideMutation.isPending}
+          isLoadingDetails={loadingRideDetails}
+        />
+
 
           <View style={styles.chartContainer}>
             <DonutChart />
@@ -555,6 +624,12 @@ const handleCounterSubmit = (ride_request_view_id) => {
         </View>
       </Modal>
 
+      <DebugStateModal
+  visible={debugModalVisible}
+  onClose={() => setDebugModalVisible(false)}
+  onSetState={handleForceSetState}
+    />
+
       {/* Upload documents modal */}
       <Modal
         animationType="fade"
@@ -606,7 +681,7 @@ const handleCounterSubmit = (ride_request_view_id) => {
 
             <FlatList
               data={rideNotifications}
-              keyExtractor={(item) => item.ride_request_view_id || item.ride_id}
+              keyExtractor={(item) => item.ride_request_id}
               renderItem={({ item }) => (
                 <RideOfferCard
                   item={item}
@@ -683,8 +758,8 @@ const handleCounterSubmit = (ride_request_view_id) => {
             <Ionicons name="checkmark-circle" size={60} color="#4CAF50" />
             <Text style={styles.alertTitle}>Ride Accepted!</Text>
             <Text style={styles.alertMessage}>
-              {acceptedRide?.ride_id
-                ? `Ride ID: ${acceptedRide.ride_id.slice(0, 16)}... has been accepted. Head to the pickup location!`
+              {acceptedRide?.ride_request_id
+                ? `Ride ID: ${acceptedRide.ride_request_id.slice(0, 16)}... has been accepted. Head to the pickup location!`
                 : "Your ride has been accepted successfully."}
             </Text>
             <TouchableOpacity

@@ -157,7 +157,7 @@ const pickDocument = async (docType) => {
         
         setTimeout(() => {
           setShowSuccessModal(false);
-          navigation.navigate('KycScreenOne');
+          navigation.navigate('DocumentUploads');
         }, 3000);
       }, 2000);
       

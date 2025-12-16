@@ -6,16 +6,6 @@ export type FundWalletPayload = {
   channel: "card";
 };
 
-export type PaystackInitResponse = {
-  status: number;
-  message: string;
-  data: {
-    authorization_url: string;
-    access_code: string;
-    reference: string;
-  };
-  errors: any;
-};
 export type WalletBalanceResponse = {
   balance: number;
 };
@@ -60,10 +50,10 @@ export type CreateRecipientResponse = {
 const useFundWalletEndPoint = () => {
   return useMutation({
     mutationFn: async (data: FundWalletPayload) => {
-      return api.post<PaystackInitResponse>("/wallets/fund_initiate/", data);
+      return api.post("/wallets/fund_initiate/", data);
     },
     onSuccess: (res) => {
-      const paystackUrl = res.data?.data?.authorization_url;
+      const paystackUrl = res.data?.authorization_url;
       console.log("Paystack checkout URL:", paystackUrl);
     },
     onError: (error: any) => {
@@ -76,11 +66,22 @@ const useGetMyBalance = () => {
   return useQuery({
     queryKey: ["balance"],
     queryFn: async () => {
-      const res = await api.get<{ data: WalletBalanceResponse }>(
-        "/wallets/my_balance/"
-      );
-      console.log("balance:", res.data);
-      return res.data.data;
+      const res = await api.get("/wallets/my_balance/");
+
+      console.log("💰 Wallet balance raw response:", res.data);
+
+      // Handle common backend shapes
+      if (!res.data) {
+        throw new Error("No wallet balance data returned");
+      }
+
+      // If backend returns { data: {...} }
+      if (res.data.data) {
+        return res.data.data;
+      }
+
+      // If backend returns {...} directly
+      return res.data;
     },
   });
 };

@@ -7,7 +7,7 @@ import { useAuth } from "./AuthContext";
 const WSS_URL = process.env.EXPO_PUBLIC_WSS_URL;
 
 interface RideNotification {
-  ride_id: string;
+  ride_request_id: string;
   notification_type: string;
   ride_type: string;
   message: string;
@@ -102,7 +102,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
   };
 
   const clearNotification = (rideId: string) => {
-    setRideNotifications(prev => prev.filter(notif => notif.ride_id !== rideId));
+    setRideNotifications(prev => prev.filter(notif => notif.ride_request_id !== rideId));
     console.log(`🗑️ Cleared notification for ride: ${rideId}`);
   };
 
@@ -111,30 +111,42 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
     console.log("🗑️ Cleared all notifications");
   };
 
-  const parseRideNotification = (event: any): RideNotification | null => {
+const parseRideNotification = (data: any): RideNotification | null => {
     try {
-      const messageMatch = event.message?.match(/Rider offer: (\d+)/);
-      const distanceMatch = event.message?.match(/approximately ([\d.]+) km/);
-      
+      // 1. Log what we are parsing to debug
+      // console.log("Parsing data:", data);
+
+      const offerMatch = data.message?.match(/Rider offer:\s*([\d.]+)/);
+      const distanceVal = data.distance ? parseFloat(data.distance) : undefined;
+      const timeCalc = distanceVal ? String((distanceVal / 0.5) * 60) : "0";
+
+      // 🔴 CRITICAL FIX: Explicitly check for ride_id and map it
+      const finalId = data.ride_id || data.ride_request_id;
+
+      if (!finalId) {
+        console.warn("⚠️ Parse failed: Missing ID in data:", data);
+        return null;
+      }
+
       return {
-        ride_id: event.ride_id,
-        notification_type: event.notification_type,
-        ride_type: event.ride_type,
-        message: event.message,
-        rider_name: event.rider_name || "Unknown Rider",
-        rider_rating: event.rider_rating || "4.5",
-        time_to_pickup: distanceMatch ? String((parseFloat(distanceMatch[1]) / 0.5) * 60) : "0",
-        address: event.pickup_address || "Address not provided",
-        offer_amount: messageMatch ? parseInt(messageMatch[1]) : event.estimated_fare || 0,
-        estimated_fare: event.estimated_fare,
-        distance_km: distanceMatch ? parseFloat(distanceMatch[1]) : undefined,
+        ride_request_id: finalId, // ✅ Mapped correctly now
+        notification_type: data.type || "RIDE_REQUESTED",
+        ride_type: data.ride_type || "standard",
+        message: data.message || "",
+        rider_name: data.rider_name || "Unknown Rider",
+        rider_rating: data.rider_rating || "4.5",
+        time_to_pickup: timeCalc,
+        address: data.pickup || data.pickup_address || "Address not provided",
+        offer_amount: offerMatch ? parseFloat(offerMatch[1]) : (data.fare || 0),
+        estimated_fare: data.fare,
+        distance_km: distanceVal,
+        ride_request_view_id: data.ride_request_view_id 
       };
     } catch (err) {
       console.error("❌ Error parsing ride notification:", err);
       return null;
     }
   };
-
   const sendLocationUpdate = (socket: WebSocket, location: { lat: number; long: number }) => {
     if (socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({
@@ -265,21 +277,26 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
       }, 5000);
     };
 
-    socket.onmessage = (event) => {
-      console.log("📩 Raw incoming message:", event.data);
+socket.onmessage = (event) => {
+      //console.log("📩 Raw incoming message:", event.data); 
       try {
         const msg = JSON.parse(event.data);
         console.log("📩 Incoming WS message:", msg);
 
         switch (msg.type) {
           case "notify":
-            if (msg.event?.notification_type === "RIDE_REQUESTED") {
-              console.log("🚗 New ride request received:", msg.event);
-              const notification = parseRideNotification(msg.event);
+            // CHANGE: Access msg.data instead of msg.event
+            const notificationData = msg.data;
+
+            // CHANGE: Check notificationData.type (Log shows "type": "RIDE_REQUESTED")
+            if (notificationData && notificationData.type === "RIDE_REQUESTED") {
+              console.log("🚗 New ride request received:", notificationData);
+              
+              const notification = parseRideNotification(notificationData);
               
               if (notification) {
                 setRideNotifications(prev => {
-                  const exists = prev.some(n => n.ride_id === notification.ride_id);
+                  const exists = prev.some(n => n.ride_request_id === notification.ride_request_id);
                   if (exists) {
                     console.log("⚠️ Duplicate notification ignored");
                     return prev;
@@ -288,12 +305,14 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
                 });
               }
             } else {
-              console.log("ℹ️ Other notification type:", msg.event?.notification_type);
+              console.log("ℹ️ Other notification type:", notificationData?.type);
             }
             break;
+
           case "subscribed":
             console.log("✅ Subscribed successfully to driver updates");
             break;
+
           default:
             console.log("ℹ️ Unknown message type:", msg.type);
         }

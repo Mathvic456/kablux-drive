@@ -1,14 +1,19 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-type DriverRideStatus = "not_busy" | "ride_created" | "ride_started";
+type DriverRideStatus =
+  | "not_busy"
+  | "ride_created"
+  | "arrived"
+  | "ride_started";
 
 interface DriverRideContextValue {
   status: DriverRideStatus;
   rideId: string | null;
   riderId: string | null;
 
-  // WS event handler
+  arrive: () => void;
+  startRide: () => void;
   handleWsEvent: (msg: any) => void;
   finishRide: () => void;
   loadPersisted: () => Promise<void>;
@@ -23,6 +28,8 @@ const DriverRideContext = createContext<DriverRideContextValue>({
   finishRide: () => {},
   loadPersisted: async () => {},
   reset: () => {},
+  arrive: () => {},
+  startRide: () => {},
 });
 
 export const useDriverRide = () => useContext(DriverRideContext);
@@ -61,14 +68,19 @@ export const DriverRideProvider = ({ children }) => {
   };
 
 const handleWsEvent = (msg: any) => {
-  const event = msg.data?.event || msg.event || msg.type;
+const rawEvent =
+  msg.data?.type ||
+  msg.type ||
+  msg.event;
+
+const event = rawEvent?.toUpperCase().replace(/\s+/g, "_");
 
   console.log("🔍 Handling WS event:", event, "Full message:", msg);
 
-  if (event === "ride_created" && msg.payload) {
-    const { ride_id, rider_id } = msg.payload;
+ if (event === "RIDE_ACCEPTED") {
+    const { ride_id, rider_id } = msg.data;
 
-    console.log("🚗 Driver received ride_created:", msg.payload);
+    console.log("✅ Driver ride accepted:", ride_id, rider_id);
 
     setStatus("ride_created");
     setRideId(ride_id);
@@ -81,20 +93,34 @@ const handleWsEvent = (msg: any) => {
     });
   }
 
-  if (event === "ride_started" && msg.data) {
-    const { ride_id } = msg.data;
-    
-    console.log("🏁 Driver received ride_started:", msg.data);
-    
-    setStatus("ride_started");
-    persist({
-      status: "ride_started",
-      rideId: rideId || ride_id,
-      riderId,
-    });
-  }
+};
+const startRide = () => {
+  if (!rideId) return;
+
+  setStatus("ride_started");
+
+  persist({
+    status: "ride_started",
+    rideId,
+    riderId,
+  });
+
+  console.log("🚦 Driver status set to RIDE_STARTED");
 };
 
+const arrive = () => {
+  if (!rideId) return;
+
+  setStatus("arrived");
+
+  persist({
+    status: "arrived",
+    rideId,
+    riderId,
+  });
+
+  console.log("📍 Driver status set to ARRIVED");
+};
 
 
   // Driver finishes the ride
@@ -123,6 +149,8 @@ const handleWsEvent = (msg: any) => {
         finishRide,
         loadPersisted,
         reset,
+        arrive,
+        startRide,
       }}
     >
       {children}

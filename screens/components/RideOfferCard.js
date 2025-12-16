@@ -39,7 +39,7 @@ const RideOfferCard = ({ item, onAccept, onCounter, onDecline }) => {
       <View style={styles.detailsGrid}>
         <DetailItem
           label="Ride ID"
-          value={item.ride_id?.slice(0, 16) + "..."}
+          value={item.ride_request_id?.slice(0, 16) + "..."}
         />
         {item.distance_km && (
           <DetailItem
