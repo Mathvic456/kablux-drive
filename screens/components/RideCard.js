@@ -3,7 +3,6 @@ import { View, Text, StyleSheet } from 'react-native';
 
 const RideCard = ({ status, date, from, to, price }) => {
   
-  // Helper to format currency (assuming Naira based on your location data)
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-NG', {
       style: 'currency',

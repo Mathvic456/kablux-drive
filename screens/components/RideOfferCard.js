@@ -77,13 +77,6 @@ const RideOfferCard = ({ item, onAccept, onCounter, onDecline }) => {
       {/* Actions */}
       <View style={styles.actions}>
         <TouchableOpacity
-          style={[styles.actionButton, styles.acceptButton]}
-          onPress={() => onAccept(item)}
-        >
-          <Ionicons name="checkmark-circle" size={18} color="white" />
-          <Text style={styles.acceptButtonText}>Accept</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
           style={[styles.actionButton, styles.counterButton]}
           onPress={() => onCounter(item)}
         >

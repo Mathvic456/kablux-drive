@@ -1,5 +1,5 @@
 import { Feather, FontAwesome5 } from '@expo/vector-icons';
-import * as Location from 'expo-location'; // Import Location
+import * as Location from 'expo-location';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -26,17 +26,6 @@ if (!GOOGLE_API_KEY) {
 
 const { height } = Dimensions.get('window');
 
-const mockRideData = {
-  dropOffLocation: {
-    latitude: 6.4167,
-    longitude: 3.4333,
-    address: 'Eko Atlantic City, Victoria Island, Lagos',
-  },
-
-  initialDistance: 'Calculating...', 
-  initialTime: '...',
-};
-
 export default function DriverMapScreen({ navigation }) {
   const mapRef = useRef(null);
   const route = useRoute();
@@ -44,14 +33,14 @@ export default function DriverMapScreen({ navigation }) {
   const { status } = useDriverRide();
 
   const [slideAnim] = useState(new Animated.Value(height * 0.25));
-  
-
   const [currentDriverLocation, setCurrentDriverLocation] = useState(null);
-  const [location, setLocation] = useState(null);
+  const [destination, setDestination] = useState(null);
+  const [routeDistance, setRouteDistance] = useState(null);
+  const [routeDuration, setRouteDuration] = useState(null);
 
   const locationSubscription = useRef(null);
 
-
+  // Slide in animation
   useEffect(() => {
     Animated.timing(slideAnim, {
       toValue: 0,
@@ -60,7 +49,7 @@ export default function DriverMapScreen({ navigation }) {
     }).start();
   }, []);
 
-
+  // Request location permissions and start tracking
   useEffect(() => {
     (async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
@@ -69,12 +58,12 @@ export default function DriverMapScreen({ navigation }) {
         return;
       }
 
-      // B. Watch Position
+      // Watch driver position
       locationSubscription.current = await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.High,
           timeInterval: 5000,
-          distanceInterval: 10, 
+          distanceInterval: 10,
         },
         (location) => {
           const { latitude, longitude } = location.coords;
@@ -84,7 +73,6 @@ export default function DriverMapScreen({ navigation }) {
       );
     })();
 
-
     return () => {
       if (locationSubscription.current) {
         locationSubscription.current.remove();
@@ -92,40 +80,85 @@ export default function DriverMapScreen({ navigation }) {
     };
   }, []);
 
-
+  // Fit map to show both driver and destination
   useEffect(() => {
-    if (currentDriverLocation &&  location && mapRef.current) {
-      mapRef.current.fitToCoordinates([currentDriverLocation, location], {
-        edgePadding: { top: 100, right: 50, bottom: 250, left: 50 }, 
+    if (currentDriverLocation && destination && mapRef.current) {
+      mapRef.current.fitToCoordinates([currentDriverLocation, destination], {
+        edgePadding: { top: 100, right: 50, bottom: 300, left: 50 },
         animated: true,
       });
     }
+  }, [currentDriverLocation, destination]);
 
-  }, [currentDriverLocation, location]); 
-
+  // Set destination based on ride status
   useEffect(() => {
-  if (!rideDetails) return;
+    if (!rideDetails?.raw) {
+      console.warn("⚠️ No ride details found");
+      return;
+    }
 
-  const info = rideDetails.raw.ride_info;
+    const raw = rideDetails.raw;
+    
+    console.log("🗺️ Setting destination based on status:", status);
+    console.log("📍 Raw data:", raw);
 
-  if (status === "ride_created") {
-    setLocation({
-      latitude: info.pickup_lat,
-      longitude: info.pickup_lng,
-      address: info.start_address,
-    });
-  } else if (status === "ride_started") {
-    setLocation({
-      latitude: info.dropoff_lat,
-      longitude: info.dropoff_lng,
-      address: info.end_address,
-    });
-  }
-}, [status]);
-
+    // When driver is on the way or just arrived, show route to PICKUP
+    if (status === "ride_created" || status === "driver_on_way" || status === "arrived") {
+      const pickupLat = parseFloat(raw.pickup_lat);
+      const pickupLng = parseFloat(raw.pickup_lng);
+      
+      if (!isNaN(pickupLat) && !isNaN(pickupLng)) {
+        setDestination({
+          latitude: pickupLat,
+          longitude: pickupLng,
+          address: raw.pickup_address || "Pickup Location",
+        });
+        console.log("✅ Destination set to PICKUP:", pickupLat, pickupLng);
+      } else {
+        console.error("❌ Invalid pickup coordinates");
+      }
+    }
+    // When ride has started, show route to DROPOFF
+    else if (status === "ride_started") {
+      const dropoffLat = parseFloat(raw.dropoff_lat);
+      const dropoffLng = parseFloat(raw.dropoff_lng);
+      
+      if (!isNaN(dropoffLat) && !isNaN(dropoffLng)) {
+        setDestination({
+          latitude: dropoffLat,
+          longitude: dropoffLng,
+          address: raw.dropoff_address || "Drop-off Location",
+        });
+        console.log("✅ Destination set to DROPOFF:", dropoffLat, dropoffLng);
+      } else {
+        console.error("❌ Invalid dropoff coordinates");
+      }
+    }
+  }, [status, rideDetails]);
 
   const handleBackPress = () => {
-    navigation.navigate('Tabs');
+    navigation.goBack();
+  };
+
+  const getStatusText = () => {
+    switch (status) {
+      case "ride_created":
+      case "driver_on_way":
+        return "Heading to Pickup";
+      case "arrived":
+        return "Arrived at Pickup";
+      case "ride_started":
+        return "Ride in Progress";
+      default:
+        return "Active Ride";
+    }
+  };
+
+  const getDestinationLabel = () => {
+    if (status === "ride_created" || status === "driver_on_way" || status === "arrived") {
+      return "Pickup Location";
+    }
+    return "Drop-off Location";
   };
 
   const renderDriverMapContent = () => {
@@ -146,7 +179,16 @@ export default function DriverMapScreen({ navigation }) {
         </View>
       );
     }
-    
+
+    if (!destination) {
+      return (
+        <View style={styles.mapPlaceholder}>
+          <ActivityIndicator size="large" color="#007aff" />
+          <Text style={styles.mapSubtext}>Loading destination...</Text>
+        </View>
+      );
+    }
+
     return (
       <MapView
         ref={mapRef}
@@ -163,58 +205,57 @@ export default function DriverMapScreen({ navigation }) {
         showsCompass={false}
         customMapStyle={darkMapStyle}
       >
-        {/* Driver/Pickup Marker (Dynamic) */}
+        {/* Driver Marker (Your Location) */}
         <Marker
           coordinate={currentDriverLocation}
           title="You"
-          anchor={{ x: 0.5, y: 0.5 }} // Center the icon
+          anchor={{ x: 0.5, y: 0.5 }}
         >
           <View style={styles.driverMarkerContainer}>
             <Image
-              source={require('../../assets/images/target.png')} 
+              source={require('../../assets/images/target.png')}
               style={{ width: 30, height: 30 }}
               resizeMode="contain"
             />
           </View>
         </Marker>
 
-        {/* Drop-off Location Marker (Static) */}
-  {location && (
-    <Marker
-      coordinate={location}
-      title="Rider Drop-off"
-      description={location.address}
-    >
-      <View style={styles.destinationMarkerContainer}>
-        <FontAwesome5 name="flag-checkered" size={20} color="#1c1c1c" />
-      </View>
-    </Marker>
-  )}
+        {/* Destination Marker (Pickup or Drop-off) */}
+        <Marker
+          coordinate={destination}
+          title={getDestinationLabel()}
+          description={destination.address}
+        >
+          <View style={styles.destinationMarkerContainer}>
+            <FontAwesome5 
+              name={status === "ride_started" ? "flag-checkered" : "map-pin"} 
+              size={20} 
+              color="#1c1c1c" 
+            />
+          </View>
+        </Marker>
 
-
-        {/* Route Line from Driver (Dynamic) to Drop-off */}
+        {/* Route Line from Driver to Destination */}
         <MapViewDirections
           origin={currentDriverLocation}
-          destination={location}
+          destination={destination}
           apikey={GOOGLE_API_KEY}
           strokeWidth={5}
           strokeColor="#007aff"
           optimizeWaypoints={true}
-          onError={(errMessage) => console.warn("MapViewDirections Error:", errMessage)}
+          onReady={(result) => {
+            console.log(`Distance: ${result.distance} km`);
+            console.log(`Duration: ${result.duration} min`);
+            setRouteDistance(result.distance);
+            setRouteDuration(result.duration);
+          }}
+          onError={(errorMessage) => {
+            console.warn("MapViewDirections Error:", errorMessage);
+          }}
         />
       </MapView>
     );
   };
-
-  if (!location) {
-  return (
-    <View style={styles.mapPlaceholder}>
-      <ActivityIndicator size="large" color="#007aff" />
-      <Text style={styles.mapSubtext}>Loading ride location...</Text>
-    </View>
-  );
-}
-
 
   return (
     <View style={styles.container}>
@@ -229,7 +270,7 @@ export default function DriverMapScreen({ navigation }) {
           <Feather name="arrow-left" size={24} color="white" />
         </TouchableOpacity>
         <View style={styles.statusBadge}>
-          <Text style={styles.statusText}>Active Ride</Text>
+          <Text style={styles.statusText}>{getStatusText()}</Text>
           <ActivityIndicator size="small" color="white" style={{ marginLeft: 5 }} />
         </View>
       </View>
@@ -237,30 +278,53 @@ export default function DriverMapScreen({ navigation }) {
       {/* Bottom Panel - Ride Info Summary */}
       <Animated.View style={[styles.bottomPanel, { transform: [{ translateY: slideAnim }] }]}>
         <View style={styles.dragHandle} />
-        
+
+        {/* Distance & Time Info */}
         <View style={styles.infoRow}>
           <View style={styles.infoBox}>
-            <Text style={styles.infoLabel}>Distance to Drop-off</Text>
-            <Text style={styles.infoValue}>{location?.address || "Loading..."}</Text>
+            <Text style={styles.infoLabel}>Distance</Text>
+            <Text style={styles.infoValue}>
+              {routeDistance ? `${routeDistance.toFixed(1)} km` : '...'}
+            </Text>
+          </View>
+          <View style={styles.separator} />
+          <View style={styles.infoBox}>
+            <Text style={styles.infoLabel}>ETA</Text>
+            <Text style={styles.infoValue}>
+              {routeDuration ? `${Math.round(routeDuration)} min` : '...'}
+            </Text>
           </View>
         </View>
 
+        {/* Destination Display */}
         <View style={styles.destinationDisplay}>
           <Feather name="map-pin" size={18} color="#007aff" style={{ marginRight: 10 }} />
-          <View>
-            <Text style={styles.destinationTitle}>Drop-off Location</Text>
-            <Text style={styles.destinationAddress}>{location?.address || "Loading..."}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.destinationTitle}>{getDestinationLabel()}</Text>
+            <Text style={styles.destinationAddress} numberOfLines={2}>
+              {destination?.address || "Loading..."}
+            </Text>
           </View>
         </View>
 
-        <TouchableOpacity 
+        {/* Open Navigation Button */}
+        <TouchableOpacity
           style={styles.actionButton}
-          onPress={() => console.log('Navigate via Google Maps / Waze')}
+          onPress={() => {
+            if (destination) {
+              const url = `https://www.google.com/maps/dir/?api=1&destination=${destination.latitude},${destination.longitude}`;
+              Alert.alert(
+                "Open Navigation",
+                "This would open Google Maps for turn-by-turn navigation",
+                [{ text: "OK" }]
+              );
+              // You can use Linking.openURL(url) to actually open Google Maps
+            }
+          }}
         >
           <Text style={styles.actionButtonText}>Open Navigation</Text>
           <Feather name="navigation" size={20} color="white" style={{ marginLeft: 10 }} />
         </TouchableOpacity>
-
       </Animated.View>
     </View>
   );
@@ -352,7 +416,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: height * 0.25,
+    height: height * 0.3,
     backgroundColor: '#1c1c1c',
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
@@ -401,7 +465,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 15,
-    padding: 10,
+    padding: 15,
     backgroundColor: '#2b2b2b',
     borderRadius: 10,
   },
@@ -409,6 +473,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#aaa',
     fontWeight: '500',
+    marginBottom: 4,
   },
   destinationAddress: {
     fontSize: 16,

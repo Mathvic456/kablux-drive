@@ -79,7 +79,7 @@ const takePicture = async () => {
       uri: photo.uri,
       type: "image/jpeg",
       name: filename,
-    } as any);
+    });
 
     const res = await fileUploadMutation.mutateAsync(formData);
 
@@ -98,7 +98,7 @@ const takePicture = async () => {
     setShowCamera(false);
     setShowSuccessModal(true);
 
-  } catch (error: any) {
+  } catch (error) {
     console.log("UPLOAD ERROR:", error.response?.data || error);
     setShowErrorModal(true);
   } finally {

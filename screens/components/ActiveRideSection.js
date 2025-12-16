@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
@@ -30,9 +30,20 @@ const ActiveRideSection = ({
     }).format(amount);
   };
 
+  // Helper to render the text/icon inside the main button
+  const renderButtonContent = (loading, icon, text) => {
+    if (loading) return <ActivityIndicator color="black" size="small" />;
+    return (
+      <>
+        <Ionicons name={icon} size={20} color="black" style={{ marginRight: 8 }} />
+        <Text style={styles.primaryButtonText}>{text}</Text>
+      </>
+    );
+  };
+
   return (
     <View style={styles.container}>
-      {/* Header Status Bar */}
+      {/* --- HEADER STATUS BAR --- */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <View style={[styles.statusDot, !isPickupPhase && styles.activeDot]} />
@@ -43,7 +54,6 @@ const ActiveRideSection = ({
         <Text style={styles.rideId}>#{rideId ? rideId.slice(0, 5) : '...'}</Text>
       </View>
 
-      {/* Loading State */}
       {isLoadingDetails && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator color="#facc15" size="small" />
@@ -51,11 +61,10 @@ const ActiveRideSection = ({
         </View>
       )}
 
-      {/* RIDER INFO CARD */}
+
       {rideDetails?.rider && (
         <View style={styles.riderCard}>
           <View style={styles.riderAvatar}>
-             {/* UPDATED: Changed .image to .profile_image based on your JSON logs */}
             {rideDetails.rider.profile_image ? (
                 <Image source={{uri: rideDetails.rider.profile_image}} style={styles.avatarImage} />
             ) : (
@@ -71,7 +80,6 @@ const ActiveRideSection = ({
 
       <View style={styles.divider} />
 
-      {/* ROUTE INFO */}
       <View style={styles.routeContainer}>
         {/* Pickup */}
         <View style={styles.addressRow}>
@@ -101,7 +109,7 @@ const ActiveRideSection = ({
         </View>
       </View>
 
-      {/* FARE INFO */}
+      {/* --- FARE INFO --- */}
       {rideDetails?.fare !== undefined && (
         <View style={styles.fareContainer}>
             <Text style={styles.fareLabel}>Est. Fare</Text>
@@ -109,67 +117,48 @@ const ActiveRideSection = ({
         </View>
       )}
 
-      {/* ACTION BUTTONS */}
-      <View style={styles.actionContainer}>
+      {/* --- ACTION BUTTONS --- */}
+      <View style={styles.actionsContainer}>
+        
+        {/* 1. Main Action Button (Flex Grow) */}
         {isPickupPhase && (
           <TouchableOpacity 
-            style={[styles.primaryButton, isArriving && styles.buttonDisabled]}
+            style={[styles.actionButton, isArriving && styles.buttonDisabled]}
             onPress={onArrived}
             disabled={isArriving}
           >
-            {isArriving ? (
-              <ActivityIndicator color="black" size="small" />
-            ) : (
-              <>
-                <Ionicons name="location" size={20} color="black" />
-                <Text style={styles.primaryButtonText}>I Have Arrived</Text>
-              </>
-            )}
+            {renderButtonContent(isArriving, "location", "I Have Arrived")}
           </TouchableOpacity>
         )}
 
         {status === "arrived" && (
           <TouchableOpacity 
-            style={[styles.primaryButton, isStarting && styles.buttonDisabled]}
+            style={[styles.actionButton, isStarting && styles.buttonDisabled]}
             onPress={onStartRide}
             disabled={isStarting}
           >
-            {isStarting ? (
-              <ActivityIndicator color="black" size="small" />
-            ) : (
-              <>
-                <Ionicons name="play" size={20} color="black" />
-                <Text style={styles.primaryButtonText}>Start Trip</Text>
-              </>
-            )}
+            {renderButtonContent(isStarting, "play", "Start Trip")}
           </TouchableOpacity>
         )}
 
         {status === 'ride_started' && (
-          <View style={styles.startedButtons}>
-            <TouchableOpacity 
-              style={[styles.primaryButton, styles.finishButton, isFinishing && styles.buttonDisabled]}
-              onPress={onFinishRide}
-              disabled={isFinishing}
-            >
-              {isFinishing ? (
-                <ActivityIndicator color="black" size="small" />
-              ) : (
-                <>
-                  <Ionicons name="flag" size={20} color="black" />
-                  <Text style={styles.primaryButtonText}>Complete Ride</Text>
-                </>
-              )}
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.mapButton}
-              onPress={() => navigation.navigate('DriverMapScreen', { rideDetails })}
-            >
-              <Ionicons name="map-outline" size={24} color="white" />
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.finishButton, isFinishing && styles.buttonDisabled]}
+            onPress={onFinishRide}
+            disabled={isFinishing}
+          >
+            {renderButtonContent(isFinishing, "flag", "Complete Ride")}
+          </TouchableOpacity>
         )}
+
+        {/* 2. Map Button (Fixed Square) */}
+        <TouchableOpacity 
+            style={styles.mapButton}
+            onPress={() => navigation.navigate('DriverMapScreen', { rideDetails })}
+        >
+            <Ionicons name="map-outline" size={24} color="white" />
+        </TouchableOpacity>
+
       </View>
     </View>
   );
@@ -184,7 +173,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#333',
     elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
+  
+  /* HEADER */
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -199,11 +194,11 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#facc15', // Yellow for pickup
+    backgroundColor: '#facc15',
     marginRight: 8,
   },
   activeDot: {
-    backgroundColor: '#4CAF50', // Green for active trip
+    backgroundColor: '#4CAF50',
   },
   headerTitle: {
     color: '#fff',
@@ -217,6 +212,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: 'monospace',
   },
+
+  /* LOADING */
   loadingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -230,7 +227,8 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: 12,
   },
-  /* RIDER CARD STYLES */
+
+  /* RIDER INFO */
   riderCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -245,12 +243,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#facc15',
-    overflow: 'hidden', // Ensures image stays in circle
+    overflow: 'hidden',
   },
   avatarImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: '100%',
+    height: '100%',
   },
   riderDetails: {
     flex: 1,
@@ -261,41 +258,20 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 'bold',
     marginBottom: 2,
+    textTransform: 'uppercase',
   },
   riderName: {
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
   },
-  ratingBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#facc15',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginRight: 10,
-    gap: 4,
-  },
-  ratingText: {
-    color: 'black',
-    fontWeight: 'bold',
-    fontSize: 12,
-  },
-  callButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#facc15',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   divider: {
     height: 1,
     backgroundColor: '#333',
     marginBottom: 16,
   },
-  /* ROUTE STYLES */
+
+  /* ROUTE */
   routeContainer: {
     marginBottom: 16,
   },
@@ -329,7 +305,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
-  /* FARE STYLES */
+
+  /* FARE */
   fareContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -348,38 +325,39 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  /* BUTTONS */
-  actionContainer: {
-    marginTop: 4,
+
+  /* --- BUTTON STYLES FIXED --- */
+  actionsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  primaryButton: {
+  actionButton: {
+    flex: 1,
+    height: 54,
     backgroundColor: '#facc15',
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
-    borderRadius: 12,
-    gap: 8,
-    flex: 1,
   },
   finishButton: {
-    backgroundColor: '#4CAF50', // Green
+    backgroundColor: '#4CAF50',
   },
   mapButton: {
-    backgroundColor: '#333',
     width: 54,
+    height: 54,
+    backgroundColor: '#2a2a2a',
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 12,
-    marginLeft: 10,
-  },
-  startedButtons: {
-    flexDirection: 'row',
+    borderWidth: 1,
+    borderColor: '#444',
   },
   primaryButtonText: {
     color: 'black',
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: 15,
     textTransform: 'uppercase',
   },
   buttonDisabled: {
