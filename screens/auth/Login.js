@@ -75,7 +75,7 @@ login(
   { email, password },
   {
     onSuccess: () => {
-      setActiveStatus({ email, password });
+      setActiveStatus({ is_online: true });
     },
     onError: (error) => {
       if (error?.response?.status === 401) {

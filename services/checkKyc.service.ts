@@ -14,7 +14,7 @@ export const useDriverKycStatus = () => {
       const res = await api.get<DriverKycStatusResponse>(
         "drivers/kyc/status/"
       );
-      return res.data; // ✅ MUST return something
+      return res.data;
     },
     retry: false,
     refetchOnWindowFocus: false,

@@ -72,9 +72,9 @@ export const useLoginEndPoint = (
 };
 
 
+
 type ActiveStatusPayload = {
-  email: string;
-  password: string;
+  is_online: boolean;
 };
 
 export const useActiveStatusEndPoint = () => {
@@ -90,6 +90,7 @@ export const useActiveStatusEndPoint = () => {
     },
   });
 };
+
 
 
 export const useLogoutEndPoint = (
