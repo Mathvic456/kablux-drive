@@ -4,89 +4,110 @@ import { AxiosResponse } from "axios";
 import { api } from "./api";
 import { CREATEACCOUNT_TYPE } from "./type";
 
-// Types for modal control
-export type AuthResult = {
-  success: boolean;
-  message: string;
-  data?: any;
-};
 
 export const useRegisterEndPoint = () => {
-  const mutation = useMutation<AxiosResponse<any>, any, CREATEACCOUNT_TYPE>({
+  return useMutation<AxiosResponse<any>, any, CREATEACCOUNT_TYPE>({
     mutationFn: (data) => api.post("auth/register/", data),
+
     onSuccess: (res) => {
-      console.log("Registration successful:", res.data);
+      console.log("✅ Registration successful:", res.data);
     },
+
     onError: (error: any) => {
-      console.error("Registration error:", error);
+      console.error("❌ Registration error:", error);
     },
   });
+};
 
-  return mutation;
+
+type LoginPayload = {
+  email: string;
+  password: string;
 };
 
 export const useLoginEndPoint = (
   navigation: any,
   remember: boolean,
-  setTokens: (access: string, refresh: string, remember: boolean) => Promise<void>
+  setTokens: (
+    access: string,
+    refresh: string,
+    remember: boolean
+  ) => Promise<void>
 ) => {
-  return useMutation({
+  return useMutation<AxiosResponse<any>, any, LoginPayload>({
     mutationFn: (data) => api.post("auth/login/", data),
 
     onSuccess: async (res) => {
-      const token = res.data?.data?.access;
+      const accessToken = res.data?.data?.access;
       const refreshToken = res.data?.data?.refresh;
       const userId = res.data?.data?.user?.id;
 
-      if (!token || !refreshToken) {
-        console.error("❌ Missing tokens in response");
+      if (!accessToken || !refreshToken) {
+        console.error("❌ Missing tokens in login response");
         throw new Error("Invalid login response");
       }
 
       console.log(`🔑 Login successful (Remember Me: ${remember})`);
 
-      // Store tokens in AuthContext
-      // This will handle both Context (in-memory) and AsyncStorage (if remember = true)
-      await setTokens(token, refreshToken, remember);
+      // Save tokens via AuthContext
+      await setTokens(accessToken, refreshToken, remember);
 
-      // Store userId separately (this is not auth-related, so keep in AsyncStorage)
-      await AsyncStorage.setItem("userId", userId);
-      console.log("✅ User ID saved");
+      // Store user ID separately
+      if (userId) {
+        await AsyncStorage.setItem("userId", userId);
+        console.log("✅ User ID saved");
+      }
 
-      // Navigate to main app
       navigation.replace("Tabs");
     },
 
     onError: (error: any) => {
-      console.error("Login error:", error);
-
       if (error?.response?.status === 401) {
         console.log("❌ Invalid email or password");
       } else {
-        console.log("⚠️ Something went wrong:", error?.message);
+        console.error("⚠️ Login error:", error?.message || error);
       }
     },
   });
 };
 
+
+type ActiveStatusPayload = {
+  email: string;
+  password: string;
+};
+
+export const useActiveStatusEndPoint = () => {
+  return useMutation<AxiosResponse<any>, any, ActiveStatusPayload>({
+    mutationFn: (data) => api.post("users/active_status/", data),
+
+    onSuccess: (res) => {
+      console.log("🟢 Active status updated:", res.data);
+    },
+
+    onError: (error: any) => {
+      console.error("❌ Active status error:", error);
+    },
+  });
+};
+
+
 export const useLogoutEndPoint = (
   clearTokens: () => Promise<void>
 ) => {
-  return useMutation({
+  return useMutation<boolean, any, void>({
     mutationFn: async () => {
-      // Clear all auth tokens through AuthContext
-      // This handles: token, refreshToken, and rememberMe flag
       await clearTokens();
-      
-      // Clear other non-auth data
-      await AsyncStorage.multiRemove(['userId', 'pendingEmail']);
-      
+      await AsyncStorage.multiRemove(["userId", "pendingEmail"]);
+
       console.log("🗑️ Cleared all user data");
       return true;
     },
+
     onSuccess: () => {
       console.log("✅ User logged out successfully");
     },
+
     onError: (error: any) => {
       console.error("❌ Logout error:", error);
     },

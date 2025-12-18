@@ -8,15 +8,29 @@ interface KycDocumentPayload {
 
 export const useSubmitKycDocument = () => {
   return useMutation({
-    mutationFn: (data: KycDocumentPayload) => 
-      api.post("drivers/kyc/documents/", data),
+    mutationFn: async (data: KycDocumentPayload) => {
+      // 📝 LOGS: See exactly what's going out
+      console.log("🚀 [KYC Submit] Initiating request...");
+      console.log(`📂 Type: ${data.doc_type}`);
+      console.log(`🆔 File ID: ${data.file}`);
+      const response = await api.post("drivers/kyc/documents/", data);
+      return response;
+    },
 
     onSuccess: (res) => {
-      console.log("✅ KYC document submitted:", res.data);
+      console.log("✅ [KYC Submit] Success Response:", JSON.stringify(res.data, null, 2));
     },
 
     onError: (error: any) => {
-      console.error("❌ KYC submission failed:", error.response?.data || error);
+      console.error("❌ [KYC Submit] Error Details:");
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        console.error("Status:", error.response.status);
+        console.error("Data:", JSON.stringify(error.response.data, null, 2));
+      } else {
+        // Something happened in setting up the request
+        console.error("Message:", error.message);
+      }
     },
   });
 };

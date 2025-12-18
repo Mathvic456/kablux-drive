@@ -8,11 +8,13 @@ import {
   ActivityIndicator,
   Image,
   ScrollView,
+  Modal,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { Feather, MaterialIcons, Entypo } from "@expo/vector-icons";
-import { useUploadFile } from "@/services/upload.service";
-import { useSubmitKycDocument } from "@/services/useSubmitKyc.service";
+import { MaterialIcons } from "@expo/vector-icons";
+import { useUploadFile } from "../../services/fileUpload.service";
+import { useSubmitKycDocument } from "../../services/useSubmitKyc.service";
+import Logo from "../../assets/Logo.png";
 
 const DocumentUpload = ({ navigation }) => {
   const [documents, setDocuments] = useState({
@@ -27,6 +29,10 @@ const DocumentUpload = ({ navigation }) => {
     POLICE_CLEARANCE: null,
   });
 
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
   const uploadMutation = useUploadFile();
   const submitKycMutation = useSubmitKycDocument();
 
@@ -36,15 +42,15 @@ const DocumentUpload = ({ navigation }) => {
     POLICE_CLEARANCE: "Police Clearance",
   };
 
+  const [isUploadingMap, setIsUploadingMap] = useState({});
+
   const pickDocument = async (docType) => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (status !== "granted") {
-        Alert.alert(
-          "Permission Required",
-          "Please grant permission to access your photos"
-        );
+        setErrorMessage("Please grant permission to access your photos");
+        setShowErrorModal(true);
         return;
       }
 
@@ -61,16 +67,17 @@ const DocumentUpload = ({ navigation }) => {
           [docType]: asset.uri,
         }));
         
-        // Automatically upload the document
         await uploadDocument(docType, asset.uri);
       }
     } catch (error) {
       console.error("Error picking document:", error);
-      Alert.alert("Error", "Failed to pick document");
+      setErrorMessage("Failed to pick document");
+      setShowErrorModal(true);
     }
   };
 
   const uploadDocument = async (docType, uri) => {
+    setIsUploadingMap(prev => ({ ...prev, [docType]: true }));
     try {
       const formData = new FormData();
       formData.append("name", docType.toLowerCase());
@@ -97,31 +104,42 @@ const DocumentUpload = ({ navigation }) => {
         },
         onError: (error) => {
           console.error(`❌ ${docType} upload failed:`, error);
-          Alert.alert("Error", `Failed to upload ${documentLabels[docType]}`);
+          setErrorMessage(`Failed to upload ${documentLabels[docType]}`);
+          setShowErrorModal(true);
         },
       });
     } catch (error) {
       console.error("Upload error:", error);
-      Alert.alert("Error", "Failed to upload document");
+      setErrorMessage("Failed to upload document");
+      setShowErrorModal(true);
+    } finally {
+      setIsUploadingMap(prev => ({ ...prev, [docType]: false }));
     }
   };
 
+  const removeDocument = (docType) => {
+    setUploadedIds(prev => ({
+      ...prev,
+      [docType]: null,
+    }));
+    setDocuments(prev => ({
+      ...prev,
+      [docType]: null,
+    }));
+  };
+
   const submitAllDocuments = async () => {
-    // Check if all documents are uploaded
     const allUploaded = Object.keys(uploadedIds).every(
       (key) => uploadedIds[key] !== null
     );
 
     if (!allUploaded) {
-      Alert.alert(
-        "Missing Documents",
-        "Please upload all required documents before submitting"
-      );
+      setErrorMessage("Please upload all required documents before submitting");
+      setShowErrorModal(true);
       return;
     }
 
     try {
-      // Submit each document to KYC endpoint
       const submissions = Object.keys(uploadedIds).map((docType) =>
         submitKycMutation.mutateAsync({
           doc_type: docType,
@@ -131,66 +149,70 @@ const DocumentUpload = ({ navigation }) => {
 
       await Promise.all(submissions);
 
-      Alert.alert(
-        "Success",
-        "All documents submitted successfully for verification!",
-        [
-          {
-            text: "OK",
-            onPress: () => navigation.goBack(),
-          },
-        ]
-      );
+      setShowSuccessModal(true);
+      
+      setTimeout(() => {
+        setShowSuccessModal(false);
+        navigation.goBack();
+      }, 3000);
     } catch (error) {
       console.error("Submission error:", error);
-      Alert.alert(
-        "Error",
-        "Failed to submit documents. Please try again."
-      );
+      setErrorMessage("Failed to submit documents. Please try again.");
+      setShowErrorModal(true);
     }
   };
 
   const renderDocumentCard = (docType) => {
     const hasDocument = documents[docType] !== null;
     const hasUploadedId = uploadedIds[docType] !== null;
-    const isUploading = uploadMutation.isPending;
+    const isThisSpecificDocUploading = isUploadingMap[docType];
 
     return (
-      <View key={docType} style={styles.documentCard}>
-        <View style={styles.documentHeader}>
-          <Text style={styles.documentTitle}>
-            {documentLabels[docType]}
-          </Text>
-          {hasUploadedId && (
-            <MaterialIcons name="check-circle" size={24} color="#4CAF50" />
+      <View key={docType} style={styles.docItemContainer}>
+        <View style={styles.docItemHeader}>
+          <View style={styles.docNameContainer}>
+            <MaterialIcons 
+              name={hasUploadedId ? "check-circle" : "radio-button-unchecked"} 
+              size={24} 
+              color={hasUploadedId ? "#4CAF50" : "#666"} 
+            />
+            <Text style={styles.docName}>{documentLabels[docType]}</Text>
+          </View>
+          
+          {hasUploadedId ? (
+            <TouchableOpacity 
+              style={styles.removeButton}
+              onPress={() => removeDocument(docType)}
+            >
+              <MaterialIcons name="close" size={20} color="#F44336" />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity 
+              style={styles.uploadButton}
+              onPress={() => pickDocument(docType)}
+              disabled={isThisSpecificDocUploading}
+            >
+              {isThisSpecificDocUploading ? (
+                <ActivityIndicator size="small" color="#000" />
+              ) : (
+                <MaterialIcons name="cloud-upload" size={20} color="#000" />
+              )}
+            </TouchableOpacity>
           )}
         </View>
 
-        {hasDocument ? (
-          <View style={styles.documentPreview}>
+        {hasDocument && (
+          <View style={styles.uploadedFileInfo}>
             <Image
               source={{ uri: documents[docType] }}
-              style={styles.previewImage}
+              style={styles.thumbnailImage}
             />
-            <TouchableOpacity
-              style={styles.changeButton}
-              onPress={() => pickDocument(docType)}
-              disabled={isUploading}
-            >
-              <Text style={styles.changeButtonText}>Change</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <TouchableOpacity
-            style={styles.uploadButton}
-            onPress={() => pickDocument(docType)}
-            disabled={isUploading}
-          >
-            <Feather name="upload" size={32} color="#FEB914" />
-            <Text style={styles.uploadButtonText}>
-              {isUploading ? "Uploading..." : "Upload Document"}
+            <MaterialIcons name="description" size={16} color="#fcbf24" style={{ marginLeft: 8 }} />
+            <Text style={styles.fileName} numberOfLines={1}>
+              {documents[docType].split('/').pop()}
             </Text>
-          </TouchableOpacity>
+            <MaterialIcons name="check" size={16} color="#4CAF50" />
+          </View>
         )}
       </View>
     );
@@ -200,155 +222,336 @@ const DocumentUpload = ({ navigation }) => {
     (key) => uploadedIds[key] !== null
   );
 
-  return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-        >
-          <Entypo name="chevron-left" size={28} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>KYC Documents</Text>
-      </View>
+  const uploadedCount = Object.values(uploadedIds).filter(id => id !== null).length;
+  const totalCount = Object.keys(uploadedIds).length;
 
-      <View style={styles.content}>
+  // Success Modal
+  const SuccessModal = () => (
+    <Modal
+      visible={showSuccessModal}
+      transparent={true}
+      animationType="fade"
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalIconContainer}>
+            <MaterialIcons name="check-circle" size={60} color="#4CAF50" />
+          </View>
+          <Text style={styles.modalTitle}>Success!</Text>
+          <Text style={styles.modalMessage}>
+            All documents have been uploaded successfully! Your verification is in progress.
+          </Text>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color="#fcbf24" />
+            <Text style={styles.loadingText}>Redirecting...</Text>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  // Error Modal
+  const ErrorModal = () => (
+    <Modal
+      visible={showErrorModal}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={() => setShowErrorModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalIconContainer}>
+            <MaterialIcons name="error-outline" size={60} color="#F44336" />
+          </View>
+          <Text style={styles.modalTitle}>Attention Required</Text>
+          <Text style={styles.modalMessage}>
+            {errorMessage}
+          </Text>
+          <TouchableOpacity 
+            style={[styles.modalButton, styles.errorButton]} 
+            onPress={() => setShowErrorModal(false)}
+          >
+            <Text style={styles.modalButtonText}>Okay</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  return (
+    <View style={styles.container}>
+      {/* Top Banner */}
+      <View style={styles.banner} />
+
+      {/* Card */}
+      <View style={styles.card}>
+        <View style={styles.LogoContainer}>
+          <Image source={Logo} style={styles.Logoicon} />
+        </View>
+
+        <Text style={styles.title}>KYC Verification</Text>
         <Text style={styles.subtitle}>
-          Upload the required documents for verification
+          Please upload each document and ensure they are clear and legible.
+          We are required to verify your identity before you can use the application. 
+          Your information will be encrypted and stored securely.
         </Text>
 
-        {Object.keys(documents).map((docType) => renderDocumentCard(docType))}
+        {/* Progress Indicator */}
+        <View style={styles.progressContainer}>
+          <Text style={styles.progressText}>
+            Documents Uploaded: {uploadedCount} of {totalCount}
+          </Text>
+          <View style={styles.progressBar}>
+            <View 
+              style={[
+                styles.progressFill,
+                { width: `${(uploadedCount / totalCount) * 100}%` }
+              ]} 
+            />
+          </View>
+        </View>
 
+        {/* Document List */}
+        <ScrollView style={styles.documentsList} showsVerticalScrollIndicator={false}>
+          {Object.keys(documents).map((docType) => renderDocumentCard(docType))}
+        </ScrollView>
+
+        {/* Submit Button */}
         <TouchableOpacity
           style={[
-            styles.submitButton,
-            !allDocumentsReady && styles.submitButtonDisabled,
+            styles.proceedBtn,
+            !allDocumentsReady && styles.proceedBtnDisabled
           ]}
           onPress={submitAllDocuments}
           disabled={!allDocumentsReady || submitKycMutation.isPending}
         >
           {submitKycMutation.isPending ? (
-            <ActivityIndicator color="#000" />
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color="#000" />
+              <Text style={styles.proceedText}>Verifying...</Text>
+            </View>
           ) : (
-            <Text style={styles.submitButtonText}>
-              Submit for Verification
-            </Text>
+            <Text style={styles.proceedText}>Verify Identity</Text>
           )}
         </TouchableOpacity>
-
-        {!allDocumentsReady && (
-          <Text style={styles.helperText}>
-            All documents must be uploaded before submission
-          </Text>
-        )}
       </View>
-    </ScrollView>
+
+      {/* Custom Modals */}
+      <SuccessModal />
+      <ErrorModal />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  container: { 
+    flex: 1, 
+    backgroundColor: "#000" 
+  },
+  banner: {
+    height: 200,
+    backgroundColor: "#0B2633",
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
+  },
+  card: {
     flex: 1,
+    marginTop: -40,
     backgroundColor: "#000",
+    borderTopLeftRadius: 40,
+    borderTopRightRadius: 40,
+    padding: 30,
+    width: "95%",
+    alignSelf: "center",
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingTop: 50,
-    paddingBottom: 20,
+  LogoContainer: {
+    alignItems: 'center',
   },
-  backButton: {
-    marginRight: 16,
+  Logoicon: {
+    width: 130,
+    height: 100,
+    resizeMode: "contain",
+    alignSelf: "center",
   },
-  headerTitle: {
+  title: {
     fontSize: 24,
     fontWeight: "bold",
     color: "#fff",
-  },
-  content: {
-    paddingHorizontal: 16,
+    textAlign: "center",
+    marginBottom: 10,
   },
   subtitle: {
-    fontSize: 16,
-    color: "#aaa",
-    marginBottom: 24,
+    fontSize: 14,
+    color: "#ccc",
+    textAlign: "center",
+    marginBottom: 20,
+    lineHeight: 20,
   },
-  documentCard: {
-    backgroundColor: "#1a1a1a",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: "#333",
+  progressContainer: {
+    marginBottom: 20,
   },
-  documentHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  documentTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
+  progressText: {
     color: "#fff",
+    fontSize: 14,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  progressBar: {
+    height: 6,
+    backgroundColor: '#333',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#fcbf24',
+    borderRadius: 3,
+  },
+  documentsList: {
+    flex: 1,
+    marginBottom: 10,
+  },
+  docItemContainer: {
+    borderWidth: 1,
+    borderColor: "#555",
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 12,
+    backgroundColor: '#1a1a1a',
+  },
+  docItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  docNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  docName: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+    marginLeft: 10,
   },
   uploadButton: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 40,
-    borderWidth: 2,
-    borderStyle: "dashed",
-    borderColor: "#FEB914",
-    borderRadius: 8,
+    backgroundColor: "#fcbf24",
+    padding: 8,
+    borderRadius: 6,
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  uploadButtonText: {
+  removeButton: {
+    backgroundColor: "transparent",
+    padding: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#F44336",
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  uploadedFileInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginTop: 8,
-    color: "#FEB914",
-    fontSize: 14,
-    fontWeight: "600",
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#333',
   },
-  documentPreview: {
-    alignItems: "center",
+  thumbnailImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 4,
   },
-  previewImage: {
-    width: "100%",
-    height: 200,
-    borderRadius: 8,
-    marginBottom: 12,
+  fileName: {
+    color: "#ccc",
+    fontSize: 12,
+    marginLeft: 6,
+    marginRight: 6,
+    flex: 1,
   },
-  changeButton: {
-    backgroundColor: "#FEB914",
-    paddingVertical: 10,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-  },
-  changeButtonText: {
-    color: "#000",
-    fontWeight: "bold",
-    fontSize: 14,
-  },
-  submitButton: {
-    backgroundColor: "#FEB914",
+  proceedBtn: {
+    backgroundColor: "#fcbf24",
+    borderRadius: 10,
     paddingVertical: 16,
-    borderRadius: 12,
+    marginTop: 10,
     alignItems: "center",
-    marginTop: 24,
-    marginBottom: 12,
   },
-  submitButtonDisabled: {
+  proceedBtnDisabled: {
     backgroundColor: "#555",
+    opacity: 0.6,
   },
-  submitButtonText: {
-    color: "#000",
-    fontSize: 16,
-    fontWeight: "bold",
+  proceedText: { 
+    color: "#000", 
+    fontWeight: "bold", 
+    fontSize: 16 
   },
-  helperText: {
-    textAlign: "center",
-    color: "#aaa",
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  loadingText: {
+    color: '#fff',
     fontSize: 14,
-    marginBottom: 40,
+    marginTop: 10,
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 20,
+    padding: 30,
+    width: '100%',
+    maxWidth: 350,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  modalIconContainer: {
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#fff',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: '#ccc',
+    textAlign: 'center',
+    marginBottom: 25,
+    lineHeight: 22,
+  },
+  modalButton: {
+    backgroundColor: '#fcbf24',
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 10,
+    width: '100%',
+    alignItems: 'center',
+  },
+  errorButton: {
+    backgroundColor: '#F44336',
+  },
+  modalButtonText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 

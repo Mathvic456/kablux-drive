@@ -30,6 +30,7 @@ import ActiveRideSection from "../components/ActiveRideSection";
 
 // Context & Services
 import { useProfile } from "../../services/profile.service";
+import { useDriverKycStatus } from "../../services/checkKyc.service";
 import { useStartRide, useFinishRide } from "../../services/rides.service";
 import { useGetMyBalance } from "../../services/funding.service";
 import { SocketContext } from "../../context/WebSocketProvider";
@@ -46,7 +47,7 @@ export default function Home() {
   const [updatesModalVisible, setUpdatesModalVisible] = useState(false);
   const [uploadModalVisible, setUploadModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [showAvailableRides, setShowAvailableRides] = useState(true);
+
   const [negotiationUpdates, setNegotiationUpdates] = useState({});
   const [acceptedRide, setAcceptedRide] = useState(null);
   const [acceptedModalVisible, setAcceptedModalVisible] = useState(false);
@@ -86,6 +87,8 @@ const {
     isPending: profileLoading,
     isError: profileError,
   } = useProfile();
+
+  const { data: kycData, isLoading } = useDriverKycStatus();
 
   const {
     data: balanceData,
@@ -179,30 +182,13 @@ const fetchRideDetails = async (id) => {
   }
 };
 
-  // -- Effects --
 
-  // 1. Check Profile Verification
-  useEffect(() => {
-    if (profile && !profile.is_verified) {
-      setUploadModalVisible(true);
-    }
-  }, [profile]);
+useEffect(() => {
+  if (!isLoading && kycData?.kyc_status === "PENDING") {
+    setUploadModalVisible(true);
+  }
+}, [isLoading, kycData]);
 
-  // 1.5. Check Wallet Balance
-  useEffect(() => {
-    if (balanceData) {
-      const balance = balanceData.balance || 0;
-      console.log("💰 Wallet balance:", balance);
-      
-      if (balance <= 0) {
-        console.log("⚠️ Wallet not funded");
-        setShowAvailableRides(false);
-      } else {
-        console.log("Wallet funded");
-        setShowAvailableRides(true);
-      }
-    }
-  }, [balanceData]);
 
   
   useEffect(() => {
@@ -529,49 +515,58 @@ const handleCounterSubmit = (ride_request_view_id) => {
           <UpgradeNotificationCard />
 
           {/* Ride Orders Section - Only show when not busy */}
-          {showAvailableRides? 
-              (status === 'not_busy' && rideNotifications.length > 0 ? (
-            <View style={styles.sectionContainer}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>
-                  Available Ride Orders ({rideNotifications.length})
-                </Text>
-                <TouchableOpacity onPress={clearAllNotifications}>
-                  <Ionicons name="trash-outline" size={20} color="#f44336" />
-                </TouchableOpacity>
-              </View>
-              <TouchableOpacity
-                style={styles.viewButton}
-                onPress={() => setRideModalVisible(true)}
-              >
-                <Text style={styles.viewButtonText}>View Orders</Text>
-              </TouchableOpacity>
-            </View>
-          ) : status === 'not_busy' ? (
-            <View style={styles.emptyContainer}>
-              <Ionicons name="car-outline" size={48} color="#666" />
-              <Text style={styles.emptyText}>No ride orders available</Text>
-              <Text style={styles.emptySubtext}>
-                {isConnected ? "Waiting for new requests..." : "Connecting..."}
-              </Text>
-            </View>
-          ) : null) :
-            (<View style={styles.emptyContainer}>
-              <Ionicons name="car-outline" size={48} color="#666" />
-              <Text style={styles.emptyText}>Wallet not up to minimum amount</Text>
-              <Text style={styles.emptySubtext}>
-                Fund your wallet to start recieving ride orders!
-              </Text>
-              <TouchableOpacity 
-                style={styles.walletButton}
-                onPress={() => navigation.navigate('Tabs', { screen: 'Wallet' })}
-              >
-                <Text style={styles.walletButtonText}>Go to Wallet</Text>
-              </TouchableOpacity>
-            </View>)
-          }
-          
+       {status === 'not_busy' && (
+  <>
+    {/* 1. If KYC is Pending: Show CTA to upload documents */}
+    {kycData?.kyc_status === "PENDING" ? (
+      <View style={styles.sectionContainer}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Ride Orders Restricted</Text>
+          <Ionicons name="lock-closed-outline" size={20} color="#facc15" />
+        </View>
+        <Text style={[styles.emptySubtext, { marginBottom: 15, textAlign: 'left' }]}>
+          Complete KYC to receive ride orders and start earning.
+        </Text>
+        <TouchableOpacity
+          style={[styles.viewButton, { backgroundColor: "#facc15" }]}
+          onPress={() => navigation.navigate("DocumentUploads")}
+        >
+          <Text style={styles.viewButtonText}>Complete KYC</Text>
+        </TouchableOpacity>
+      </View>
+    ) : (
 
+      <>
+        {rideNotifications.length > 0 ? (
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>
+                Available Ride Orders ({rideNotifications.length})
+              </Text>
+              <TouchableOpacity onPress={clearAllNotifications}>
+                <Ionicons name="trash-outline" size={20} color="#f44336" />
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity
+              style={styles.viewButton}
+              onPress={() => setRideModalVisible(true)}
+            >
+              <Text style={styles.viewButtonText}>View Orders</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="car-outline" size={48} color="#666" />
+            <Text style={styles.emptyText}>No ride orders available</Text>
+            <Text style={styles.emptySubtext}>
+              {isConnected ? "Waiting for new requests..." : "Connecting..."}
+            </Text>
+          </View>
+        )}
+      </>
+    )}
+  </>
+)}
           {/* Ride Updates Section */}
           {negotiationArray.length > 0 && status === 'not_busy' && (
             <View style={styles.sectionContainer}>
@@ -648,7 +643,7 @@ const handleCounterSubmit = (ride_request_view_id) => {
               style={styles.primaryButton}
               onPress={() => {
                 setUploadModalVisible(false);
-                navigation.navigate("KycScreenOne");
+                navigation.navigate("DocumentUploads");
               }}
             >
               <Text style={styles.primaryButtonText}>Upload Now</Text>

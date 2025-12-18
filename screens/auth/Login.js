@@ -15,6 +15,7 @@ import {
 import { Feather } from "@expo/vector-icons";
 import Logo from "../../assets/Logo.png";
 import { useLoginEndPoint } from "../../services/auth.service";
+import { useActiveStatusEndPoint } from "../../services/auth.service";
 import { useAuth } from "../../context/AuthContext";
 
 const Login = ({ navigation }) => {
@@ -27,6 +28,7 @@ const Login = ({ navigation }) => {
     password: "",
   });
   const [authError, setAuthError] = useState("");
+  const { mutate: setActiveStatus } = useActiveStatusEndPoint();
 
   // Get setTokens from AuthContext
   const { setTokens } = useAuth();
@@ -69,18 +71,21 @@ const Login = ({ navigation }) => {
     setAuthError("");
 
     if (validateForm()) {
-      login(
-        { email, password },
-        {
-          onError: (error) => {
-            if (error?.response?.status === 401) {
-              setAuthError("Invalid email or password");
-            } else {
-              setAuthError("Something went wrong. Please try again.");
-            }
-          }
-        }
-      );
+login(
+  { email, password },
+  {
+    onSuccess: () => {
+      setActiveStatus({ email, password });
+    },
+    onError: (error) => {
+      if (error?.response?.status === 401) {
+        setAuthError("Invalid email or password");
+      } else {
+        setAuthError("Something went wrong. Please try again.");
+      }
+    },
+  }
+)
     }
   };
 
