@@ -13,7 +13,6 @@ import {
   View,
 } from "react-native";
 import Logo from "../../assets/Logo.png";
-// 👇 Import both hooks
 import { useVerifyOtpEndPoint, useResendOtpEndPoint } from "../../services/otpVerification.service";
 
 const OTP = ({ navigation }) => {
@@ -403,7 +402,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold", 
     fontSize: 16 
   },
-  // 👇 NEW STYLES
+
   resendContainer: {
     marginTop: 25,
     flexDirection: 'row',

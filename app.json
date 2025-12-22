@@ -7,46 +7,38 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "owner": "crashingout",
-
+    "owner": "hunchoexpo",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-
     "ios": {
       "supportsTablet": true,
       "config": {
         "googleMapsApiKey": "AIzaSyD8sdkbIi1FZnlJss8U4byBQ8hFbyMG7ro"
       }
     },
-
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyD8sdkbIi1FZnlJss8U4byBQ8hFbyMG7ro"
         }
       },
-
       "edgeToEdgeEnabled": true,
-
       "permissions": [
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ],
-
-      "package": "com.crashingout.kabluxdrive"
+      "package": "com.hunchoexpo.kabluxdrive"
     },
-
     "web": {
       "favicon": "./assets/favicon.png"
     },
-
     "plugins": [
       [
         "expo-camera",
@@ -57,10 +49,9 @@
         }
       ]
     ],
-
     "extra": {
       "eas": {
-        "projectId": "ba89ec3d-c46f-433a-9e79-3198aab91f8c"
+        "projectId": "ebe4b567-890d-4f8a-b8f5-51bef0ef742f"
       }
     }
   }
