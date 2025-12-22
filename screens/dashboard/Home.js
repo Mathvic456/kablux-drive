@@ -51,9 +51,13 @@ export default function Home() {
   const [negotiationUpdates, setNegotiationUpdates] = useState({});
   const [acceptedRide, setAcceptedRide] = useState(null);
   const [acceptedModalVisible, setAcceptedModalVisible] = useState(false);
+  const [rideCancelledModalVisible, setRideCancelledModalVisible] = useState(false);
+const [cancelledRideInfo, setCancelledRideInfo] = useState(null);
   const [rideDetails, setRideDetails] = useState(null);
   const [loadingRideDetails, setLoadingRideDetails] = useState(false);
   const [debugModalVisible, setDebugModalVisible] = useState(false);
+  const [declineModalVisible, setDeclineModalVisible] = useState(false);
+const [declinedOffer, setDeclinedOffer] = useState(null);
 
 
 
@@ -80,6 +84,9 @@ const {
     setRideNotifications,
     clearNotification,
     clearAllNotifications,
+    saveSentOffer,
+    sentOffers,
+    getSentOffer,
   } = useContext(SocketContext);
 
   const {
@@ -90,12 +97,6 @@ const {
 
   const { data: kycData, isLoading } = useDriverKycStatus();
 
-  const {
-    data: balanceData,
-    isLoading: balanceLoading,
-  } = useGetMyBalance();
-
-  // -- React Query Mutations --
   const startRideMutation = useStartRide();
   const finishRideMutation = useFinishRide();
   const arriveRideMutation = useArriveRide();
@@ -246,6 +247,39 @@ useEffect(() => {
           setAcceptedModalVisible(true);
         }
 
+      if (msg.type === "notify" && msg.data?.type === "DRIVER_OFFER_DECLINED") {
+        console.log("❌ Driver offer declined:", msg.data);
+        console.log(`🔑 Looking for ride_request_id: ${msg.data.ride_request_id}`);
+        
+        const rideId = msg.data.ride_request_id;
+        const savedOffer = getSentOffer(rideId);
+        
+        if (savedOffer) {
+          console.log(`✅ Found saved offer, showing modal`);
+          setDeclinedOffer({
+            ...savedOffer,
+            riderName: msg.data.name,
+            message: msg.data.message,
+          });
+          setDeclineModalVisible(true);
+        } else {
+          console.warn("⚠️ No saved offer found for declined ride:", rideId);
+        }
+      }
+          if (msg.event === "ride_cancelled" && msg.payload) {
+      console.log("❌ Ride cancelled:", msg.payload);
+      
+      const { ride_id, reason, timestamp } = msg.payload;
+      
+      // Only show modal if this is the current active ride
+      if (ride_id === rideId) {
+        setCancelledRideInfo({
+          reason: reason || "No reason provided",
+          timestamp: timestamp,
+        });
+        setRideCancelledModalVisible(true);
+      }
+    }
       } catch (err) {
         console.error("❌ [DRIVER HOME] Failed to parse message:", err);
       }
@@ -311,14 +345,18 @@ useEffect(() => {
     }
   };
 
-const handleCounter = (offer) => {
+  const handleCounter = (offer) => {
+    console.log(`🚨🚨🚨 handleCounter CALLED! 🚨🚨🚨`);
+    console.log(`🎯 About to save offer with ride_request_id: ${offer.ride_request_id}`);
+    console.log(`📦 Full offer object:`, JSON.stringify(offer, null, 2));
+    
+    saveSentOffer(offer.ride_request_id, offer);
+    
     setRideModalVisible(false);
-
-    const rideRequestId = offer?.ride_request_id;
 
     navigation.navigate("OrderScreen", {
       item: offer,
-      onCounterSubmitted: () => removeRideNotification(rideRequestId),
+      onCounterSubmitted: () => removeRideNotification(offer.ride_request_id),
     });
   };
 
@@ -335,6 +373,8 @@ const handleStartRide = async () => {
     return;
   }
 
+
+
   try {
     console.log("🚗 Starting ride flow for:", rideId);
 
@@ -346,6 +386,23 @@ const handleStartRide = async () => {
     console.log("✅ Ride started locally (no WS wait)");
   } catch (error) {
     console.error("❌ Error in handleStartRide:", error);
+  }
+};
+
+  const handleCancelledRideOk = async () => {
+  try {
+    console.log("🔄 Resetting state after ride cancellation");
+
+    reset();
+    
+    // Clear local state
+    setRideDetails(null);
+    setCancelledRideInfo(null);
+    setRideCancelledModalVisible(false);
+    
+    console.log("✅ State reset to not_busy");
+  } catch (error) {
+    console.error("❌ Error resetting state:", error);
   }
 };
 
@@ -725,7 +782,7 @@ const handleCounterSubmit = (ride_request_view_id) => {
       onClose={() => setUpdatesModalVisible(false)}
       socket={socket}
       onAccept={handleAccept}
-      onCounterSubmit={handleCounterSubmit} // <-- ADD THIS PROP
+      onCounterSubmit={handleCounterSubmit}
     />
   )}
   contentContainerStyle={styles.listContent}
@@ -769,6 +826,78 @@ const handleCounterSubmit = (ride_request_view_id) => {
           </View>
         </View>
       </Modal>
+
+      {/* Driver Offer Declined Modal */}
+<Modal
+  animationType="fade"
+  transparent={true}
+  visible={declineModalVisible}
+  onRequestClose={() => setDeclineModalVisible(false)}
+>
+  <View style={styles.modalOverlay}>
+    <View style={styles.alertBox}>
+      <Ionicons name="close-circle" size={60} color="#f44336" />
+      <Text style={styles.alertTitle}>Offer Declined</Text>
+      <Text style={styles.alertMessage}>
+        {declinedOffer?.riderName || "Rider"} has declined your offer.
+        {"\n"}Would you like to make another offer?
+      </Text>
+      
+      <TouchableOpacity
+        style={[styles.primaryButton, { marginBottom: 10 }]}
+        onPress={() => {
+          setDeclineModalVisible(false);
+          if (declinedOffer) {
+            navigation.navigate("OrderScreen", {
+              item: declinedOffer,
+              isRetry: true, // Flag to show it's a retry
+            });
+          }
+        }}
+      >
+        <Text style={styles.primaryButtonText}>Make Another Offer</Text>
+      </TouchableOpacity>
+      
+      <TouchableOpacity
+        style={styles.secondaryButton}
+        onPress={() => {
+          setDeclineModalVisible(false);
+          setDeclinedOffer(null);
+        }}
+      >
+        <Text style={styles.secondaryButtonText}>Ignore</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
+
+{/* Ride Cancelled Modal */}
+<Modal
+  animationType="fade"
+  transparent={true}
+  visible={rideCancelledModalVisible}
+  onRequestClose={handleCancelledRideOk}
+>
+  <View style={styles.modalOverlay}>
+    <View style={styles.alertBox}>
+      <Ionicons name="alert-circle" size={60} color="#ff9800" />
+      <Text style={styles.alertTitle}>Ride Cancelled</Text>
+      <Text style={styles.alertMessage}>
+        {cancelledRideInfo?.reason
+          ? `Reason: ${cancelledRideInfo.reason}`
+          : "The ride has been cancelled."}
+        {"\n\n"}You're now available for new ride requests.
+      </Text>
+      
+      <TouchableOpacity
+        style={styles.primaryButton}
+        onPress={handleCancelledRideOk}
+      >
+        <Text style={styles.primaryButtonText}>Got it</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
     </View>
   );
 }

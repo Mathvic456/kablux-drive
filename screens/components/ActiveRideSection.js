@@ -1,7 +1,7 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import React from 'react';
+import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const ActiveRideSection = ({ 
   status, 
@@ -15,9 +15,9 @@ const ActiveRideSection = ({
   onArrived,
   isArriving,
 }) => {
+
   const navigation = useNavigation();
   
-  // Logic to determine phases
   const isPickupPhase = status === 'ride_created' || status === 'driver_on_way';
   
   if (status === 'not_busy') return null;
@@ -30,7 +30,6 @@ const ActiveRideSection = ({
     }).format(amount);
   };
 
-  // Helper to render the text/icon inside the main button
   const renderButtonContent = (loading, icon, text) => {
     if (loading) return <ActivityIndicator color="black" size="small" />;
     return (
@@ -43,7 +42,7 @@ const ActiveRideSection = ({
 
   return (
     <View style={styles.container}>
-      {/* --- HEADER STATUS BAR --- */}
+      {/* HEADER STATUS BAR */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <View style={[styles.statusDot, !isPickupPhase && styles.activeDot]} />
@@ -60,7 +59,6 @@ const ActiveRideSection = ({
           <Text style={styles.loadingText}>Syncing details...</Text>
         </View>
       )}
-
 
       {rideDetails?.rider && (
         <View style={styles.riderCard}>
@@ -109,7 +107,6 @@ const ActiveRideSection = ({
         </View>
       </View>
 
-      {/* --- FARE INFO --- */}
       {rideDetails?.fare !== undefined && (
         <View style={styles.fareContainer}>
             <Text style={styles.fareLabel}>Est. Fare</Text>
@@ -117,10 +114,9 @@ const ActiveRideSection = ({
         </View>
       )}
 
-      {/* --- ACTION BUTTONS --- */}
       <View style={styles.actionsContainer}>
         
-        {/* 1. Main Action Button (Flex Grow) */}
+        {/* Main Action Button */}
         {isPickupPhase && (
           <TouchableOpacity 
             style={[styles.actionButton, isArriving && styles.buttonDisabled]}
@@ -151,7 +147,7 @@ const ActiveRideSection = ({
           </TouchableOpacity>
         )}
 
-        {/* 2. Map Button (Fixed Square) */}
+        {/* Map Button */}
         <TouchableOpacity 
             style={styles.mapButton}
             onPress={() => navigation.navigate('DriverMapScreen', { rideDetails })}
@@ -326,7 +322,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 
-  /* --- BUTTON STYLES FIXED --- */
+  /* BUTTONS */
   actionsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -362,7 +358,7 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.6,
-  }
+  },
 });
 
 export default ActiveRideSection;

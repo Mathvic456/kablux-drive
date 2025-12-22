@@ -25,6 +25,7 @@ const startRide = async (rideId: string) => {
   return data;
 };
 
+
 const arriveRide = async (rideId: string) => {
   console.log(`📍 Driver arrived for ride: ${rideId}`);
   const { data } = await api.patch(`rides/${rideId}/driver_arrived/`);
@@ -101,6 +102,8 @@ export const useStartRide = () => {
 };
 
 
+
+
 export const useArriveRide = () => {
   const queryClient = useQueryClient();
 
@@ -110,7 +113,6 @@ export const useArriveRide = () => {
     onSuccess: (data, rideId) => {
       console.log("✅ Driver arrival mutation successful");
 
-      // Refresh ride details (status, timestamps, etc.)
       queryClient.invalidateQueries({ queryKey: rideKeys.details(rideId) });
 
       Alert.alert(

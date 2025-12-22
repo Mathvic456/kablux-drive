@@ -6,6 +6,7 @@ import { useAuth } from "./AuthContext";
 
 const WSS_URL = process.env.EXPO_PUBLIC_WSS_URL;
 
+// --- Types ---
 interface RideNotification {
   ride_request_id: string;
   notification_type: string;
@@ -24,112 +25,86 @@ interface SocketContextValue {
   socket: WebSocket | null;
   isConnected: boolean;
   rideNotifications: RideNotification[];
-  setRideNotifications: (notifications: RideNotification[]) => void;
+  setRideNotifications: React.Dispatch<React.SetStateAction<RideNotification[]>>;
   currentLocation: { lat: number; long: number } | null;
   sessionExpired: boolean;
   clearSessionExpired: () => void;
   clearNotification: (rideId: string) => void;
   clearAllNotifications: () => void;
+  sentOffers: Map<string, RideNotification>; // ✅ Fixed: Point to actual Map
+  saveSentOffer: (rideId: string, offer: RideNotification) => void;
+  getSentOffer: (rideId: string) => RideNotification | undefined;
 }
 
-export const SocketContext = createContext<SocketContextValue>({
-  socket: null,
-  isConnected: false,
-  rideNotifications: [],
-  setRideNotifications: () => {},
-  currentLocation: null,
-  sessionExpired: false,
-  clearSessionExpired: () => {},
-  clearNotification: () => {},
-  clearAllNotifications: () => {},
-});
+export const SocketContext = createContext<SocketContextValue | undefined>(undefined);
 
 export const WebSocketProvider = ({ children }: { children: React.ReactNode }) => {
+  console.log('🏗️ WebSocketProvider rendering...');
+  
+  // Refs
   const ws = useRef<WebSocket | null>(null);
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
-  const locationInterval = useRef<NodeJS.Timer | null>(null);
+  const locationInterval = useRef<NodeJS.Timeout | null>(null);
   const currentLocationRef = useRef<{ lat: number; long: number } | null>(null);
   const retryTimeout = useRef<NodeJS.Timeout | null>(null);
   const retryAttempts = useRef(0);
   const maxRetryDelay = 30000;
   const shouldReconnect = useRef(true);
+  const sentOffersRef = useRef<Map<string, RideNotification>>(new Map());
 
+  // State
   const [isConnected, setIsConnected] = useState(false);
   const [rideNotifications, setRideNotifications] = useState<RideNotification[]>([]);
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; long: number } | null>(null);
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [, forceUpdate] = useState(0); // For forcing re-render when Map changes
 
-  const { handleWsEvent } = useDriverRide();
-  const { token, getValidToken, clearTokens, isTokenExpired } = useAuth();
+  const { token, getValidToken, clearTokens } = useAuth();
 
+  // --- LOGOUT LOGIC ---
   const handleLogout = async () => {
-    console.log("🚪 Session expired - logging out...");
-
+    console.log("🚪 [LOGOUT] Session expired - cleaning up everything...");
     shouldReconnect.current = false;
 
     if (retryTimeout.current) {
+      console.log("⏰ [LOGOUT] Clearing pending retry timeout");
       clearTimeout(retryTimeout.current);
-      retryTimeout.current = null;
     }
 
     if (ws.current) {
+      console.log("🔌 [LOGOUT] Closing active socket");
       ws.current.close();
       ws.current = null;
     }
 
     stopLocationTracking();
-
-    if (locationInterval.current) {
-      clearInterval(locationInterval.current as unknown as number);
-      locationInterval.current = null;
-    }
-
     await clearTokens();
     setSessionExpired(true);
 
     setTimeout(() => {
       if (navigationRef.isReady()) {
-        navigationRef.reset({
-          index: 0,
-          routes: [{ name: 'Login' as never }],
-        });
+        console.log("🚀 [LOGOUT] Navigating to Login screen");
+        navigationRef.reset({ index: 0, routes: [{ name: 'Login' as never }] });
       }
     }, 100);
   };
 
-  const clearSessionExpired = () => {
-    setSessionExpired(false);
-  };
-
-  const clearNotification = (rideId: string) => {
-    setRideNotifications(prev => prev.filter(notif => notif.ride_request_id !== rideId));
-    console.log(`🗑️ Cleared notification for ride: ${rideId}`);
-  };
-
-  const clearAllNotifications = () => {
-    setRideNotifications([]);
-    console.log("🗑️ Cleared all notifications");
-  };
-
-const parseRideNotification = (data: any): RideNotification | null => {
+  // --- NOTIFICATION HELPERS ---
+  const parseRideNotification = (data: any): RideNotification | null => {
     try {
-      // 1. Log what we are parsing to debug
-      // console.log("Parsing data:", data);
-
+      console.log("🛠️ [PARSING] Attempting to parse raw data:", data);
       const offerMatch = data.message?.match(/Rider offer:\s*([\d.]+)/);
       const distanceVal = data.distance ? parseFloat(data.distance) : undefined;
       const timeCalc = distanceVal ? String((distanceVal / 0.5) * 60) : "0";
 
-      // 🔴 CRITICAL FIX: Explicitly check for ride_id and map it
       const finalId = data.ride_id || data.ride_request_id;
-
       if (!finalId) {
-        console.warn("⚠️ Parse failed: Missing ID in data:", data);
+        console.warn("⚠️ [PARSE FAILED] Missing ride_id in payload:", data);
         return null;
       }
 
-      return {
-        ride_request_id: finalId, // ✅ Mapped correctly now
+      const parsed = {
+        ride_request_id: finalId,
         notification_type: data.type || "RIDE_REQUESTED",
         ride_type: data.ride_type || "standard",
         message: data.message || "",
@@ -140,263 +115,190 @@ const parseRideNotification = (data: any): RideNotification | null => {
         offer_amount: offerMatch ? parseFloat(offerMatch[1]) : (data.fare || 0),
         estimated_fare: data.fare,
         distance_km: distanceVal,
-        ride_request_view_id: data.ride_request_view_id 
       };
+      console.log("✅ [PARSED] Successfully formatted notification:", parsed.ride_request_id);
+      return parsed;
     } catch (err) {
-      console.error("❌ Error parsing ride notification:", err);
+      console.error("❌ [PARSE ERROR] Fatal error during parsing:", err);
       return null;
     }
   };
+
+  // --- MAP STORAGE (SENT OFFERS) ---
+  const saveSentOffer = (rideId: string, offer: RideNotification) => {
+    console.log(`💾 [STORAGE] Saving offer for ride: ${rideId}`);
+    sentOffersRef.current.set(rideId, offer);
+    console.log(`📊 [STORAGE] Map entries: ${sentOffersRef.current.size}. Keys:`, Array.from(sentOffersRef.current.keys()));
+    forceUpdate(v => v + 1); // Ensure context consumers see the update
+  };
+
+  const getSentOffer = (rideId: string) => {
+    console.log(`🔍 [STORAGE] Looking for ride: ${rideId}`);
+    const result = sentOffersRef.current.get(rideId);
+    result ? console.log("✅ [STORAGE] Offer found") : console.log("❌ [STORAGE] Offer not found");
+    return result;
+  };
+
+  // --- LOCATION LOGIC ---
   const sendLocationUpdate = (socket: WebSocket, location: { lat: number; long: number }) => {
     if (socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({
         type: "location_update",
         data: { lat: location.lat, long: location.long },
       }));
-      console.log("📍 Location update sent:", location);
+      console.log("📍 [LOCATION] Sent to server:", location);
+    } else {
+      console.log("📍 [LOCATION] WebSocket not open, update skipped. State:", socket.readyState);
     }
   };
 
   const startLocationTracking = async () => {
+    console.log("🛰️ [LOCATION] Initializing tracking...");
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
-        console.warn("🚫 Location permission denied");
+        console.warn("🚫 [LOCATION] Permission denied!");
         return;
       }
 
-      const initialLocation = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const coords = { lat: initialLocation.coords.latitude, long: initialLocation.coords.longitude };
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const coords = { lat: loc.coords.latitude, long: loc.coords.longitude };
+      
       setCurrentLocation(coords);
       currentLocationRef.current = coords;
-      console.log("📍 Initial location set:", coords);
 
       if (ws.current?.readyState === WebSocket.OPEN) {
         sendLocationUpdate(ws.current, coords);
       }
 
       locationSubscription.current = await Location.watchPositionAsync(
-        { accuracy: Location.Accuracy.Balanced, timeInterval: 5000, distanceInterval: 50 },
+        { accuracy: Location.Accuracy.Balanced, timeInterval: 10000, distanceInterval: 50 },
         (location) => {
           const newCoords = { lat: location.coords.latitude, long: location.coords.longitude };
+          console.log("📍 [LOCATION] Watch update:", newCoords);
           setCurrentLocation(newCoords);
           currentLocationRef.current = newCoords;
-          console.log("📍 Location updated:", newCoords);
           
           if (ws.current?.readyState === WebSocket.OPEN) {
             sendLocationUpdate(ws.current, newCoords);
           }
         }
       );
-
-      console.log("✅ Location tracking started");
+      console.log("✅ [LOCATION] Tracking active");
     } catch (err) {
-      console.error("❌ Location tracking error:", err);
+      console.error("❌ [LOCATION] Error:", err);
     }
   };
 
   const stopLocationTracking = () => {
+    console.log("🛑 [LOCATION] Stopping tracking...");
     locationSubscription.current?.remove();
     locationSubscription.current = null;
-    console.log("🛑 Location tracking stopped");
+    if (locationInterval.current) {
+      clearInterval(locationInterval.current);
+      locationInterval.current = null;
+    }
   };
 
-  const getRetryDelay = () => {
-    const delay = Math.min(1000 * Math.pow(2, retryAttempts.current), maxRetryDelay);
-    retryAttempts.current++;
-    return delay;
-  };
-
-  const resetRetryAttempts = () => {
-    retryAttempts.current = 0;
-  };
-
-  const attemptConnection = async () => {
-    if (!shouldReconnect.current) {
-      console.log("🛑 Reconnection disabled, skipping attempt");
-      return false;
+  // --- WEBSOCKET LIFECYCLE ---
+  const connectWebSocket = async (accessToken: string) => {
+    if (ws.current) {
+      console.log("🔌 [WS] Existing connection found, closing it first");
+      ws.current.close();
     }
 
-    try {
-      // Use AuthContext to get valid token
-      const validToken = await getValidToken();
+    console.log(`🔌 [WS] Connecting to: ${WSS_URL}`);
+    const socket = new WebSocket(`${WSS_URL}?token=${accessToken}`);
+    ws.current = socket;
 
-      if (validToken) {
-        console.log("✅ Token available, connecting WebSocket...");
-        connectWebSocket(validToken);
-        return true;
-      } else {
-        console.log("❌ No valid token available");
-        return false;
+    socket.onopen = () => {
+      console.log("✅ [WS] Connected and Ready (Driver)");
+      setIsConnected(true);
+      retryAttempts.current = 0;
+      startLocationTracking();
+
+      locationInterval.current = setInterval(() => {
+        if (ws.current?.readyState === WebSocket.OPEN && currentLocationRef.current) {
+          console.log("💓 [WS] Sending location heartbeat");
+          sendLocationUpdate(ws.current, currentLocationRef.current);
+        }
+      }, 15000);
+    };
+
+    socket.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        console.log("📩 [WS] Message received:", msg.type);
+
+        if (msg.type === "notify" && msg.data?.type === "RIDE_REQUESTED") {
+          console.log("🚗 [WS] New ride request detected!");
+          const notification = parseRideNotification(msg.data);
+          
+          if (notification) {
+            setRideNotifications(prev => {
+              if (prev.some(n => n.ride_request_id === notification.ride_request_id)) {
+                console.log("⚠️ [WS] Ignoring duplicate notification ID:", notification.ride_request_id);
+                return prev;
+              }
+              return [...prev, notification];
+            });
+          }
+        } else if (msg.type === "error" && msg.message?.includes("expired")) {
+          console.error("🔑 [WS] Auth error detected in message stream");
+          handleLogout();
+        }
+      } catch (err) {
+        console.error("❌ [WS] Message parse error:", err);
       }
-    } catch (err) {
-      console.error("❌ Connection attempt failed:", err);
-      return false;
-    }
+    };
+
+    socket.onclose = (e) => {
+      console.log(`🚪 [WS] Closed. Code: ${e.code}, Reason: ${e.reason || "None"}`);
+      setIsConnected(false);
+      stopLocationTracking();
+      if (shouldReconnect.current) scheduleRetry();
+    };
+
+    socket.onerror = (err) => {
+      console.error("⚠️ [WS] Error:", err);
+    };
   };
 
   const scheduleRetry = () => {
-    if (!shouldReconnect.current) {
-      console.log("🛑 Reconnection disabled, skipping retry schedule");
-      return;
-    }
-
-    if (retryTimeout.current) {
-      clearTimeout(retryTimeout.current);
-    }
-
-    const delay = getRetryDelay();
-    console.log(`⏰ Scheduling connection retry in ${delay}ms (attempt ${retryAttempts.current})`);
+    if (!shouldReconnect.current) return;
+    
+    if (retryTimeout.current) clearTimeout(retryTimeout.current);
+    
+    const delay = Math.min(1000 * Math.pow(2, retryAttempts.current), maxRetryDelay);
+    console.log(`⏰ [RETRY] Attempt ${retryAttempts.current + 1} scheduled in ${delay}ms`);
+    retryAttempts.current++;
 
     retryTimeout.current = setTimeout(async () => {
-      const success = await attemptConnection();
-      
-      if (!success && shouldReconnect.current) {
+      console.log("🔄 [RETRY] Executing connection attempt...");
+      const validToken = await getValidToken();
+      if (validToken) {
+        connectWebSocket(validToken);
+      } else {
+        console.log("❌ [RETRY] No valid token, retry failed");
         scheduleRetry();
       }
     }, delay);
   };
 
-  const connectWebSocket = async (accessToken: string) => {
-    if (ws.current) ws.current.close();
-
-    const socket = new WebSocket(`${WSS_URL}?token=${accessToken}`);
-    ws.current = socket;
-
-    socket.onopen = async () => {
-      console.log("✅ WebSocket connected (Driver)");
-      setIsConnected(true);
-      resetRetryAttempts();
-
-      await startLocationTracking();
-
-      locationInterval.current = setInterval(() => {
-        if (ws.current?.readyState === WebSocket.OPEN && currentLocationRef.current) {
-          sendLocationUpdate(ws.current, currentLocationRef.current);
-        }
-      }, 5000);
-    };
-
-socket.onmessage = (event) => {
-      //console.log("📩 Raw incoming message:", event.data); 
-      try {
-        const msg = JSON.parse(event.data);
-        console.log("📩 Incoming WS message:", msg);
-
-        switch (msg.type) {
-          case "notify":
-            // CHANGE: Access msg.data instead of msg.event
-            const notificationData = msg.data;
-
-            // CHANGE: Check notificationData.type (Log shows "type": "RIDE_REQUESTED")
-            if (notificationData && notificationData.type === "RIDE_REQUESTED") {
-              console.log("🚗 New ride request received:", notificationData);
-              
-              const notification = parseRideNotification(notificationData);
-              
-              if (notification) {
-                setRideNotifications(prev => {
-                  const exists = prev.some(n => n.ride_request_id === notification.ride_request_id);
-                  if (exists) {
-                    console.log("⚠️ Duplicate notification ignored");
-                    return prev;
-                  }
-                  return [...prev, notification];
-                });
-              }
-            } else {
-              console.log("ℹ️ Other notification type:", notificationData?.type);
-            }
-            break;
-
-          case "subscribed":
-            console.log("✅ Subscribed successfully to driver updates");
-            break;
-
-          default:
-            console.log("ℹ️ Unknown message type:", msg.type);
-        }
-      } catch (err) {
-        console.error("❌ WS Message parse error:", err);
-      }
-    };
-
-    socket.onclose = async (event) => {
-      console.log("🚪 WS closed (Driver)", event.code, event.reason);
-      setIsConnected(false);
-      stopLocationTracking();
-
-      if (locationInterval.current) {
-        clearInterval(locationInterval.current as unknown as number);
-        locationInterval.current = null;
-      }
-
-      if (shouldReconnect.current) {
-        scheduleRetry();
-      } else {
-        console.log("🛑 Not scheduling retry - reconnection disabled");
-      }
-    };
-
-    socket.onerror = (err) => {
-      console.error("⚠️ WS Error (Driver):", err);
-      setIsConnected(false);
-    };
-  };
-
-  // Initial connection attempt on mount
+  // --- EFFECTS ---
   useEffect(() => {
-    const init = async () => {
-      shouldReconnect.current = true;
-      
-      const validToken = await getValidToken();
-      
-      if (validToken) {
-        console.log("✅ Token available on mount, connecting...");
-        await attemptConnection();
-      } else {
-        console.log("⚠️ No token available on mount");
-      }
-    };
-    
-    init();
+    console.log("🎬 [LIFECYCLE] Provider Mounted");
+    shouldReconnect.current = true;
+    getValidToken().then(t => t && connectWebSocket(t));
 
     return () => {
+      console.log("🧹 [LIFECYCLE] Provider Unmounting - cleaning up...");
       shouldReconnect.current = false;
-      
-      if (retryTimeout.current) {
-        clearTimeout(retryTimeout.current);
-      }
       ws.current?.close();
       stopLocationTracking();
-      if (locationInterval.current) {
-        clearInterval(locationInterval.current as unknown as number);
-      }
+      if (retryTimeout.current) clearTimeout(retryTimeout.current);
     };
   }, []);
-
-  
-  useEffect(() => {
-    const checkAndConnect = async () => {
-      // Only try to connect if we have a token and we're not already connected
-      if (token && !isConnected && shouldReconnect.current) {
-        console.log("🔑 Token detected in context, attempting WebSocket connection...");
-        
-        // Clear any pending retry
-        if (retryTimeout.current) {
-          clearTimeout(retryTimeout.current);
-          retryTimeout.current = null;
-        }
-        
-        // Reset retry attempts for fresh connection
-        resetRetryAttempts();
-        
-        await attemptConnection();
-      }
-    };
-    
-    checkAndConnect();
-  }, [token, isConnected]);
 
   return (
     <SocketContext.Provider 
@@ -407,9 +309,12 @@ socket.onmessage = (event) => {
         setRideNotifications,
         currentLocation,
         sessionExpired,
-        clearSessionExpired,
-        clearNotification,
-        clearAllNotifications,
+        clearSessionExpired: () => setSessionExpired(false),
+        clearNotification: (id) => setRideNotifications(prev => prev.filter(n => n.ride_request_id !== id)),
+        clearAllNotifications: () => setRideNotifications([]),
+        sentOffers: sentOffersRef.current,
+        saveSentOffer,
+        getSentOffer,
       }}
     >
       {children}

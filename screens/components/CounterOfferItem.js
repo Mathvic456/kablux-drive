@@ -14,9 +14,9 @@ const CounterOfferItem = ({ item, onClose, socket, onAccept, onCounterSubmit }) 
   const difference = counterAmount - item.counter_offer;
   const hasAdjusted = counterAmount !== item.counter_offer;
 
-  const handleIncrease = () => setCounterAmount((prev) => prev + 10000);
+  const handleIncrease = () => setCounterAmount((prev) => prev + 100);
   const handleDecrease = () =>
-    setCounterAmount((prev) => Math.max(0, prev - 10000));
+    setCounterAmount((prev) => Math.max(0, prev - 100));
 
   const handleSubmitCounter = async () => {
     if (counterAmount <= 0) {
@@ -117,8 +117,8 @@ const CounterOfferItem = ({ item, onClose, socket, onAccept, onCounterSubmit }) 
       )}
 
       {/* Submit & Cancel */}
-      <TouchableOpacity
-        onPress={() => onAccept(item)}
+      {/* <TouchableOpacity
+        onPress={() => onAccept(item)}s
         disabled={isSubmitting || hasAdjusted}
         style={[
           styles.acceptButton, 
@@ -128,7 +128,7 @@ const CounterOfferItem = ({ item, onClose, socket, onAccept, onCounterSubmit }) 
       >
         <Ionicons name="checkmark-circle" size={20} color="white" />
         <Text style={styles.acceptButtonText}>Accept Counter Offer</Text>
-      </TouchableOpacity>
+      </TouchableOpacity> */}
 
       <TouchableOpacity
         onPress={handleSubmitCounter}
