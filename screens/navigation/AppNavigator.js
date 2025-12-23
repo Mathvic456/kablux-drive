@@ -36,6 +36,7 @@ import DriverMapScreen from '../dashboard/DriverMapScreen';
 import ResetPasswordEmailScreen from '../auth/ResetPasswordEmailScreen';
 import ResetCredentialsScreen from '../auth/ResetCredentialsScreen';
 import DynamicPayStackWebViewScreen from '../dashboard/PaystackWebView';
+import DriverChatScreen from '../dashboard/DriverChatScreen';
 
 
 const Stack = createStackNavigator();
@@ -117,11 +118,22 @@ const AppNavigator = () => {
         name='DocumentUploads'
         component={DocumentUploads}
       />
+      
+
 
       <Stack.Screen 
         name="PhotoUpload" 
         component={PhotoUpload}
       />
+
+      <Stack.Screen 
+    name="DriverChat" 
+    component={DriverChatScreen}
+    options={{ 
+      headerShown: false,
+      presentation: 'card'
+    }}
+  />
 
       <Stack.Screen 
         name="Tabs" 

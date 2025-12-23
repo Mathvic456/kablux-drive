@@ -544,10 +544,7 @@ const handleCounterSubmit = (ride_request_view_id) => {
   <Text style={styles.debugResetButtonText}>Debug State</Text>
 </TouchableOpacity>
 
-          <StatusBadge
-            isConnected={isConnected}
-            currentLocation={currentLocation}
-          />
+          <StatusBadge />
 
           {/* Active Ride Section - Pure Component */}
         <ActiveRideSection

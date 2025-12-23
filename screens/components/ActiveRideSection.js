@@ -147,6 +147,16 @@ const ActiveRideSection = ({
           </TouchableOpacity>
         )}
 
+          <TouchableOpacity 
+          style={styles.chatButton}
+          onPress={() => navigation.navigate('DriverChat', { 
+              riderName: rideDetails?.rider?.name || "Passenger" 
+          })}
+      >
+          <Ionicons name="chatbubble-outline" size={24} color="white" />
+      </TouchableOpacity>
+
+
         {/* Map Button */}
         <TouchableOpacity 
             style={styles.mapButton}
@@ -340,6 +350,16 @@ const styles = StyleSheet.create({
   finishButton: {
     backgroundColor: '#4CAF50',
   },
+  chatButton: {
+  width: 54,
+  height: 54,
+  backgroundColor: '#2a2a2a',
+  borderRadius: 12,
+  justifyContent: 'center',
+  alignItems: 'center',
+  borderWidth: 1,
+  borderColor: '#444',
+},
   mapButton: {
     width: 54,
     height: 54,

@@ -1,7 +1,33 @@
-import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import React, { useContext } from "react";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { SocketContext } from "../../context/WebSocketProvider";
 
-const StatusBadge = ({ isConnected, currentLocation }) => {
+const StatusBadge = () => {
+  const { isConnected, currentLocation, locationPermission, goOnline } = useContext(SocketContext);
+
+  // State 1: No permission yet - show call-to-action button
+  if (locationPermission !== 'granted') {
+    return (
+      <TouchableOpacity 
+        style={styles.connectButton} 
+        onPress={goOnline}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.connectText}>TAP TO GO ONLINE</Text>
+      </TouchableOpacity>
+    );
+  }
+
+  // State 2: Permission granted but not connected - show connecting state
+  if (locationPermission === 'granted' && !isConnected) {
+    return (
+      <View style={[styles.statusContainer, styles.centerContent]}>
+        <Text style={styles.statusText}>Connecting...</Text>
+      </View>
+    );
+  }
+
+  // State 3: Connected - show status with location
   return (
     <View style={styles.statusContainer}>
       <View style={styles.statusBadge}>
@@ -17,8 +43,7 @@ const StatusBadge = ({ isConnected, currentLocation }) => {
       </View>
       {currentLocation && (
         <Text style={styles.locationText}>
-          Location: {currentLocation.lat.toFixed(4)},{" "}
-          {currentLocation.long.toFixed(4)}
+          {currentLocation.lat.toFixed(4)}, {currentLocation.long.toFixed(4)}
         </Text>
       )}
     </View>
@@ -35,6 +60,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     backgroundColor: "#1a1a1a",
     borderRadius: 10,
+  },
+  centerContent: {
+    justifyContent: 'center',
   },
   statusBadge: {
     flexDirection: "row",
@@ -63,9 +91,24 @@ const styles = StyleSheet.create({
     color: "#aaa",
     fontSize: 12,
   },
+  connectButton: {
+    backgroundColor: "#4CAF50",
+    paddingVertical: 15,
+    borderRadius: 10,
+    alignItems: "center",
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  connectText: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 16,
+    letterSpacing: 1,
+  },
 });
 
 export default StatusBadge;
-
-
-

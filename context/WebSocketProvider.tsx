@@ -4,6 +4,7 @@ import { navigationRef } from "../screens/context/NavigationContext";
 import { useDriverRide } from "./DriverRideContext";
 import { useAuth } from "./AuthContext";
 
+
 const WSS_URL = process.env.EXPO_PUBLIC_WSS_URL;
 
 // --- Types ---
@@ -34,6 +35,10 @@ interface SocketContextValue {
   sentOffers: Map<string, RideNotification>; // ✅ Fixed: Point to actual Map
   saveSentOffer: (rideId: string, offer: RideNotification) => void;
   getSentOffer: (rideId: string) => RideNotification | undefined;
+  locationPermission: string | null; // 'granted', 'denied', 'undetermined'
+  goOnline: () => Promise<void>;
+  chatMessages: Record<string, any[]>;
+  sendChatMessage: (rideId: string, text: string) => Promise<void>;
 }
 
 export const SocketContext = createContext<SocketContextValue | undefined>(undefined);
@@ -58,8 +63,11 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; long: number } | null>(null);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [, forceUpdate] = useState(0); // For forcing re-render when Map changes
-
+  const [locationPermission, setLocationPermission] = useState<string>('undetermined');
   const { token, getValidToken, clearTokens } = useAuth();
+  const [hasInitialized, setHasInitialized] = useState(false);
+  const { rideId } = useDriverRide(); // Add after all your other refs/state
+const [chatMessages, setChatMessages] = useState<Record<string, any[]>>({});
 
   // --- LOGOUT LOGIC ---
   const handleLogout = async () => {
@@ -89,7 +97,25 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
     }, 100);
   };
 
-  // --- NOTIFICATION HELPERS ---
+const goOnline = async () => {
+  console.log("👆 [USER ACTION] goOnline clicked");
+  
+  const { status } = await Location.requestForegroundPermissionsAsync();
+  setLocationPermission(status);
+
+  if (status !== 'granted') {
+    console.warn("🚫 [PERMISSION] User denied location");
+    return;
+  }
+
+  if (!hasInitialized) {
+    setHasInitialized(true);
+    await startLocationTracking();
+    const validToken = await getValidToken();
+    if (validToken) connectWebSocket(validToken);
+  }
+};
+
   const parseRideNotification = (data: any): RideNotification | null => {
     try {
       console.log("🛠️ [PARSING] Attempting to parse raw data:", data);
@@ -155,11 +181,6 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
   const startLocationTracking = async () => {
     console.log("🛰️ [LOCATION] Initializing tracking...");
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        console.warn("🚫 [LOCATION] Permission denied!");
-        return;
-      }
 
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const coords = { lat: loc.coords.latitude, long: loc.coords.longitude };
@@ -190,6 +211,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
     }
   };
 
+
   const stopLocationTracking = () => {
     console.log("🛑 [LOCATION] Stopping tracking...");
     locationSubscription.current?.remove();
@@ -199,6 +221,30 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
       locationInterval.current = null;
     }
   };
+
+  const sendChatMessage = async (rideId: string, text: string) => {
+  const payload = {
+    type: "send_message",
+    data: { ride_id: rideId, message: text }
+  };
+
+  const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const newMessage = { 
+    id: tempId,
+    text, 
+    sender: 'driver', 
+    timestamp: new Date() 
+  };
+  
+  setChatMessages(prev => ({
+    ...prev,
+    [rideId]: [...(prev[rideId] || []), newMessage]
+  }));
+
+  if (ws.current?.readyState === WebSocket.OPEN) {
+    ws.current.send(JSON.stringify(payload));
+  }
+};
 
   // --- WEBSOCKET LIFECYCLE ---
   const connectWebSocket = async (accessToken: string) => {
@@ -215,7 +261,6 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
       console.log("✅ [WS] Connected and Ready (Driver)");
       setIsConnected(true);
       retryAttempts.current = 0;
-      startLocationTracking();
 
       locationInterval.current = setInterval(() => {
         if (ws.current?.readyState === WebSocket.OPEN && currentLocationRef.current) {
@@ -246,7 +291,24 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         } else if (msg.type === "error" && msg.message?.includes("expired")) {
           console.error("🔑 [WS] Auth error detected in message stream");
           handleLogout();
-        }
+        } 
+            else if (msg.type === "chat_message" && msg.message) {
+              const { id, content, sender_role, created_at } = msg.message;
+              
+              if (rideId) {
+                const newMessage = {
+                  id: String(id),
+                  text: content,
+                  sender: sender_role === 'rider' ? 'rider' : 'driver', // Note: "rider" not "user"
+                  timestamp: new Date(created_at),
+                };
+
+                setChatMessages(prev => ({
+                  ...prev,
+                  [rideId]: [...(prev[rideId] || []), newMessage]
+                }));
+              }
+            }
       } catch (err) {
         console.error("❌ [WS] Message parse error:", err);
       }
@@ -300,6 +362,20 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
     };
   }, []);
 
+useEffect(() => {
+  (async () => {
+    const { status } = await Location.getForegroundPermissionsAsync();
+    setLocationPermission(status);
+    
+    // Only auto-connect if permission was previously granted
+    if (status === 'granted' && !hasInitialized) {
+      setHasInitialized(true);
+      await startLocationTracking();
+      const validToken = await getValidToken();
+      if (validToken) connectWebSocket(validToken);
+    }
+  })();
+}, []);
   return (
     <SocketContext.Provider 
       value={{ 
@@ -315,6 +391,10 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         sentOffers: sentOffersRef.current,
         saveSentOffer,
         getSentOffer,
+        locationPermission, 
+        goOnline,
+        chatMessages,
+        sendChatMessage,
       }}
     >
       {children}
