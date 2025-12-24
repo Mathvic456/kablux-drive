@@ -1,16 +1,26 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Svg, { G, Path, Text as SvgText, TSpan, Ellipse } from 'react-native-svg';
+// Import your hook (adjust path if needed)
+import { useGetMyBalance } from '../../services/funding.service'; 
 
 const DonutChart = () => {
   const [activeTab, setActiveTab] = useState('today');
+
+  // 1. Get the balance
+  const { data: balanceData } = useGetMyBalance();
+
+  // 2. Format the balance (default to 0.00 if loading/undefined)
+  const formattedBalance = balanceData?.balance 
+    ? `₦${balanceData.balance.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` 
+    : '₦0.00';
   
   const size = 230;
   const strokeWidth = 23;
   const radius = (size - strokeWidth) / 2.2;
   const center = size / 2;
 
-  // Data for different time periods
+  // Data for different time periods (Kept exactly as requested)
   const segmentData = {
     today: [
       { color: '#FF3D3D', percent: 15 },
@@ -123,7 +133,8 @@ const DonutChart = () => {
       {/* Center Text */}
       <View style={styles.centerContent}>
         <Text style={styles.balanceText}>total balance</Text>
-        <Text style={styles.amount}>₦0.00</Text>
+        {/* 3. Use the formatted balance here */}
+        <Text style={styles.amount}>{formattedBalance}</Text>
       </View>
 
       {/* Time Period Tabs */}

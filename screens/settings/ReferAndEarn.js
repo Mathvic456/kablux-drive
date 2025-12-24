@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, ActivityIndicator } from 'react-native';
 import TransferForm from '../components/TransferForm';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
@@ -6,6 +6,7 @@ import ScreenHeaders from '../components/ScreenHeaders';
 import { Feather, Entypo, FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { useState } from 'react';
 import * as Clipboard from 'expo-clipboard';
+import CentralModal from '../components/CentralModal';
 
 export default function ReferAndEarn() {
     const navigation = useNavigation();
@@ -13,13 +14,14 @@ export default function ReferAndEarn() {
     const [howItWorksModalVisible, setHowItWorksModalVisible] = useState(false);
     const [inviteModalVisible, setInviteModalVisible] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [copyModalVisible, setCopyModalVisible] = useState(false);
 
     const referralCode = "B219XN23LA22";
     const referralLink = "https://www.kbl.com/referral/B219XN23LA22";
 
     const copyToClipboard = async (text) => {
         await Clipboard.setStringAsync(text);
-        Alert.alert("Copied!", "Referral info copied to clipboard.");
+        setCopyModalVisible(true);
     };
 
     const goBack = () => {
@@ -329,6 +331,19 @@ export default function ReferAndEarn() {
                     </View>
                 </View>
             </Modal>
+
+            <CentralModal
+                visible={copyModalVisible}
+                onClose={() => setCopyModalVisible(false)}
+                title="Copied!"
+                subText="Referral info copied to clipboard."
+                icon="checkmark-circle"
+                confirmText="Got it"
+                closeText=""
+                onConfirm={() => setCopyModalVisible(false)}
+                confirmButtonColor="#FFC107"
+                themeColor="#4CAF50"
+            />
         </View>
     );
 }

@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api";
-import { Alert } from "react-native";
 
 
 export const rideKeys = {
@@ -82,21 +81,9 @@ export const useStartRide = () => {
       
       // Invalidate and refetch ride details
       queryClient.invalidateQueries({ queryKey: rideKeys.details(rideId) });
-      
-      Alert.alert(
-        "Ride Started",
-        "You have arrived. Head to the destination!"
-      );
     },
     onError: (error: any) => {
       console.error("❌ Error starting ride:", error);
-      
-      const errorMessage =
-        error.response?.data?.detail ||
-        error.response?.data?.message ||
-        "Failed to start ride";
-      
-      Alert.alert("Error", errorMessage);
     },
   });
 };
@@ -114,22 +101,10 @@ export const useArriveRide = () => {
       console.log("✅ Driver arrival mutation successful");
 
       queryClient.invalidateQueries({ queryKey: rideKeys.details(rideId) });
-
-      Alert.alert(
-        "Arrived",
-        "You have arrived at the pickup location."
-      );
     },
 
     onError: (error: any) => {
       console.error("❌ Error marking arrival:", error);
-
-      const errorMessage =
-        error.response?.data?.detail ||
-        error.response?.data?.message ||
-        "Failed to mark arrival";
-
-      Alert.alert("Error", errorMessage);
     },
   });
 };
@@ -149,21 +124,9 @@ export const useFinishRide = () => {
       // Invalidate queries
       queryClient.invalidateQueries({ queryKey: rideKeys.details(rideId) });
       queryClient.invalidateQueries({ queryKey: rideKeys.active() });
-      
-      Alert.alert(
-        "Ride Completed",
-        "The ride has been completed successfully."
-      );
     },
     onError: (error: any) => {
       console.error("❌ Error finishing ride:", error);
-      
-      const errorMessage =
-        error.response?.data?.detail ||
-        error.response?.data?.message ||
-        "Failed to finish ride";
-      
-      Alert.alert("Error", errorMessage);
     },
   });
 };

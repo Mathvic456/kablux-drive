@@ -8,11 +8,11 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { SocketContext } from '../../context/WebSocketProvider'; // Import Context
+import CentralModal from '../components/CentralModal';
 
 export default function OrderScreen() {
   const navigation = useNavigation();
@@ -26,6 +26,8 @@ export default function OrderScreen() {
 
   const [counterAmount, setCounterAmount] = useState(item?.offer_amount || 0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalData, setModalData] = useState({ title: '', message: '', isError: false });
 
   // 🛡️ Guard Clause
   if (!item || !item.ride_request_id) {
@@ -45,12 +47,14 @@ export default function OrderScreen() {
 
   const handleSubmitCounter = async () => {
     if (counterAmount <= 0) {
-      Alert.alert('Error', 'Please enter a valid counter offer amount');
+      setModalData({ title: 'Error', message: 'Please enter a valid counter offer amount', isError: true });
+      setModalVisible(true);
       return;
     }
 
     if (!socket || socket.readyState !== WebSocket.OPEN) {
-      Alert.alert('Connection Error', 'WebSocket is not connected');
+      setModalData({ title: 'Connection Error', message: 'WebSocket is not connected', isError: true });
+      setModalVisible(true);
       return;
     }
 
@@ -68,19 +72,13 @@ export default function OrderScreen() {
       console.log("📤 Sending Counter Offer:", JSON.stringify(message));
       socket.send(JSON.stringify(message));
 
-      Alert.alert('Success', 'Your offer has been sent', [
-        {
-          text: 'OK',
-          onPress: () => {
-            if (onCounterSubmitted) onCounterSubmitted();
-            navigation.goBack();
-          },
-        },
-      ]);
+      setModalData({ title: 'Success', message: 'Your offer has been sent', isError: false });
+      setModalVisible(true);
 
     } catch (error) {
       console.error('Error submitting counter:', error);
-      Alert.alert('Error', 'Failed to submit counter offer.');
+      setModalData({ title: 'Error', message: 'Failed to submit counter offer.', isError: true });
+      setModalVisible(true);
     } finally {
       setIsSubmitting(false);
     }
@@ -174,6 +172,31 @@ export default function OrderScreen() {
         >
           {isSubmitting ? <ActivityIndicator color="black" /> : <Text style={styles.submitButtonText}>Submit Offer</Text>}
         </TouchableOpacity>
+
+        <CentralModal
+          visible={modalVisible}
+          onClose={() => {
+            setModalVisible(false);
+            if (!modalData.isError && modalData.title === 'Success') {
+              if (onCounterSubmitted) onCounterSubmitted();
+              navigation.goBack();
+            }
+          }}
+          title={modalData.title}
+          subText={modalData.message}
+          icon={modalData.isError ? 'alert-circle' : 'checkmark-circle'}
+          confirmText="OK"
+          closeText=""
+          onConfirm={() => {
+            setModalVisible(false);
+            if (!modalData.isError && modalData.title === 'Success') {
+              if (onCounterSubmitted) onCounterSubmitted();
+              navigation.goBack();
+            }
+          }}
+          confirmButtonColor={modalData.isError ? '#f44336' : '#facc15'}
+          themeColor={modalData.isError ? '#f44336' : '#4CAF50'}
+        />
       </ScrollView>
     </KeyboardAvoidingView>
   );

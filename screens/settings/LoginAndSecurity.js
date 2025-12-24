@@ -1,14 +1,17 @@
-import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { Feather, Entypo, FontAwesome } from '@expo/vector-icons';
 import { useState } from 'react';
+import CentralModal from '../components/CentralModal';
 
 export default function LoginAndSecurity() {
   const navigation = useNavigation();
   const [changePasswordModalVisible, setChangePasswordModalVisible] = useState(false);
   const [passkeysModalVisible, setPasskeysModalVisible] = useState(false);
   const [linkGoogleModalVisible, setLinkGoogleModalVisible] = useState(false);
+  const [resultModalVisible, setResultModalVisible] = useState(false);
+  const [resultData, setResultData] = useState({ title: '', message: '' });
   
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -53,7 +56,8 @@ export default function LoginAndSecurity() {
   const handleChangePassword = () => {
     if (validatePasswordForm()) {
       // Here you would typically make an API call to change the password
-      Alert.alert('Success', 'Password changed successfully!');
+      setResultData({ title: 'Success', message: 'Password changed successfully!' });
+      setResultModalVisible(true);
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
       setChangePasswordModalVisible(false);
       setErrors({});
@@ -62,13 +66,15 @@ export default function LoginAndSecurity() {
 
   const handleSetUpPasskeys = () => {
     // Implementation for setting up passkeys
-    Alert.alert('Passkeys', 'Passkeys setup functionality would go here');
+    setResultData({ title: 'Passkeys', message: 'Passkeys setup functionality would go here' });
+    setResultModalVisible(true);
     setPasskeysModalVisible(false);
   };
 
   const handleLinkGoogle = () => {
     // Implementation for linking Google account
-    Alert.alert('Google Account', 'Google account linking functionality would go here');
+    setResultData({ title: 'Google Account', message: 'Google account linking functionality would go here' });
+    setResultModalVisible(true);
     setLinkGoogleModalVisible(false);
   };
 
@@ -330,6 +336,19 @@ export default function LoginAndSecurity() {
           </View>
         </View>
       </Modal>
+
+      <CentralModal
+        visible={resultModalVisible}
+        onClose={() => setResultModalVisible(false)}
+        title={resultData.title}
+        subText={resultData.message}
+        icon="checkmark-circle"
+        confirmText="OK"
+        closeText=""
+        onConfirm={() => setResultModalVisible(false)}
+        confirmButtonColor="#fcbf24"
+        themeColor="#4CAF50"
+      />
     </View>
   );
 }

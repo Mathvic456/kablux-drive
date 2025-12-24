@@ -10,13 +10,13 @@ import {
   Text,
   TouchableOpacity,
   View,
-  Alert
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import MapViewDirections from "react-native-maps-directions";
 import { darkMapStyle } from '../../styles/darkMapStyle';
 import { useRoute } from '@react-navigation/native';
 import { useDriverRide } from '../../context/DriverRideContext';
+import CentralModal from '../components/CentralModal';
 
 const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
 
@@ -37,6 +37,7 @@ export default function DriverMapScreen({ navigation }) {
   const [destination, setDestination] = useState(null);
   const [routeDistance, setRouteDistance] = useState(null);
   const [routeDuration, setRouteDuration] = useState(null);
+  const [permissionModalVisible, setPermissionModalVisible] = useState(false);
 
   const locationSubscription = useRef(null);
 
@@ -54,7 +55,7 @@ export default function DriverMapScreen({ navigation }) {
     (async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Allow location access to track your drive.');
+        setPermissionModalVisible(true);
         return;
       }
 
@@ -313,11 +314,7 @@ export default function DriverMapScreen({ navigation }) {
           onPress={() => {
             if (destination) {
               const url = `https://www.google.com/maps/dir/?api=1&destination=${destination.latitude},${destination.longitude}`;
-              Alert.alert(
-                "Open Navigation",
-                "This would open Google Maps for turn-by-turn navigation",
-                [{ text: "OK" }]
-              );
+              setPermissionModalVisible(true);
               // You can use Linking.openURL(url) to actually open Google Maps
             }
           }}
@@ -326,6 +323,19 @@ export default function DriverMapScreen({ navigation }) {
           <Feather name="navigation" size={20} color="white" style={{ marginLeft: 10 }} />
         </TouchableOpacity>
       </Animated.View>
+
+      <CentralModal
+        visible={permissionModalVisible}
+        onClose={() => setPermissionModalVisible(false)}
+        title="Navigation"
+        subText="This would open Google Maps for turn-by-turn navigation"
+        icon="navigation"
+        confirmText="OK"
+        closeText=""
+        onConfirm={() => setPermissionModalVisible(false)}
+        confirmButtonColor="#007aff"
+        themeColor="#007aff"
+      />
     </View>
   );
 }

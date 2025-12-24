@@ -6,7 +6,6 @@ import { useState } from "react";
 import {
   ActivityIndicator,
   Image,
-  Modal,
   StyleSheet,
   Text,
   TextInput,
@@ -14,6 +13,7 @@ import {
   View
 } from "react-native";
 import Logo from '../../assets/Logo.png';
+import CentralModal from '../components/CentralModal';
 
 export default function ResetPasswordEmailScreen() {
   const navigation = useNavigation();
@@ -130,38 +130,18 @@ export default function ResetPasswordEmailScreen() {
         </View>
       </View>
 
-      <Modal
-        animationType="fade"
-        transparent={true}
+      <CentralModal
         visible={showModal}
-        onRequestClose={() => setShowModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalIconContainer}>
-              <FontAwesome name="check-circle" size={50} color="#4CAF50" />
-            </View>
-            
-            <Text style={styles.modalTitle}>Code Sent!</Text>
-            
-            <Text style={styles.modalMessage}>
-              A verification code has been sent to{"\n"}
-              <Text style={styles.emailText}>{email}</Text>
-            </Text>
-            
-            <Text style={styles.modalSubtext}>
-              Check your email and enter the code to continue.
-            </Text>
-
-            <TouchableOpacity 
-              style={styles.modalButton}
-              onPress={handleModalContinue}
-            >
-              <Text style={styles.modalButtonText}>Continue</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setShowModal(false)}
+        title="Code Sent!"
+        subText={`A verification code has been sent to\n${email}\n\nCheck your email and enter the code to continue.`}
+        icon="mail"
+        confirmText="Continue"
+        closeText=""
+        onConfirm={handleModalContinue}
+        confirmButtonColor="#fcbf24"
+        themeColor="#4CAF50"
+      />
     </View>
   );
 }

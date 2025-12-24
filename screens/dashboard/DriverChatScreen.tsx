@@ -35,6 +35,11 @@ export default function DriverChatScreen({ navigation, route }: ChatScreenProps)
     const { chatMessages, sendChatMessage } = useContext(SocketContext);
 
     const currentMessages = rideId ? chatMessages[rideId] || [] : [];
+    console.log("🖥️ [CHAT SCREEN] Rendering...");
+console.log("🖥️ [CHAT SCREEN] rideId:", rideId);
+console.log("🖥️ [CHAT SCREEN] chatMessages keys:", Object.keys(chatMessages));
+console.log("🖥️ [CHAT SCREEN] currentMessages count:", currentMessages.length);
+console.log("🖥️ [CHAT SCREEN] currentMessages:", currentMessages);
 
     const handleSendMessage = async () => {
         if (!messageText.trim() || !rideId) return;

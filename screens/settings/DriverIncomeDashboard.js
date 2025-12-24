@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import CentralModal from '../components/CentralModal';
 
 export default function DriverIncomeDashboard() {
   const [activeTab, setActiveTab] = useState("Daily");
@@ -18,6 +19,8 @@ export default function DriverIncomeDashboard() {
   const [orderHistoryModalVisible, setOrderHistoryModalVisible] = useState(false);
   const [achievementsModalVisible, setAchievementsModalVisible] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [successModalVisible, setSuccessModalVisible] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   const tabs = ["Daily", "Weekly", "Monthly"];
 
@@ -88,7 +91,8 @@ export default function DriverIncomeDashboard() {
   };
 
   const handleSaveIncomePlan = (target) => {
-    Alert.alert("Success", `Income target set to ${target}`);
+    setSuccessMessage(`Income target set to ${target}`);
+    setSuccessModalVisible(true);
     setIncomePlanModalVisible(false);
   };
 
@@ -374,6 +378,19 @@ export default function DriverIncomeDashboard() {
           </View>
         </View>
       </Modal>
+
+      <CentralModal
+        visible={successModalVisible}
+        onClose={() => setSuccessModalVisible(false)}
+        title="Success"
+        subText={successMessage}
+        icon="checkmark-circle"
+        confirmText="OK"
+        closeText=""
+        onConfirm={() => setSuccessModalVisible(false)}
+        confirmButtonColor="#fcbf24"
+        themeColor="#4CAF50"
+      />
     </View>
   );
 }

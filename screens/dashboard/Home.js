@@ -11,12 +11,12 @@ import {
   RefreshControl,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DebugStateModal from "../components/DebugStateModal";
+import CentralModal from "../components/CentralModal";
 
 // Components
 import DonutChart from "../components/DonutChart";
@@ -47,6 +47,10 @@ export default function Home() {
   const [updatesModalVisible, setUpdatesModalVisible] = useState(false);
   const [uploadModalVisible, setUploadModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [alertModalVisible, setAlertModalVisible] = useState(false);
+  const [alertData, setAlertData] = useState({ title: '', message: '', isError: false });
+  const [rideCompletedModalVisible, setRideCompletedModalVisible] = useState(false);
+const [completedRideInfo, setCompletedRideInfo] = useState(null);
 
   const [negotiationUpdates, setNegotiationUpdates] = useState({});
   const [acceptedRide, setAcceptedRide] = useState(null);
@@ -144,15 +148,16 @@ const fetchRideDetails = async (id) => {
       console.error("❌ Fetch ride details error:", error);
       
       if (error.response?.status === 401) {
-        Alert.alert("Authentication Error", "Please log in again.");
+        setAlertData({ title: "Authentication Error", message: "Please log in again.", isError: true });
       } else if (error.response?.status === 404) {
-        Alert.alert("Error", "Ride not found.");
+        setAlertData({ title: "Error", message: "Ride not found.", isError: true });
       } else {
         const errorMessage = error.response?.data?.detail || 
                              error.response?.data?.message || 
                              "Failed to fetch ride details";
-        Alert.alert("Error", errorMessage);
+        setAlertData({ title: "Error", message: errorMessage, isError: true });
       }
+      setAlertModalVisible(true);
       
       return null;
     } finally {
@@ -176,10 +181,12 @@ const fetchRideDetails = async (id) => {
     // Force reload the persisted state in context
     await loadPersisted();
     
-    Alert.alert("Success", `State set to: ${status}`);
+    setAlertData({ title: "Success", message: `State set to: ${status}`, isError: false });
+    setAlertModalVisible(true);
   } catch (error) {
     console.error("❌ Error forcing state:", error);
-    Alert.alert("Error", "Failed to set state");
+    setAlertData({ title: "Error", message: "Failed to set state", isError: true });
+    setAlertModalVisible(true);
   }
 };
 
@@ -369,7 +376,8 @@ useEffect(() => {
 
 const handleStartRide = async () => {
   if (!rideId || typeof rideId !== "string") {
-    Alert.alert("Error", "No valid ride ID found");
+    setAlertData({ title: "Error", message: "No valid ride ID found", isError: true });
+    setAlertModalVisible(true);
     return;
   }
 
@@ -409,7 +417,8 @@ const handleStartRide = async () => {
 
 const handleArrived = async () => {
   if (!rideId || typeof rideId !== "string") {
-    Alert.alert("Error", "No valid ride ID found");
+    setAlertData({ title: "Error", message: "No valid ride ID found", isError: true });
+    setAlertModalVisible(true);
     return;
   }
 
@@ -453,31 +462,28 @@ const handleCounterSubmit = (ride_request_view_id) => {
 };
 
 
-  const handleFinishRide = async () => {
-    if (!rideId || typeof rideId !== 'string') {
-      Alert.alert("Error", "No valid ride ID found");
-      return;
-    }
+const handleFinishRide = async () => {
+  if (!rideId || typeof rideId !== 'string') {
+    setAlertData({ title: "Error", message: "No valid ride ID found", isError: true });
+    setAlertModalVisible(true);
+    return;
+  }
 
-    try {
-      console.log("🏁 Finishing ride:", rideId);
+  try {
+    console.log("🏁 Finishing ride:", rideId);
+    await finishRideMutation.mutateAsync(rideId);
+    finishRide();
 
-      // Call the mutation
-      await finishRideMutation.mutateAsync(rideId);
-      
-      // Update context state to 'not_busy'
-      finishRide();
-      
-      // Clear local state
-      setRideDetails(null);
-      
-      console.log("✅ Ride finish completed successfully");
+    // Save ride details before clearing
+    setCompletedRideInfo(rideDetails);
+    setRideCompletedModalVisible(true);
 
-    } catch (error) {
-      console.error("❌ Error in handleFinishRide:", error);
-      // Error alert is handled in the mutation hook
-    }
-  };
+    console.log("✅ Ride finish completed successfully");
+
+  } catch (error) {
+    console.error("❌ Error in handleFinishRide:", error);
+  }
+};
 
   const clearNegotiationUpdate = (viewId) => {
     setNegotiationUpdates((prev) => {
@@ -895,6 +901,72 @@ const handleCounterSubmit = (ride_request_view_id) => {
     </View>
   </View>
 </Modal>
+
+{/* Ride Completed Modal */}
+<Modal
+  animationType="fade"
+  transparent={true}
+  visible={rideCompletedModalVisible}
+  onRequestClose={() => {
+    setRideCompletedModalVisible(false);
+    setRideDetails(null);
+    setCompletedRideInfo(null);
+    setRideNotifications([]);
+  }}
+>
+  <View style={styles.modalOverlay}>
+    <View style={styles.alertBox}>
+      <Ionicons name="checkmark-circle" size={60} color="#4CAF50" />
+      <Text style={styles.alertTitle}>Ride Completed! 🎉</Text>
+      
+      {completedRideInfo && (
+        <View style={{ width: '100%', marginVertical: 20 }}>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Passenger:</Text>
+            <Text style={styles.detailValue}>{completedRideInfo.rider?.name || 'N/A'}</Text>
+          </View>
+          
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Fare:</Text>
+            <Text style={[styles.detailValue, { color: '#4CAF50', fontWeight: 'bold' }]}>
+              {new Intl.NumberFormat('en-NG', {
+                style: 'currency',
+                currency: 'NGN',
+                minimumFractionDigits: 0,
+              }).format(completedRideInfo.fare || 0)}
+            </Text>
+          </View>
+          
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>From:</Text>
+            <Text style={[styles.detailValue, { flex: 1 }]} numberOfLines={2}>
+              {completedRideInfo.pickup_address || 'N/A'}
+            </Text>
+          </View>
+          
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>To:</Text>
+            <Text style={[styles.detailValue, { flex: 1 }]} numberOfLines={2}>
+              {completedRideInfo.dropoff_address || 'N/A'}
+            </Text>
+          </View>
+        </View>
+      )}
+      
+      <TouchableOpacity
+        style={styles.primaryButton}
+        onPress={() => {
+          setRideCompletedModalVisible(false);
+          setRideDetails(null);
+          setCompletedRideInfo(null);
+          setRideNotifications([]);
+        }}
+      >
+        <Text style={styles.primaryButtonText}>Done</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
     </View>
   );
 }
@@ -914,6 +986,22 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
   },
+  detailRow: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  paddingVertical: 8,
+  borderBottomWidth: 1,
+  borderBottomColor: '#333',
+},
+detailLabel: {
+  color: '#999',
+  fontSize: 14,
+  marginRight: 10,
+},
+detailValue: {
+  color: 'white',
+  fontSize: 14,
+},
   loadingContainer: {
     flex: 1,
     backgroundColor: "#000",

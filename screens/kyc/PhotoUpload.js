@@ -13,6 +13,7 @@ import {
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import Logo from "../../assets/Logo.png";
 import { useNavigation } from '@react-navigation/native';
+import CentralModal from '../components/CentralModal';
 
 const PhotoUpload = ({ navigation }) => {
   const [facing, setFacing] = useState('back');
@@ -21,6 +22,8 @@ const PhotoUpload = ({ navigation }) => {
   const [showCamera, setShowCamera] = useState(false);
   const [capturedImage, setCapturedImage] = useState(null);
   const cameraRef = useRef(null);
+  const [alertModalVisible, setAlertModalVisible] = useState(false);
+  const [alertData, setAlertData] = useState({ title: '', message: '', isError: false });
 
   const handleIDUpload = () => {
     navigation.navigate('IDVerification');
@@ -30,7 +33,8 @@ const PhotoUpload = ({ navigation }) => {
     if (!permission?.granted) {
       const result = await requestPermission();
       if (!result.granted) {
-        Alert.alert('Permission required', 'Camera permission is needed to take photos');
+        setAlertData({ title: 'Permission required', message: 'Camera permission is needed to take photos', isError: true });
+        setAlertModalVisible(true);
         return;
       }
     }
@@ -47,10 +51,12 @@ const PhotoUpload = ({ navigation }) => {
         const photo = await cameraRef.current.takePictureAsync();
         setCapturedImage(photo.uri);
         setShowCamera(false);
-        Alert.alert('Success', 'Selfie captured successfully!');
+        setAlertData({ title: 'Success', message: 'Selfie captured successfully!', isError: false });
+        setAlertModalVisible(true);
       } catch (error) {
         console.error('Error taking picture:', error);
-        Alert.alert('Error', 'Failed to take picture');
+        setAlertData({ title: 'Error', message: 'Failed to take picture', isError: true });
+        setAlertModalVisible(true);
       }
     }
   }
@@ -182,6 +188,19 @@ const PhotoUpload = ({ navigation }) => {
           <Text style={styles.submitButtonText}>Submit Verification</Text>
         </TouchableOpacity>
       </View>
+
+      <CentralModal
+        visible={alertModalVisible}
+        onClose={() => setAlertModalVisible(false)}
+        title={alertData.title}
+        subText={alertData.message}
+        icon={alertData.isError ? 'alert-circle' : 'checkmark-circle'}
+        confirmText="OK"
+        closeText=""
+        onConfirm={() => setAlertModalVisible(false)}
+        confirmButtonColor={alertData.isError ? '#f44336' : '#fcbf24'}
+        themeColor={alertData.isError ? '#f44336' : '#4CAF50'}
+      />
     </View>
   );
 }

@@ -1,16 +1,19 @@
-import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, ScrollView } from 'react-native';
 import TransferForm from '../components/TransferForm';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import ScreenHeaders from '../components/ScreenHeaders'; 
 import { Feather, Entypo, FontAwesome, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useState } from 'react';
+import CentralModal from '../components/CentralModal';
 
 export default function City() {
     const navigation = useNavigation();
     const [modalVisible, setModalVisible] = useState(false);
     const [placeType, setPlaceType] = useState('');
     const [address, setAddress] = useState('');
+    const [alertModalVisible, setAlertModalVisible] = useState(false);
+    const [alertData, setAlertData] = useState({ title: '', message: '', isError: false });
     const [favourites, setFavourites] = useState([
         {
             type: 'home',
@@ -40,12 +43,14 @@ export default function City() {
 
     const handleSavePlace = () => {
         if (!placeType) {
-            Alert.alert('Error', 'Please select a place type');
+            setAlertData({ title: 'Error', message: 'Please select a place type', isError: true });
+            setAlertModalVisible(true);
             return;
         }
 
         if (!address.trim()) {
-            Alert.alert('Error', 'Please enter an address');
+            setAlertData({ title: 'Error', message: 'Please enter an address', isError: true });
+            setAlertModalVisible(true);
             return;
         }
 
@@ -67,7 +72,8 @@ export default function City() {
         setAddress('');
         setModalVisible(false);
 
-        Alert.alert('Success', 'Place added to favourites!');
+        setAlertData({ title: 'Success', message: 'Place added to favourites!', isError: false });
+        setAlertModalVisible(true);
     }
 
     const extractCityFromAddress = (fullAddress) => {
@@ -251,6 +257,19 @@ export default function City() {
                     </View>
                 </View>
             </Modal>
+
+            <CentralModal
+                visible={alertModalVisible}
+                onClose={() => setAlertModalVisible(false)}
+                title={alertData.title}
+                subText={alertData.message}
+                icon={alertData.isError ? 'alert-circle' : 'checkmark-circle'}
+                confirmText="OK"
+                closeText=""
+                onConfirm={() => setAlertModalVisible(false)}
+                confirmButtonColor={alertData.isError ? '#f44336' : '#fcbf24'}
+                themeColor={alertData.isError ? '#f44336' : '#4CAF50'}
+            />
         </View>
     );
 }

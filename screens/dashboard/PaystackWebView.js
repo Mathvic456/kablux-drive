@@ -2,7 +2,6 @@ import { useFundWalletEndPoint } from "../../services/funding.service";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   ScrollView,
   StyleSheet,
@@ -13,12 +12,15 @@ import {
 } from "react-native";
 import { WebView } from "react-native-webview";
 import { useNavigation } from "@react-navigation/native";
+import CentralModal from "../components/CentralModal";
 // if 'new URL()' crashes on older android versions
 // import 'react-native-url-polyfill/auto'; 
 
 const DynamicPayStackWebViewScreen = () => {
   const [amount, setAmount] = useState("");
   const [paystackUrl, setPaystackUrl] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalData, setModalData] = useState({ title: '', message: '', isError: false });
   const navigation = useNavigation();
 
   const { mutate: initiateFunding, isPending } = useFundWalletEndPoint();
@@ -26,7 +28,8 @@ const DynamicPayStackWebViewScreen = () => {
   const handleAddFunds = () => {
     const num = Number(amount);
     if (!amount || isNaN(num) || num < 100) {
-      Alert.alert("Invalid Amount", "Minimum amount is ₦100");
+      setModalData({ title: "Invalid Amount", message: "Minimum amount is ₦100", isError: true });
+      setModalVisible(true);
       return;
     }
 
@@ -45,7 +48,8 @@ const DynamicPayStackWebViewScreen = () => {
             console.log("Opening Paystack:", url);
             setPaystackUrl(url);
           } else {
-            Alert.alert("Error", "No payment link received");
+            setModalData({ title: "Error", message: "No payment link received", isError: true });
+            setModalVisible(true);
           }
         },
         onError: (err) => {
@@ -53,7 +57,8 @@ const DynamicPayStackWebViewScreen = () => {
             err.response?.data?.message ||
             err.response?.data?.channel?.[0] ||
             "Failed to start payment";
-          Alert.alert("Payment Error", msg);
+          setModalData({ title: "Payment Error", message: msg, isError: true });
+          setModalVisible(true);
         },
       }
     );
@@ -64,23 +69,8 @@ const DynamicPayStackWebViewScreen = () => {
     if (url.includes("reference=") && url.includes("trxref=")) {
       setPaystackUrl(null); 
 
-      Alert.alert(
-        "Payment Successful!",
-        "Your wallet has been credited.",
-        [
-          {
-            text: "Done",
-            onPress: () => {
-              setAmount("");
-              if (navigation.canGoBack()) {
-                navigation.goBack();
-              } else {
-                navigation.navigate("Tabs", { screen: "Wallet" });
-              }
-            },
-          },
-        ]
-      );
+      setModalData({ title: "Payment Successful!", message: "Your wallet has been credited.", isError: false });
+      setModalVisible(true);
     }
     
     // 3. Handle the specific "Close" button inside Paystack (if user cancels)
@@ -171,6 +161,39 @@ const DynamicPayStackWebViewScreen = () => {
           )}
         </View>
       </Modal>
+
+      <CentralModal
+        visible={modalVisible}
+        onClose={() => {
+          setModalVisible(false);
+          if (!modalData.isError && modalData.title === "Payment Successful!") {
+            setAmount("");
+            if (navigation.canGoBack()) {
+              navigation.goBack();
+            } else {
+              navigation.navigate("Tabs", { screen: "Wallet" });
+            }
+          }
+        }}
+        title={modalData.title}
+        subText={modalData.message}
+        icon={modalData.isError ? 'alert-circle' : 'checkmark-circle'}
+        confirmText={modalData.isError ? "OK" : "Done"}
+        closeText=""
+        onConfirm={() => {
+          setModalVisible(false);
+          if (!modalData.isError && modalData.title === "Payment Successful!") {
+            setAmount("");
+            if (navigation.canGoBack()) {
+              navigation.goBack();
+            } else {
+              navigation.navigate("Tabs", { screen: "Wallet" });
+            }
+          }
+        }}
+        confirmButtonColor={modalData.isError ? '#f44336' : '#007AFF'}
+        themeColor={modalData.isError ? '#f44336' : '#4CAF50'}
+      />
     </>
   );
 };

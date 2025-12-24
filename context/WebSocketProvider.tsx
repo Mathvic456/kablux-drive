@@ -56,6 +56,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
   const maxRetryDelay = 30000;
   const shouldReconnect = useRef(true);
   const sentOffersRef = useRef<Map<string, RideNotification>>(new Map());
+  const currentRideIdRef = useRef<string | null>(null);
 
   // State
   const [isConnected, setIsConnected] = useState(false);
@@ -66,8 +67,14 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
   const [locationPermission, setLocationPermission] = useState<string>('undetermined');
   const { token, getValidToken, clearTokens } = useAuth();
   const [hasInitialized, setHasInitialized] = useState(false);
-  const { rideId } = useDriverRide(); // Add after all your other refs/state
+  const { rideId } = useDriverRide();
+  console.log("🔍 [WSP] useDriverRide returned rideId:", rideId);
 const [chatMessages, setChatMessages] = useState<Record<string, any[]>>({});
+
+useEffect(() => {
+  console.log("🔄 [WSP] rideId changed in WebSocketProvider:", rideId);
+  currentRideIdRef.current = rideId;
+}, [rideId]);
 
   // --- LOGOUT LOGIC ---
   const handleLogout = async () => {
@@ -236,11 +243,20 @@ const goOnline = async () => {
     timestamp: new Date() 
   };
   
-  setChatMessages(prev => ({
-    ...prev,
-    [rideId]: [...(prev[rideId] || []), newMessage]
-  }));
-
+    setChatMessages(prev => {
+    const existing = prev[rideId] || [];  // ✅ Use rideId parameter
+    
+    // Check if message already exists
+    if (existing.some(m => m.id === tempId)) {  // ✅ Check tempId, not undefined 'id'
+      console.log("⚠️ [CHAT] Duplicate message detected, skipping:", tempId);
+      return prev;
+    }
+    
+    return {
+      ...prev,
+      [rideId]: [...existing, newMessage]  // ✅ Use rideId parameter
+    };
+  });
   if (ws.current?.readyState === WebSocket.OPEN) {
     ws.current.send(JSON.stringify(payload));
   }
@@ -292,23 +308,49 @@ const goOnline = async () => {
           console.error("🔑 [WS] Auth error detected in message stream");
           handleLogout();
         } 
-            else if (msg.type === "chat_message" && msg.message) {
-              const { id, content, sender_role, created_at } = msg.message;
-              
-              if (rideId) {
-                const newMessage = {
-                  id: String(id),
-                  text: content,
-                  sender: sender_role === 'rider' ? 'rider' : 'driver', // Note: "rider" not "user"
-                  timestamp: new Date(created_at),
-                };
+      else if (msg.type === "chat_message" && msg.message) {
+      const { id, content, sender_role, created_at } = msg.message;
+      const activeRideId = currentRideIdRef.current;
 
-                setChatMessages(prev => ({
-                  ...prev,
-                  [rideId]: [...(prev[rideId] || []), newMessage]
-                }));
-              }
-            }
+      if (activeRideId) {
+        const newMessage = {
+          id: String(id),
+          text: content,
+          sender: sender_role === 'rider' ? 'rider' : 'driver',
+          timestamp: new Date(created_at),
+        };
+
+        setChatMessages(prev => {
+          const existing = prev[activeRideId] || [];
+
+          // 1. STRICT DUPLICATE CHECK: 
+          // If we already have this exact Server ID, do nothing.
+          if (existing.some(m => m.id === String(id))) {
+            return prev;
+          }
+
+          // 2. OPTIMISTIC CLEANUP (The Fix):
+          // Filter out any "temp" message that has the exact same text.
+          // We assume this incoming server message is the confirmation for that temp message.
+          const cleanExisting = existing.filter(m => {
+            const isTemp = m.id.startsWith('temp_');
+            const isSameContent = m.text === content;
+            
+            // If it is a temp message AND the text is the same, 
+            // return FALSE to remove it from the list.
+            return !(isTemp && isSameContent); 
+          });
+
+          return {
+            ...prev,
+            [activeRideId]: [...cleanExisting, newMessage]
+          };
+        });
+      
+        } else {
+          console.error("❌ [CHAT] No activeRideId! Both hook and ref are null.");
+        }
+      }
       } catch (err) {
         console.error("❌ [WS] Message parse error:", err);
       }
@@ -361,6 +403,11 @@ const goOnline = async () => {
       if (retryTimeout.current) clearTimeout(retryTimeout.current);
     };
   }, []);
+
+  useEffect(() => {
+  console.log("🔄 [RIDEID] rideId changed:", rideId);
+  currentRideIdRef.current = rideId;
+}, [rideId]);
 
 useEffect(() => {
   (async () => {

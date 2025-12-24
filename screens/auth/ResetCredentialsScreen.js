@@ -7,7 +7,6 @@ import {
   ActivityIndicator,
   Image,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -17,6 +16,7 @@ import {
   View,
 } from "react-native";
 import Logo from "../../assets/Logo.png";
+import CentralModal from '../components/CentralModal';
 
 export default function ResetCredentialsScreen() {
   const navigation = useNavigation();
@@ -405,37 +405,18 @@ export default function ResetCredentialsScreen() {
       </KeyboardAvoidingView>
 
       {/* Success Modal */}
-      <Modal
-        animationType="fade"
-        transparent={true}
+      <CentralModal
         visible={showSuccessModal}
-        onRequestClose={() => setShowSuccessModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalIconContainer}>
-              <FontAwesome name="check-circle" size={50} color="#4CAF50" />
-            </View>
-
-            <Text style={styles.modalTitle}>Success!</Text>
-
-            <Text style={styles.modalMessage}>
-              Your password has been reset successfully.
-            </Text>
-
-            <Text style={styles.modalSubtext}>
-              You can now login with your new password.
-            </Text>
-
-            <TouchableOpacity
-              style={styles.modalButton}
-              onPress={handleModalContinue}
-            >
-              <Text style={styles.modalButtonText}>Login Now</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setShowSuccessModal(false)}
+        title="Success!"
+        subText="Your password has been reset successfully.\n\nYou can now login with your new password."
+        icon="checkmark-circle"
+        confirmText="Login Now"
+        closeText=""
+        onConfirm={handleModalContinue}
+        confirmButtonColor="#fcbf24"
+        themeColor="#4CAF50"
+      />
     </View>
   );
 }

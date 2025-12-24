@@ -8,13 +8,13 @@ import {
   ActivityIndicator,
   Image,
   ScrollView,
-  Modal,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useUploadFile } from "../../services/fileUpload.service";
 import { useSubmitKycDocument } from "../../services/useSubmitKyc.service";
 import Logo from "../../assets/Logo.png";
+import CentralModal from "../components/CentralModal";
 
 const DocumentUpload = ({ navigation }) => {
   const [documents, setDocuments] = useState({
@@ -225,59 +225,6 @@ const DocumentUpload = ({ navigation }) => {
   const uploadedCount = Object.values(uploadedIds).filter(id => id !== null).length;
   const totalCount = Object.keys(uploadedIds).length;
 
-  // Success Modal
-  const SuccessModal = () => (
-    <Modal
-      visible={showSuccessModal}
-      transparent={true}
-      animationType="fade"
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalIconContainer}>
-            <MaterialIcons name="check-circle" size={60} color="#4CAF50" />
-          </View>
-          <Text style={styles.modalTitle}>Success!</Text>
-          <Text style={styles.modalMessage}>
-            All documents have been uploaded successfully! Your verification is in progress.
-          </Text>
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color="#fcbf24" />
-            <Text style={styles.loadingText}>Redirecting...</Text>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-
-  // Error Modal
-  const ErrorModal = () => (
-    <Modal
-      visible={showErrorModal}
-      transparent={true}
-      animationType="fade"
-      onRequestClose={() => setShowErrorModal(false)}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalIconContainer}>
-            <MaterialIcons name="error-outline" size={60} color="#F44336" />
-          </View>
-          <Text style={styles.modalTitle}>Attention Required</Text>
-          <Text style={styles.modalMessage}>
-            {errorMessage}
-          </Text>
-          <TouchableOpacity 
-            style={[styles.modalButton, styles.errorButton]} 
-            onPress={() => setShowErrorModal(false)}
-          >
-            <Text style={styles.modalButtonText}>Okay</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
-
   return (
     <View style={styles.container}>
       {/* Top Banner */}
@@ -336,9 +283,36 @@ const DocumentUpload = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Custom Modals */}
-      <SuccessModal />
-      <ErrorModal />
+      {/* Success Modal */}
+      <CentralModal
+        visible={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        title="Success!"
+        subText="All documents have been uploaded successfully! Your verification is in progress."
+        icon="checkmark-circle"
+        confirmText="Close"
+        closeText=""
+        onConfirm={() => {
+          setShowSuccessModal(false);
+          navigation.goBack();
+        }}
+        confirmButtonColor="#fcbf24"
+        themeColor="#4CAF50"
+      />
+
+      {/* Error Modal */}
+      <CentralModal
+        visible={showErrorModal}
+        onClose={() => setShowErrorModal(false)}
+        title="Attention Required"
+        subText={errorMessage}
+        icon="alert-circle"
+        confirmText="Okay"
+        closeText=""
+        onConfirm={() => setShowErrorModal(false)}
+        confirmButtonColor="#F44336"
+        themeColor="#F44336"
+      />
     </View>
   );
 };

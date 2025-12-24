@@ -1,6 +1,7 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert, Linking } from 'react-native'
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Linking } from 'react-native'
 import React, { useState, useEffect } from 'react'
 import { Ionicons } from '@expo/vector-icons'
+import CentralModal from '../components/CentralModal'
 
 // Only import permissions that work in Expo Go
 import * as Location from 'expo-location'
@@ -19,6 +20,8 @@ export default function Settings() {
 
   const [loading, setLoading] = useState({})
   const [expoGoMode, setExpoGoMode] = useState(true)
+  const [alertModalVisible, setAlertModalVisible] = useState(false)
+  const [alertData, setAlertData] = useState({ title: '', message: '', action: null })
 
   // Check available permissions on component mount
   useEffect(() => {
@@ -79,14 +82,12 @@ export default function Settings() {
       switch (permissionType) {
         case 'notifications':
           if (requested) {
-            Alert.alert(
-              "Enable Notifications",
-              "To enable notifications, you need to create a development build. Expo Go has limited notification support.",
-              [
-                { text: "Learn More", onPress: () => Linking.openURL('https://docs.expo.dev/develop/development-builds/introduction/') },
-                { text: "OK" }
-              ]
-            )
+            setAlertData({
+              title: "Enable Notifications",
+              message: "To enable notifications, you need to create a development build. Expo Go has limited notification support.",
+              action: () => Linking.openURL('https://docs.expo.dev/develop/development-builds/introduction/')
+            });
+            setAlertModalVisible(true);
           }
           // Simulate state change for demo
           setPermissions(prev => ({ ...prev, notifications: requested }))
@@ -98,14 +99,12 @@ export default function Settings() {
             setPermissions(prev => ({ ...prev, location: result.granted }))
             
             if (!result.granted) {
-              Alert.alert(
-                "Location Permission Denied",
-                "To use location features, please enable location permissions in your device settings.",
-                [
-                  { text: "Open Settings", onPress: () => Linking.openSettings() },
-                  { text: "Cancel" }
-                ]
-              )
+              setAlertData({
+                title: "Location Permission Denied",
+                message: "To use location features, please enable location permissions in your device settings.",
+                action: () => Linking.openSettings()
+              });
+              setAlertModalVisible(true);
             }
           } else {
             setPermissions(prev => ({ ...prev, location: false }))
@@ -113,47 +112,51 @@ export default function Settings() {
           break
 
         case 'camera':
-          Alert.alert(
-            "Camera Access",
-            "Camera permissions require a development build for full functionality in Expo.",
-            [
-              { text: "Learn More", onPress: () => Linking.openURL('https://docs.expo.dev/develop/development-builds/introduction/') },
-              { text: "OK", onPress: () => setPermissions(prev => ({ ...prev, camera: requested })) }
-            ]
-          )
+          setAlertData({
+            title: "Camera Access",
+            message: "Camera permissions require a development build for full functionality in Expo.",
+            action: () => {
+              Linking.openURL('https://docs.expo.dev/develop/development-builds/introduction/');
+              setPermissions(prev => ({ ...prev, camera: requested }));
+            }
+          });
+          setAlertModalVisible(true);
           break
 
         case 'microphone':
-          Alert.alert(
-            "Microphone Access",
-            "Microphone permissions require a development build. Expo AV is deprecated, use expo-audio instead.",
-            [
-              { text: "Learn More", onPress: () => Linking.openURL('https://docs.expo.dev/versions/latest/sdk/audio/') },
-              { text: "OK", onPress: () => setPermissions(prev => ({ ...prev, microphone: requested })) }
-            ]
-          )
+          setAlertData({
+            title: "Microphone Access",
+            message: "Microphone permissions require a development build. Expo AV is deprecated, use expo-audio instead.",
+            action: () => {
+              Linking.openURL('https://docs.expo.dev/versions/latest/sdk/audio/');
+              setPermissions(prev => ({ ...prev, microphone: requested }));
+            }
+          });
+          setAlertModalVisible(true);
           break
 
         case 'storage':
-          Alert.alert(
-            "Storage Access",
-            "Media library access requires a development build in newer Expo versions.",
-            [
-              { text: "Learn More", onPress: () => Linking.openURL('https://docs.expo.dev/develop/development-builds/create-a-build/') },
-              { text: "OK", onPress: () => setPermissions(prev => ({ ...prev, storage: requested })) }
-            ]
-          )
+          setAlertData({
+            title: "Storage Access",
+            message: "Media library access requires a development build in newer Expo versions.",
+            action: () => {
+              Linking.openURL('https://docs.expo.dev/develop/development-builds/create-a-build/');
+              setPermissions(prev => ({ ...prev, storage: requested }));
+            }
+          });
+          setAlertModalVisible(true);
           break
 
         case 'contacts':
-          Alert.alert(
-            "Contacts Access",
-            "Contacts permissions require a development build for full functionality.",
-            [
-              { text: "Learn More", onPress: () => Linking.openURL('https://docs.expo.dev/develop/development-builds/introduction/') },
-              { text: "OK", onPress: () => setPermissions(prev => ({ ...prev, contacts: requested })) }
-            ]
-          )
+          setAlertData({
+            title: "Contacts Access",
+            message: "Contacts permissions require a development build for full functionality.",
+            action: () => {
+              Linking.openURL('https://docs.expo.dev/develop/development-builds/introduction/');
+              setPermissions(prev => ({ ...prev, contacts: requested }));
+            }
+          });
+          setAlertModalVisible(true);
           break
 
         case 'biometric':
@@ -164,7 +167,11 @@ export default function Settings() {
             })
             if (result.success) {
               setPermissions(prev => ({ ...prev, biometric: true }))
-              Alert.alert("Success", "Biometric login has been enabled!")
+              setAlertData({
+                title: "Success",
+                message: "Biometric login has been enabled!"
+              });
+              setAlertModalVisible(true);
             } else {
               setPermissions(prev => ({ ...prev, biometric: false }))
             }
@@ -179,7 +186,11 @@ export default function Settings() {
 
     } catch (error) {
       console.error(`Error with ${permissionType} permission:`, error)
-      Alert.alert("Limitation", `This permission requires a development build for full functionality.`)
+      setAlertData({
+        title: "Limitation",
+        message: `This permission requires a development build for full functionality.`
+      });
+      setAlertModalVisible(true);
       
       // Still update UI for demo purposes
       if (permissionType !== 'location' && permissionType !== 'biometric') {
@@ -350,6 +361,24 @@ export default function Settings() {
           </TouchableOpacity>
         </View>
       </View>
+
+      <CentralModal
+        visible={alertModalVisible}
+        onClose={() => setAlertModalVisible(false)}
+        title={alertData.title}
+        subText={alertData.message}
+        icon={alertData.action ? "information-circle" : "checkmark-circle"}
+        confirmText={alertData.action ? "Learn More" : "OK"}
+        closeText=""
+        onConfirm={() => {
+          if (alertData.action) {
+            alertData.action();
+          }
+          setAlertModalVisible(false);
+        }}
+        confirmButtonColor="#FCB71F"
+        themeColor={alertData.action ? "#FFA500" : "#4CAF50"}
+      />
     </ScrollView>
   )
 }

@@ -28,13 +28,15 @@ export default function App() {
   <NavigationContainer ref={navigationRef}>
         <AuthProvider>
       <ApiAuthConnector />
-    <WebSocketProvider>
       <DriverRideProvider>
+    <WebSocketProvider>
+      
       <QueryClientProvider client={queryClient}>
       <AppNavigator />
       </QueryClientProvider>
-    </DriverRideProvider>
+    
     </WebSocketProvider>
+    </DriverRideProvider>
     </AuthProvider>
         </NavigationContainer>
   );

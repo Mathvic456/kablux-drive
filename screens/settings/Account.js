@@ -1,13 +1,13 @@
 import React, { useState, useContext } from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { MaterialIcons, FontAwesome5, Feather, Entypo } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { Modal } from 'react-native';
 import { useLogoutEndPoint } from '../../services/auth.service';
 import { useProfile } from '../../services/profile.service';
 import { SocketContext } from '../../context/WebSocketProvider';
 import { useAuth } from '../../context/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import CentralModal from '../components/CentralModal';
 
 export default function Account() {
   const [modalVisible, setModalVisible] = useState(false);
@@ -162,45 +162,18 @@ export default function Account() {
         </View>
       </ScrollView>
 
-      <Modal
-        animationType="fade"
-        transparent={true}
+      <CentralModal
         visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.centeredView}>
-          <View style={styles.modalView}>
-            <View style={styles.modalIconContainer}>
-              <Feather name="log-out" size={40} color="#ff4444" />
-            </View>
-            
-            <Text style={styles.modalTitle}>Log Out</Text>
-            <Text style={styles.modalText}>Are you sure you want to log out?</Text>
-            
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.button, styles.buttonCancel]}
-                onPress={() => setModalVisible(false)}
-                disabled={isLoggingOut}
-              >
-                <Text style={styles.cancelText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.button, styles.buttonLogout]}
-                onPress={handleLogout}
-                disabled={isLoggingOut}
-              >
-                {isLoggingOut ? (
-                  <ActivityIndicator size="small" color="white" />
-                ) : (
-                  <Text style={styles.logoutText}>Log Out</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setModalVisible(false)}
+        title="Log Out"
+        subText="Are you sure you want to log out?"
+        icon="log-out"
+        confirmText="Log Out"
+        closeText="Cancel"
+        onConfirm={handleLogout}
+        confirmButtonColor="#ff4444"
+        themeColor="#ff4444"
+      />
     </>
   );
 }

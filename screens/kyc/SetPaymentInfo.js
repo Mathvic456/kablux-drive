@@ -14,6 +14,7 @@ import {
 import Logo from "../../assets/Logo.png";
 import { useNavigation } from '@react-navigation/native';
 import Entypo from '@expo/vector-icons/Entypo';
+import CentralModal from '../components/CentralModal';
 
 const SetPaymentInfo = ({ navigation }) => {
   const [formData, setFormData] = useState({
@@ -36,6 +37,8 @@ const SetPaymentInfo = ({ navigation }) => {
     cvv: false,
     cardName: false
   });
+
+  const [errorModalVisible, setErrorModalVisible] = useState(false);
 
   // Calculate progress based on filled fields
   const calculateProgress = () => {
@@ -205,7 +208,7 @@ const SetPaymentInfo = ({ navigation }) => {
       // Form is valid, proceed to next screen
       navigation.navigate('PasskeySetup');
     } else {
-      Alert.alert('Validation Error', 'Please fix all errors before proceeding.');
+      setErrorModalVisible(true);
     }
   };
 
@@ -360,6 +363,19 @@ const SetPaymentInfo = ({ navigation }) => {
           <Text style={styles.proceedText}>Proceed</Text>
         </TouchableOpacity>
       </View>
+
+      <CentralModal
+        visible={errorModalVisible}
+        onClose={() => setErrorModalVisible(false)}
+        title="Validation Error"
+        subText="Please fix all errors before proceeding."
+        icon="alert-circle"
+        confirmText="OK"
+        closeText=""
+        onConfirm={() => setErrorModalVisible(false)}
+        confirmButtonColor="#f44336"
+        themeColor="#f44336"
+      />
     </View>
   );
 }

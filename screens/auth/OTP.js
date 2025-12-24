@@ -3,9 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert, // Added Alert
   Image,
-  Modal,
   StyleSheet,
   Text,
   TextInput,
@@ -14,11 +12,14 @@ import {
 } from "react-native";
 import Logo from "../../assets/Logo.png";
 import { useVerifyOtpEndPoint, useResendOtpEndPoint } from "../../services/otpVerification.service";
+import CentralModal from "../components/CentralModal";
 
 const OTP = ({ navigation }) => {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [email, setEmail] = useState("");
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showResendModal, setShowResendModal] = useState(false);
+  const [resendModalMessage, setResendModalMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   
   // 👇 Timer state for resend cooldown
@@ -71,7 +72,8 @@ const OTP = ({ navigation }) => {
     
     try {
       await otpResend.mutateAsync({ email });
-      Alert.alert("Sent!", "A new code has been sent to your email.");
+      setResendModalMessage("A new code has been sent to your email.");
+      setShowResendModal(true);
       setResendTimer(30); // Start 30s cooldown
     } catch (err) {
         // Handle error silently or show simple message
@@ -254,32 +256,31 @@ const OTP = ({ navigation }) => {
 
       </View>
 
-      <Modal
-        animationType="fade"
-        transparent={true}
+      <CentralModal
         visible={showSuccessModal}
-        onRequestClose={handleSuccessModalClose}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.successIconContainer}>
-              <Feather name="check-circle" size={60} color="#fcbf24" />
-            </View>
-            
-            <Text style={styles.modalTitle}>Success!</Text>
-            <Text style={styles.modalSubtitle}>
-              OTP verification successful
-            </Text>
+        onClose={handleSuccessModalClose}
+        title="Success!"
+        subText="OTP verification successful"
+        icon="checkmark-circle"
+        confirmText="Login"
+        closeText=""
+        onConfirm={handleSuccessModalClose}
+        confirmButtonColor="#fcbf24"
+        themeColor="#fcbf24"
+      />
 
-            <TouchableOpacity
-              style={styles.modalButton}
-              onPress={handleSuccessModalClose}
-            >
-              <Text style={styles.modalButtonText}>Login</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      <CentralModal
+        visible={showResendModal}
+        onClose={() => setShowResendModal(false)}
+        title="Sent!"
+        subText={resendModalMessage}
+        icon="mail"
+        confirmText="Got it"
+        closeText=""
+        onConfirm={() => setShowResendModal(false)}
+        confirmButtonColor="#fcbf24"
+        themeColor="#4CAF50"
+      />
     </View>
   );
 };
