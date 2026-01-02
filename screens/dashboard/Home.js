@@ -574,10 +574,9 @@ const handleFinishRide = async () => {
 
           <UpgradeNotificationCard />
 
-          {/* Ride Orders Section - Only show when not busy */}
        {status === 'not_busy' && (
   <>
-    {/* 1. If KYC is Pending: Show CTA to upload documents */}
+
     {kycData?.kyc_status === "PENDING" ? (
       <View style={styles.sectionContainer}>
         <View style={styles.sectionHeader}>
@@ -597,23 +596,36 @@ const handleFinishRide = async () => {
     ) : (
 
       <>
-        {rideNotifications.length > 0 ? (
-          <View style={styles.sectionContainer}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>
-                Available Ride Orders ({rideNotifications.length})
-              </Text>
-              <TouchableOpacity onPress={clearAllNotifications}>
-                <Ionicons name="trash-outline" size={20} color="#f44336" />
-              </TouchableOpacity>
-            </View>
-            <TouchableOpacity
-              style={styles.viewButton}
-              onPress={() => setRideModalVisible(true)}
-            >
-              <Text style={styles.viewButtonText}>View Orders</Text>
-            </TouchableOpacity>
-          </View>
+{rideNotifications.length > 0 ? (
+  <View style={[styles.sectionContainer, { backgroundColor: 'transparent', padding: 0 }]}>
+    
+    <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10, paddingHorizontal: 5}}>
+      <Text style={styles.sectionTitle}>Available Orders</Text>
+      <Text style={{color: '#666', fontSize: 12}}>{rideNotifications.length} Active</Text>
+    </View>
+
+    {/* Map the first 3 items directly */}
+    {rideNotifications.slice(0, 3).map((item) => (
+      <RideOfferCard
+        key={item.ride_request_id}
+        item={item}
+        onAccept={handleAccept}
+        onCounter={handleCounter}
+        onDecline={handleDecline}
+      />
+    ))}
+
+    {/* Dainty See More Button (Only if > 3) */}
+    {rideNotifications.length > 3 && (
+      <TouchableOpacity
+        style={styles.seeMoreButton}
+        onPress={() => setRideModalVisible(true)}
+      >
+        <Text style={styles.seeMoreText}>See {rideNotifications.length - 3} More</Text>
+        <Ionicons name="chevron-down" size={14} color="#facc15" />
+      </TouchableOpacity>
+    )}
+  </View>
         ) : (
           <View style={styles.emptyContainer}>
             <Ionicons name="car-outline" size={48} color="#666" />
@@ -1044,6 +1056,22 @@ detailValue: {
     fontWeight: "bold",
     color: "white",
   },
+  seeMoreButton: {
+  alignSelf: 'center',
+  flexDirection: 'row',
+  alignItems: 'center',
+  marginTop: 5,
+  paddingVertical: 8,
+  paddingHorizontal: 15,
+  backgroundColor: 'rgba(250, 204, 21, 0.1)',
+  borderRadius: 20,
+},
+seeMoreText: {
+  color: "#facc15",
+  fontSize: 12,
+  fontWeight: "600",
+  marginRight: 4,
+},
   viewButton: {
     backgroundColor: "#facc15",
     padding: 12,
