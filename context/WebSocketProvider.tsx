@@ -60,60 +60,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
 
   // State
   const [isConnected, setIsConnected] = useState(false);
-const [rideNotifications, setRideNotifications] = useState<RideNotification[]>([
-    {
-      ride_request_id: "req_001",
-      notification_type: "RIDE_REQUESTED",
-      ride_type: "standard",
-      message: "New ride request near Lekki",
-      rider_name: "Tunde Ednut",
-      rider_rating: "4.8",
-      time_to_pickup: "5",
-      address: "75B Admiralty Way, Lekki Phase 1, Lagos", 
-      offer_amount: 3500,
-      estimated_fare: 4000,
-      distance_km: 4.5
-    },
-    {
-      ride_request_id: "req_002",
-      notification_type: "RIDE_REQUESTED",
-      ride_type: "comfort",
-      message: "Comfort ride request",
-      rider_name: "Ngozi Okonjo",
-      rider_rating: "5.0",
-      time_to_pickup: "12",
-      address: "Transcorp Hilton, Abuja",
-      offer_amount: 8000,
-      estimated_fare: 8500,
-      distance_km: 10.2
-    },
-    {
-      ride_request_id: "req_003",
-      notification_type: "RIDE_REQUESTED",
-      ride_type: "delivery",
-      message: "Package delivery",
-      rider_name: "Emeka Ike",
-      rider_rating: "4.2",
-      time_to_pickup: "3",
-      address: "Aba Road, Port Harcourt",
-      offer_amount: 2500,
-      estimated_fare: 3000,
-      distance_km: 2.1
-    },
-    {
-      ride_request_id: "req_004",
-      notification_type: "RIDE_REQUESTED",
-      ride_type: "standard",
-      message: "Short trip",
-      rider_name: "Ini Edo",
-      rider_rating: "4.9",
-      time_to_pickup: "8",
-      address: "Ibom Plaza, Uyo, Akwa Ibom",
-      offer_amount: 1500,
-      estimated_fare: 1800,
-      distance_km: 1.5
-    }
-  ]);
+const [rideNotifications, setRideNotifications] = useState<RideNotification[]>([]);
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; long: number } | null>(null);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [, forceUpdate] = useState(0); // For forcing re-render when Map changes
@@ -443,39 +390,43 @@ const goOnline = async () => {
   };
 
   // --- EFFECTS ---
-  useEffect(() => {
-    console.log("🎬 [LIFECYCLE] Provider Mounted");
-    shouldReconnect.current = true;
-    getValidToken().then(t => t && connectWebSocket(t));
-
-    return () => {
-      console.log("🧹 [LIFECYCLE] Provider Unmounting - cleaning up...");
-      shouldReconnect.current = false;
-      ws.current?.close();
-      stopLocationTracking();
-      if (retryTimeout.current) clearTimeout(retryTimeout.current);
-    };
-  }, []);
-
-  useEffect(() => {
-  console.log("🔄 [RIDEID] rideId changed:", rideId);
-  currentRideIdRef.current = rideId;
-}, [rideId]);
-
 useEffect(() => {
+  console.log("🎬 [LIFECYCLE] Provider Mounted");
+  shouldReconnect.current = true;
+  
+  // Initialize with permission check
   (async () => {
     const { status } = await Location.getForegroundPermissionsAsync();
     setLocationPermission(status);
     
     // Only auto-connect if permission was previously granted
-    if (status === 'granted' && !hasInitialized) {
+    if (status === 'granted') {
+      console.log("✅ [INIT] Permission already granted, auto-connecting...");
       setHasInitialized(true);
       await startLocationTracking();
       const validToken = await getValidToken();
-      if (validToken) connectWebSocket(validToken);
+      if (validToken) {
+        connectWebSocket(validToken);
+      }
+    } else {
+      console.log("⏸️ [INIT] No permission yet, waiting for user action");
     }
   })();
-}, []);
+
+  return () => {
+    console.log("🧹 [LIFECYCLE] Provider Unmounting - cleaning up...");
+    shouldReconnect.current = false;
+    ws.current?.close();
+    stopLocationTracking();
+    if (retryTimeout.current) clearTimeout(retryTimeout.current);
+  };
+}, []); // Single mount effect
+
+// Keep this effect for tracking rideId changes
+useEffect(() => {
+  console.log("🔄 [RIDEID] rideId changed:", rideId);
+  currentRideIdRef.current = rideId;
+}, [rideId]);
   return (
     <SocketContext.Provider 
       value={{ 
