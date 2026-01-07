@@ -1,33 +1,43 @@
-import React, { useState, useContext } from 'react'; // Added useContext
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import {
   Text,
   StyleSheet,
   View,
   TouchableOpacity,
-  ScrollView,
   ActivityIndicator,
-  KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5, Feather } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { SocketContext } from '../../context/WebSocketProvider'; // Import Context
+import { SocketContext } from '../../context/WebSocketProvider';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { darkMapStyle } from '../../styles/darkMapStyle';
+import * as Location from 'expo-location';
 import CentralModal from '../components/CentralModal';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function OrderScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   
-  // 1. Grab socket from Context, NOT params
   const { socket } = useContext(SocketContext);
-  
-  // 2. Only grab data and callbacks from params
   const { item, onCounterSubmitted } = route.params || {};
 
   const [counterAmount, setCounterAmount] = useState(item?.offer_amount || 0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalData, setModalData] = useState({ title: '', message: '', isError: false });
+  const [mapRegion, setMapRegion] = useState({
+    latitude: 6.5244, // Default Lagos
+    longitude: 3.3792,
+    latitudeDelta: 0.01,
+    longitudeDelta: 0.01,
+  });
+  const [isGeocoding, setIsGeocoding] = useState(true);
+
+  const mapRef = useRef(null);
+  const originalOffer = item?.offer_amount || 0;
 
   // 🛡️ Guard Clause
   if (!item || !item.ride_request_id) {
@@ -44,6 +54,11 @@ export default function OrderScreen() {
 
   const handleIncrease = () => setCounterAmount(prev => prev + 100);
   const handleDecrease = () => setCounterAmount(prev => Math.max(0, prev - 100));
+
+  // Quick suggestion handlers
+  const setSuggestion = (amount) => {
+    if (amount > 0) setCounterAmount(amount);
+  };
 
   const handleSubmitCounter = async () => {
     if (counterAmount <= 0) {
@@ -84,168 +99,493 @@ export default function OrderScreen() {
     }
   };
 
-  const difference = counterAmount - (item.offer_amount || 0);
+  const difference = counterAmount - originalOffer;
+  const hasAdjusted = counterAmount !== originalOffer;
+
+  // Geocode pickup address
+  useEffect(() => {
+    (async () => {
+      if (item?.address) {
+        try {
+          setIsGeocoding(true);
+          const geocoded = await Location.geocodeAsync(item.address);
+          if (geocoded.length > 0) {
+            const newRegion = {
+              latitude: geocoded[0].latitude,
+              longitude: geocoded[0].longitude,
+              latitudeDelta: 0.01,
+              longitudeDelta: 0.01,
+            };
+            setMapRegion(newRegion);
+            
+            // Animate map to new location
+            if (mapRef.current) {
+              mapRef.current.animateToRegion(newRegion, 1000);
+            }
+          }
+        } catch (e) {
+          console.log("Geocoding failed, using default location:", e);
+        } finally {
+          setIsGeocoding(false);
+        }
+      } else {
+        setIsGeocoding(false);
+      }
+    })();
+  }, [item?.address]);
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView
-        style={styles.scrollContainer}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+    <View style={styles.container}>
+      
+      {/* 1. Background Map */}
+      <View style={styles.mapContainer}>
+       <MapView
+        ref={mapRef}
+        provider={PROVIDER_GOOGLE}
+        style={styles.map}
+        customMapStyle={darkMapStyle}
+        initialRegion={mapRegion}
+        region={mapRegion}
+        scrollEnabled={true} 
+        zoomEnabled={true} 
+        pitchEnabled={true}
+        rotateEnabled={true} 
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backIcon} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color="white" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Counter Offer</Text>
-          <View style={styles.placeholder} />
-        </View>
-
-        {/* Info Cards */}
-        <View style={styles.riderCard}>
-          <View style={styles.riderHeader}>
-            <Ionicons name="person-circle" size={50} color="#facc15" />
-            <View style={styles.riderDetails}>
-              <Text style={styles.riderName}>{item.rider_name || "Unknown Rider"}</Text>
-              <View style={styles.ratingContainer}>
-                <Ionicons name="star" size={16} color="#facc15" />
-                <Text style={styles.ratingText}>{item.rider_rating || "N/A"}</Text>
-              </View>
+          <Marker coordinate={{
+            latitude: mapRegion.latitude,
+            longitude: mapRegion.longitude,
+          }}>
+            <View style={styles.mapMarkerContainer}>
+              <FontAwesome5 name="map-pin" size={16} color="#1c1c1c" />
             </View>
+          </Marker>
+        </MapView>
+        
+        
+        {/* Loading indicator while geocoding */}
+        {isGeocoding && (
+          <View style={styles.geocodingIndicator}>
+            <ActivityIndicator color="#facc15" size="small" />
           </View>
-        </View>
+        )}
+      </View>
 
-        <View style={styles.detailsCard}>
-          <Text style={styles.cardTitle}>Ride Details</Text>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Ride ID:</Text>
-            <Text style={styles.detailValue}>{item.ride_request_id.slice(0, 8)}...</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Pickup:</Text>
-            <Text style={styles.detailValue} numberOfLines={2}>{item.address}</Text>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.offerAmountContainer}>
-            <Text style={styles.offerLabel}>Original Offer:</Text>
-            <Text style={styles.offerAmount}>₦{(item.offer_amount || 0).toLocaleString()}</Text>
-          </View>
-        </View>
-
-        {/* Counter Controls */}
-        <View style={styles.counterCard}>
-          <Text style={styles.cardTitle}>Your Counter Offer</Text>
-          <View style={styles.amountDisplay}>
-            <Text style={styles.currencySymbol}>₦</Text>
-            <Text style={styles.amountText}>{counterAmount.toLocaleString()}</Text>
-          </View>
-
-          <View style={styles.controlsContainer}>
-            <TouchableOpacity style={[styles.controlButton, styles.decreaseButton]} onPress={handleDecrease}>
-              <Ionicons name="remove" size={32} color="white" />
-              <Text style={styles.controlButtonText}>-100</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.controlButton, styles.increaseButton]} onPress={handleIncrease}>
-              <Ionicons name="add" size={32} color="black" />
-              <Text style={[styles.controlButtonText, styles.increaseButtonText]}>+100</Text>
-            </TouchableOpacity>
-          </View>
-
-          {difference !== 0 && (
-            <View style={styles.comparisonContainer}>
-               <Text style={styles.comparisonLabel}>Difference: </Text>
-               <Text style={[styles.comparisonValue, difference > 0 ? styles.positiveChange : styles.negativeChange]}>
-                 {difference > 0 ? '+' : ''}₦{Math.abs(difference).toLocaleString()}
-               </Text>
-            </View>
-          )}
-        </View>
-
-        <TouchableOpacity
-          style={[styles.submitButton, (counterAmount <= 0 || isSubmitting) && styles.submitButtonDisabled]}
-          onPress={handleSubmitCounter}
-          disabled={counterAmount <= 0 || isSubmitting}
+      {/* 2. Immovable Modal Overlay */}
+      <View style={styles.modalContent}>
+<SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
+        <ScrollView 
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+            contentContainerStyle={{ flexGrow: 1 }}
         >
-          {isSubmitting ? <ActivityIndicator color="black" /> : <Text style={styles.submitButtonText}>Submit Offer</Text>}
+        {/* Header: Back Button & Title */}
+        <View style={styles.headerRow}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Feather name="arrow-left" size={24} color="white" />
+          </TouchableOpacity>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.headerTitle}>Price Details</Text>
+          </View>
+          
+        </View>
+
+        {/* Pickup Location Info */}
+        <View style={styles.locationSection}>
+          <Text style={styles.labelLeft}>Pickup</Text>
+          <View style={styles.addressRow}>
+            <View style={styles.smallMarker}>
+              <View style={styles.innerDot} />
+            </View>
+            <Text style={styles.addressText} numberOfLines={2}>
+              {item.address || "Pickup Location"}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.divider} />
+
+        {/* Base Offer Title */}
+        <Text style={styles.sectionTitle}>Base Offer</Text>
+
+        {/* Price & Controls (+ / -) */}
+        <View style={styles.priceControlRow}>
+          <TouchableOpacity 
+            onPress={handleDecrease}
+            style={styles.circleButton}
+            disabled={isSubmitting || counterAmount <= 0}
+          >
+            <Ionicons name="remove" size={24} color="white" />
+          </TouchableOpacity>
+
+          <Text style={styles.mainPrice}>
+            ₦{counterAmount.toLocaleString()}
+          </Text>
+
+          <TouchableOpacity 
+            onPress={handleIncrease}
+            style={styles.circleButton}
+            disabled={isSubmitting}
+          >
+            <Ionicons name="add" size={24} color="white" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Difference indicator */}
+        {hasAdjusted && (
+          <Text style={[
+            styles.differenceText,
+            difference > 0 ? styles.higher : styles.lower
+          ]}>
+            {difference > 0 ? '+' : ''}₦{Math.abs(difference).toLocaleString()} from original offer
+          </Text>
+        )}
+
+        {/* Price Suggestions (3 Boxes) */}
+        <View style={styles.suggestionsRow}>
+          {/* 1000 Below Original */}
+          <TouchableOpacity 
+            style={styles.suggestionBox} 
+            onPress={() => setSuggestion(Math.max(0, originalOffer - 1000))}
+            disabled={originalOffer <= 1000}
+          >
+            <Text style={styles.suggestionText}>- ₦1,000</Text>
+            <Text style={styles.suggestionSubText}>Below</Text>
+          </TouchableOpacity>
+
+          {/* 1000 Above Original */}
+          <TouchableOpacity 
+            style={styles.suggestionBox} 
+            onPress={() => setSuggestion(originalOffer + 1000)}
+          >
+            <Text style={styles.suggestionText}>+ ₦1,000</Text>
+            <Text style={styles.suggestionSubText}>Above</Text>
+          </TouchableOpacity>
+
+          {/* 2000 Above Original */}
+          <TouchableOpacity 
+            style={styles.suggestionBox} 
+            onPress={() => setSuggestion(originalOffer + 2000)}
+          >
+            <Text style={styles.suggestionText}>+ ₦2,000</Text>
+            <Text style={styles.suggestionSubText}>Above</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Counter Offer Button (Brand Yellow) */}
+        <TouchableOpacity
+          onPress={handleSubmitCounter}
+          disabled={isSubmitting || counterAmount <= 0}
+          style={[
+            styles.submitButton,
+            (isSubmitting || counterAmount <= 0) && styles.disabledButton,
+          ]}
+        >
+          {isSubmitting ? (
+            <ActivityIndicator color="black" />
+          ) : (
+            <Text style={styles.submitButtonText}>
+              Counter Offer for ₦{counterAmount.toLocaleString()}
+            </Text>
+          )}
         </TouchableOpacity>
 
-        <CentralModal
-          visible={modalVisible}
-          onClose={() => {
-            setModalVisible(false);
-            if (!modalData.isError && modalData.title === 'Success') {
-              if (onCounterSubmitted) onCounterSubmitted();
-              navigation.goBack();
-            }
-          }}
-          title={modalData.title}
-          subText={modalData.message}
-          icon={modalData.isError ? 'alert-circle' : 'checkmark-circle'}
-          confirmText="OK"
-          closeText=""
-          onConfirm={() => {
-            setModalVisible(false);
-            if (!modalData.isError && modalData.title === 'Success') {
-              if (onCounterSubmitted) onCounterSubmitted();
-              navigation.goBack();
-            }
-          }}
-          confirmButtonColor={modalData.isError ? '#f44336' : '#facc15'}
-          themeColor={modalData.isError ? '#f44336' : '#4CAF50'}
-        />
-      </ScrollView>
-    </KeyboardAvoidingView>
+        {/* Close/Cancel Button (White Outline) */}
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          disabled={isSubmitting}
+          style={styles.cancelButton}
+        >
+          <Text style={styles.cancelButtonText}>Close</Text>
+        </TouchableOpacity>
+          </ScrollView>
+          </SafeAreaView>
+      </View>
+
+      {/* Success/Error Modal */}
+      <CentralModal
+        visible={modalVisible}
+        onClose={() => {
+          setModalVisible(false);
+          if (!modalData.isError && modalData.title === 'Success') {
+            if (onCounterSubmitted) onCounterSubmitted();
+            navigation.goBack();
+          }
+        }}
+        title={modalData.title}
+        subText={modalData.message}
+        icon={modalData.isError ? 'alert-circle' : 'checkmark-circle'}
+        confirmText="OK"
+        closeText=""
+        onConfirm={() => {
+          setModalVisible(false);
+          if (!modalData.isError && modalData.title === 'Success') {
+            if (onCounterSubmitted) onCounterSubmitted();
+            navigation.goBack();
+          }
+        }}
+        confirmButtonColor={modalData.isError ? '#f44336' : '#facc15'}
+        themeColor={modalData.isError ? '#f44336' : '#4CAF50'}
+      />
+    </View>
   );
 }
 
-// ... Use your existing styles (no changes needed there) ...
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: 'black' },
-  errorContainer: { flex: 1, backgroundColor: 'black', justifyContent: 'center', alignItems: 'center' },
-  errorText: { color: 'white', fontSize: 18, marginTop: 10, marginBottom: 20 },
-  backButton: { backgroundColor: '#facc15', padding: 10, borderRadius: 8 },
-  backButtonText: { color: 'black', fontWeight: 'bold' },
-  scrollContainer: { flex: 1 },
-  scrollContent: { padding: 20, paddingTop: 50, paddingBottom: 40 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 },
-  backIcon: { padding: 4 },
-  headerTitle: { color: 'white', fontSize: 20, fontWeight: 'bold' },
-  placeholder: { width: 32 },
-  riderCard: { backgroundColor: '#1a1a1a', borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#333' },
-  riderHeader: { flexDirection: 'row', alignItems: 'center' },
-  riderDetails: { marginLeft: 16, flex: 1 },
-  riderName: { color: 'white', fontSize: 18, fontWeight: '600', marginBottom: 6 },
-  ratingContainer: { flexDirection: 'row', alignItems: 'center' },
-  ratingText: { color: '#facc15', fontSize: 16, marginLeft: 6, fontWeight: '600' },
-  detailsCard: { backgroundColor: '#1a1a1a', borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#333' },
-  cardTitle: { color: 'white', fontSize: 18, fontWeight: 'bold', marginBottom: 12 },
-  detailRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  detailLabel: { color: '#999', fontSize: 14 },
-  detailValue: { color: 'white', fontSize: 14, maxWidth: '70%', textAlign: 'right' },
-  divider: { height: 1, backgroundColor: '#333', marginVertical: 12 },
-  offerAmountContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  offerLabel: { color: 'white', fontSize: 16, fontWeight: '600' },
-  offerAmount: { color: '#f44336', fontSize: 20, fontWeight: 'bold' },
-  counterCard: { backgroundColor: '#1a1a1a', borderRadius: 12, padding: 16, marginBottom: 20, alignItems: 'center', borderWidth: 1, borderColor: '#333' },
-  amountDisplay: { flexDirection: 'row', alignItems: 'baseline', marginBottom: 25 },
-  currencySymbol: { color: '#facc15', fontSize: 30, fontWeight: 'bold', marginRight: 5 },
-  amountText: { color: 'white', fontSize: 50, fontWeight: 'bold' },
-  controlsContainer: { flexDirection: 'row', justifyContent: 'space-around', width: '100%', marginBottom: 20 },
-  controlButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 10, width: '45%' },
-  decreaseButton: { backgroundColor: '#f44336' },
-  increaseButton: { backgroundColor: '#facc15' },
-  controlButtonText: { color: 'white', fontWeight: 'bold', fontSize: 18, marginLeft: 8 },
-  increaseButtonText: { color: 'black' },
-  comparisonContainer: { width: '100%', padding: 10, backgroundColor: '#333', borderRadius: 8, marginTop: 10, flexDirection: 'row', justifyContent: 'space-between' },
-  comparisonLabel: { color: '#ccc', fontSize: 14 },
-  comparisonValue: { fontSize: 16, fontWeight: 'bold' },
-  positiveChange: { color: '#4CAF50' },
-  negativeChange: { color: '#f44336' },
-  submitButton: { backgroundColor: '#facc15', padding: 15, borderRadius: 10, alignItems: 'center', marginBottom: 10 },
-  submitButtonText: { color: 'black', fontWeight: 'bold', fontSize: 18 },
-  submitButtonDisabled: { opacity: 0.5 },
+  safeArea: {
+  flex: 1,
+  backgroundColor: '#181818',
+},
+  container: {
+    flex: 1,
+    backgroundColor: '#181818',
+    position: 'relative',
+  },
+  errorContainer: {
+    flex: 1,
+    backgroundColor: 'black',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    color: 'white',
+    fontSize: 18,
+    marginTop: 10,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  backButton: {
+    backgroundColor: '#facc15',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  backButtonText: {
+    color: 'black',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  
+  // --- Map Background ---
+  mapContainer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
+  },
+  map: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  mapOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+  },
+  geocodingIndicator: {
+    position: 'absolute',
+    top: 60,
+    right: 20,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    padding: 8,
+    borderRadius: 8,
+  },
+  mapMarkerContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#facc15",
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'white',
+  },
+
+  // --- Modal Content ---
+ modalContent: {
+  position: 'absolute',
+  bottom: 0,
+  left: 0,
+  right: 0,
+  height: '60%', // Takes up 60% from bottom (adjust as needed)
+  padding: 15,
+  zIndex: 10,
+  paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+  backgroundColor: '#1a1a1a',
+  borderTopLeftRadius: 24,
+  borderTopRightRadius: 24,
+},
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+marginBottom: 20,
+    marginTop: 20,
+    paddingHorizontal: 15,
+  },
+  backButton: {
+    marginRight: 16,
+    padding: 4,
+  },
+  headerTitleContainer: {
+    textAlign: "center",
+    paddingLeft: 40,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: 'white',
+    
+  },
+
+  // --- Location Section ---
+  locationSection: {
+    marginBottom: 20,
+    paddingHorizontal: 15,
+  },
+  labelLeft: {
+    fontSize: 14,
+    color: '#aaa',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  addressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  smallMarker: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: '#facc15',
+  },
+  innerDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#facc15',
+  },
+  addressText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '500',
+    flex: 1,
+  },
+
+  divider: {
+    height: 1,
+    backgroundColor: '#333',
+    marginVertical: 20,
+  },
+
+  // --- Base Offer ---
+  sectionTitle: {
+    fontSize: 16,
+    color: 'white',
+    marginBottom: 20,
+    fontWeight: '600',
+  },
+  priceControlRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    paddingHorizontal: 15,
+  },
+  circleButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 2,
+    borderColor: 'white',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mainPrice: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: 'white',
+    textAlign: 'center',
+  },
+
+  // --- Difference ---
+  differenceText: {
+    textAlign: 'center',
+    marginBottom: 20,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  higher: {
+    color: '#4CAF50',
+  },
+  lower: {
+    color: '#f44336',
+  },
+
+  // --- Suggestions ---
+  suggestionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 30,
+    paddingHorizontal: 15,
+  },
+  suggestionBox: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.5)',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    width: '31%',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  suggestionText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  suggestionSubText: {
+    color: '#aaa',
+    fontSize: 10,
+    textTransform: 'uppercase',
+  },
+
+  // --- Actions ---
+  submitButton: {
+    backgroundColor: '#facc15',
+    paddingVertical: 18,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 16,
+    shadowColor: "#facc15",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 4,
+    marginHorizontal: 15,
+  },
+  submitButtonText: {
+    color: 'black',
+    fontWeight: 'bold',
+    fontSize: 18,
+  },
+  cancelButton: {
+    borderWidth: 1,
+    borderColor: 'white',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginHorizontal: 15,
+    marginBottom: 20,
+  },
+  cancelButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
 });

@@ -8,7 +8,7 @@ export function useUploadFile() {
       const token = await AsyncStorage.getItem("token");
 
       const headers: Record<string, string> = {
-        // 1. Force the content type for this specific request
+
         "Content-Type": "multipart/form-data",
       };
 
@@ -18,8 +18,7 @@ export function useUploadFile() {
 
       return api.post("uploads/", data, {
         headers,
-        // 2. CRITICAL: Prevent Axios from trying to 
-        // stringify the FormData into JSON
+
         transformRequest: (data) => {
           return data;
         },

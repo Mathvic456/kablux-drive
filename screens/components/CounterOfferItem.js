@@ -8,15 +8,15 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-const CounterOfferItem = ({ item, onClose, socket, onAccept, onCounterSubmit }) => {
+const CounterOfferItem = ({ item, onClose, socket, onCounterSubmit }) => {
   const [counterAmount, setCounterAmount] = useState(item.counter_offer);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const difference = counterAmount - item.counter_offer;
-  const hasAdjusted = counterAmount !== item.counter_offer;
+  const originalOffer = item.counter_offer;
+  const difference = counterAmount - originalOffer;
+  const hasAdjusted = counterAmount !== originalOffer;
 
   const handleIncrease = () => setCounterAmount((prev) => prev + 100);
-  const handleDecrease = () =>
-    setCounterAmount((prev) => Math.max(0, prev - 100));
+  const handleDecrease = () => setCounterAmount((prev) => Math.max(0, prev - 100));
 
   const handleSubmitCounter = async () => {
     if (counterAmount <= 0) {
@@ -41,12 +41,10 @@ const CounterOfferItem = ({ item, onClose, socket, onAccept, onCounterSubmit }) 
       socket.send(JSON.stringify(message));
       console.log("✅ Counter offer sent:", message);
       
-      // Clear this item from the parent's negotiationUpdates
       if (onCounterSubmit) {
         onCounterSubmit(item.ride_request_view_id);
       }
       
-      // Close the modal after a brief delay
       setTimeout(() => onClose(), 300);
     } catch (err) {
       console.error("❌ Failed to submit counter offer:", err);
@@ -57,248 +55,220 @@ const CounterOfferItem = ({ item, onClose, socket, onAccept, onCounterSubmit }) 
   };
 
   return (
-    <View style={styles.updateCard}>
-      {/* Rider Info */}
-      <View style={styles.riderHeader}>
-        <Ionicons name="person-circle" size={50} color="#facc15" />
+    <View style={styles.card}>
+      {/* Header with Rider Name */}
+      <View style={styles.headerSection}>
+        <Ionicons name="person-circle" size={40} color="#facc15" />
         <View style={styles.riderInfo}>
           <Text style={styles.riderName}>{item.rider_name}</Text>
-          <View style={styles.ratingContainer}>
-            <Ionicons name="star" size={16} color="#facc15" />
-            <Text style={styles.ratingText}>{item.rider_rating || "N/A"}</Text>
-          </View>
+          {item.rider_rating && (
+            <View style={styles.ratingContainer}>
+              <Ionicons name="star" size={14} color="#facc15" />
+              <Text style={styles.ratingText}>{item.rider_rating}</Text>
+            </View>
+          )}
         </View>
       </View>
 
-      {/* Original Offer */}
       <View style={styles.divider} />
-      <Text style={styles.offerLabel}>Rider's Counter Offer:</Text>
-      <Text style={styles.originalPrice}>
-        ₦{(item.counter_offer)?.toLocaleString()}
+
+      {/* Title */}
+      <Text style={styles.titleText}>
+        {item.rider_name}'s Counter Offer
       </Text>
 
-      {/* Amount Adjuster */}
-      <Text style={styles.counterLabel}>Your Counter Offer</Text>
-      <View style={styles.controls}>
-        <TouchableOpacity
+      {/* Price & Controls (+ / -) */}
+      <View style={styles.priceControlRow}>
+        <TouchableOpacity 
           onPress={handleDecrease}
+          style={styles.circleButton}
           disabled={isSubmitting || counterAmount <= 0}
-          style={[styles.controlBtn, styles.decreaseBtn]}
         >
           <Ionicons name="remove" size={24} color="white" />
-          <Text style={styles.controlText}>₦100</Text>
         </TouchableOpacity>
 
-        <Text style={styles.counterPrice}>
-          ₦{(counterAmount).toLocaleString()}
-        </Text>
+        <View style={styles.priceContainer}>
+          <Text style={styles.mainPrice}>
+            ₦{counterAmount.toLocaleString()}
+          </Text>
+        </View>
 
-        <TouchableOpacity
+        <TouchableOpacity 
           onPress={handleIncrease}
+          style={styles.circleButton}
           disabled={isSubmitting}
-          style={[styles.controlBtn, styles.increaseBtn]}
         >
-          <Ionicons name="add" size={24} color="black" />
-          <Text style={[styles.controlText, styles.increaseText]}>₦100</Text>
+          <Ionicons name="add" size={24} color="white" />
         </TouchableOpacity>
       </View>
 
-      {/* Difference */}
-      {difference !== 0 && (
-        <Text
-          style={[
-            styles.differenceText,
-            difference > 0 ? styles.higher : styles.lower,
-          ]}
-        >
-          Difference: {difference > 0 ? "+" : ""}₦
-          {(Math.abs(difference)).toLocaleString()}
+      {/* Difference indicator */}
+      {hasAdjusted && (
+        <Text style={[
+          styles.differenceText,
+          difference > 0 ? styles.higher : styles.lower
+        ]}>
+          {difference > 0 ? '+' : ''}₦{Math.abs(difference).toLocaleString()} from rider's offer
         </Text>
       )}
 
-      {/* Submit & Cancel */}
-      {/* <TouchableOpacity
-        onPress={() => onAccept(item)}s
-        disabled={isSubmitting || hasAdjusted}
-        style={[
-          styles.acceptButton, 
-          { marginBottom: 10 },
-          (isSubmitting || hasAdjusted) && styles.disabledButton
-        ]}
-      >
-        <Ionicons name="checkmark-circle" size={20} color="white" />
-        <Text style={styles.acceptButtonText}>Accept Counter Offer</Text>
-      </TouchableOpacity> */}
-
+      {/* Submit Button */}
       <TouchableOpacity
         onPress={handleSubmitCounter}
         disabled={isSubmitting || counterAmount <= 0 || !hasAdjusted}
         style={[
-          styles.sendButton,
+          styles.submitButton,
           (isSubmitting || counterAmount <= 0 || !hasAdjusted) && styles.disabledButton,
         ]}
       >
         {isSubmitting ? (
           <ActivityIndicator color="black" />
         ) : (
-          <Text style={styles.sendButtonText}>Submit New Counter Offer</Text>
+          <Text style={styles.submitButtonText}>
+            Submit New Counter Offer
+          </Text>
         )}
       </TouchableOpacity>
 
+      {/* Cancel Button */}
       <TouchableOpacity
         onPress={onClose}
         disabled={isSubmitting}
-        style={styles.dismissButton}
+        style={styles.cancelButton}
       >
-        <Text style={styles.dismissButtonText}>Cancel</Text>
+        <Text style={styles.cancelButtonText}>Cancel</Text>
       </TouchableOpacity>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  updateCard: {
+  card: {
     backgroundColor: "#1a1a1a",
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
-    borderWidth: 2,
-    borderColor: "#4CAF50",
+    borderWidth: 1,
+    borderColor: "#333",
   },
-  riderHeader: {
+  
+  // --- Header Section ---
+  headerSection: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 16,
   },
   riderInfo: {
-    marginLeft: 16,
+    marginLeft: 12,
     flex: 1,
   },
   riderName: {
     color: "white",
     fontSize: 18,
     fontWeight: "600",
+    marginBottom: 4,
   },
   ratingContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 4,
   },
   ratingText: {
     color: "#facc15",
-    fontSize: 16,
-    marginLeft: 6,
+    fontSize: 14,
+    marginLeft: 4,
+    fontWeight: "500",
   },
+
   divider: {
     height: 1,
-    backgroundColor: "#2a2a2a",
-    marginVertical: 16,
+    backgroundColor: "#333",
+    marginBottom: 20,
   },
-  offerLabel: {
-    color: "#888",
-    fontSize: 14,
-    marginBottom: 8,
-  },
-  originalPrice: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#facc15",
-    marginBottom: 16,
-  },
-  counterLabel: {
-    color: "white",
+
+  // --- Title ---
+  titleText: {
     fontSize: 16,
-    marginBottom: 12,
-    marginTop: 8,
+    color: 'white',
+    marginBottom: 24,
+    fontWeight: '600',
+    textAlign: 'center',
   },
-  controls: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
+
+  // --- Price Controls ---
+  priceControlRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 16,
+    paddingHorizontal: 10,
   },
-  controlBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    marginHorizontal: 8,
+  circleButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 2,
+    borderColor: 'white',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  decreaseBtn: {
-    backgroundColor: "#f44336",
-  },
-  increaseBtn: {
-    backgroundColor: "#facc15",
-  },
-  controlText: {
-    color: "white",
-    fontWeight: "bold",
-    marginLeft: 6,
-    fontSize: 14,
-  },
-  increaseText: {
-    color: "black",
-  },
-  counterPrice: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#facc15",
+  priceContainer: {
+    flex: 1,
+    alignItems: 'center',
     marginHorizontal: 16,
-    minWidth: 120,
-    textAlign: "center",
   },
+  mainPrice: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: 'white',
+    textAlign: 'center',
+  },
+
+  // --- Difference ---
   differenceText: {
-    textAlign: "center",
-    marginBottom: 16,
+    textAlign: 'center',
+    marginBottom: 20,
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: '600',
   },
   higher: {
-    color: "#4CAF50",
+    color: '#4CAF50',
   },
   lower: {
-    color: "#f44336",
+    color: '#f44336',
   },
-  acceptButton: {
-    backgroundColor: "#4CAF50",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 14,
-    borderRadius: 10,
-    gap: 8,
+
+  // --- Buttons ---
+  submitButton: {
+    backgroundColor: '#facc15',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 12,
+    shadowColor: "#facc15",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 4,
   },
-  acceptButtonText: {
-    color: "white",
-    fontWeight: "bold",
+  submitButtonText: {
+    color: 'black',
+    fontWeight: 'bold',
     fontSize: 16,
   },
-  sendButton: {
-    backgroundColor: "#facc15",
-    padding: 14,
-    borderRadius: 10,
-    alignItems: "center",
-    marginBottom: 8,
+  cancelButton: {
+    borderWidth: 1,
+    borderColor: 'white',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
   },
-  sendButtonText: {
-    color: "black",
-    fontWeight: "bold",
+  cancelButtonText: {
+    color: 'white',
+    fontWeight: '600',
     fontSize: 16,
   },
   disabledButton: {
     opacity: 0.6,
-  },
-  dismissButton: {
-    backgroundColor: "#333",
-    padding: 14,
-    borderRadius: 10,
-    alignItems: "center",
-  },
-  dismissButtonText: {
-    color: "white",
-    fontWeight: "bold",
-    fontSize: 16,
   },
 });
 
