@@ -11,6 +11,7 @@ import {
   RefreshControl,
   KeyboardAvoidingView,
   Platform,
+  Switch
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
@@ -36,6 +37,7 @@ import { useGetMyBalance } from "../../services/funding.service";
 import { SocketContext } from "../../context/WebSocketProvider";
 import { useDriverRide } from "../../context/DriverRideContext";
 import { useArriveRide } from "../../services/rides.service";
+import { useActiveStatusEndPoint } from "../../services/auth.service";
 import { api } from "../../services/api";
 
 export default function Home() {
@@ -50,8 +52,13 @@ export default function Home() {
   const [alertModalVisible, setAlertModalVisible] = useState(false);
   const [alertData, setAlertData] = useState({ title: '', message: '', isError: false });
   const [rideCompletedModalVisible, setRideCompletedModalVisible] = useState(false);
-const [completedRideInfo, setCompletedRideInfo] = useState(null);
-
+  const [completedRideInfo, setCompletedRideInfo] = useState(null);
+  const [onlineErrorModalVisible, setOnlineErrorModalVisible] = useState(false);
+  const [onlineErrorMessage, setOnlineErrorMessage] = useState("");
+  const [viewOfferModalVisible, setViewOfferModalVisible] = useState(false);
+  const [selectedOffer, setSelectedOffer] = useState(null);
+  const [arrivalErrorModalVisible, setArrivalErrorModalVisible] = useState(false);
+const [arrivalErrorMessage, setArrivalErrorMessage] = useState("");
   const [negotiationUpdates, setNegotiationUpdates] = useState({});
   const [acceptedRide, setAcceptedRide] = useState(null);
   const [acceptedModalVisible, setAcceptedModalVisible] = useState(false);
@@ -62,6 +69,7 @@ const [cancelledRideInfo, setCancelledRideInfo] = useState(null);
   const [debugModalVisible, setDebugModalVisible] = useState(false);
   const [declineModalVisible, setDeclineModalVisible] = useState(false);
 const [declinedOffer, setDeclinedOffer] = useState(null);
+const [optimisticOnlineStatus, setOptimisticOnlineStatus] = useState(null);
 
 
 
@@ -104,6 +112,7 @@ const {
   const startRideMutation = useStartRide();
   const finishRideMutation = useFinishRide();
   const arriveRideMutation = useArriveRide();
+    const activeStatusMutation = useActiveStatusEndPoint();
 
   // -- Helper: Fetch Ride Details --
 const fetchRideDetails = async (id) => {
@@ -124,15 +133,12 @@ const fetchRideDetails = async (id) => {
       // Extract the nested data structure (handling both data.data and direct data)
       const rideData = response.data?.data || response.data;
       
-      // Map the API response to match your Component structure
+
       const mappedDetails = {
         id: rideData.id,
-        // Match JSON: keys are at the root, not inside 'ride_info'
         pickup_address: rideData.pickup_address || rideData.ride_info?.start_address || "Pickup Location",
         dropoff_address: rideData.dropoff_address || rideData.ride_info?.end_address || "Dropoff Location",
-        // Match JSON: 'fare' is a string in the JSON
         fare: rideData.fare ? parseFloat(rideData.fare) : 0,
-        // Match JSON: 'rider' object exists in JSON
         rider: rideData.rider || {}, 
         driver: rideData.driver || {},
         status: rideData.status,
@@ -164,6 +170,24 @@ const fetchRideDetails = async (id) => {
       setLoadingRideDetails(false);
     }
   };
+
+
+
+const handleToggleOnline = async (isOnline) => {
+  // Immediately update the UI (optimistic update)
+  setOptimisticOnlineStatus(isOnline);
+  
+  try {
+    await activeStatusMutation.mutateAsync({ is_online: isOnline });
+  } catch (error) {
+    // If it fails, revert the optimistic update
+    setOptimisticOnlineStatus(null);
+    
+    const message = error.response?.data?.message || "Unable to go online. Please try again.";
+    setOnlineErrorMessage(message);
+    setOnlineErrorModalVisible(true);
+  }
+};
 
   const handleForceSetState = async ({ status, rideId, riderId }) => {
   try {
@@ -316,6 +340,34 @@ useEffect(() => {
     clearSessionExpired();
   };
 
+  const handleViewOffer = (offer) => {
+    setSelectedOffer(offer);
+    setViewOfferModalVisible(true);
+  };
+
+  const handleAcceptAsCounter = (offer) => {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      alert("WebSocket not connected");
+      return;
+    }
+
+    // We send a counter offer, but we use the original offer_amount
+    const message = {
+      type: "create_driver_offer",
+      data: {
+        ride_request_id: offer.ride_request_id,
+        counter_offer: offer.offer_amount, // <--- Using the original rider price
+      },
+    };
+
+    console.log("📤 Accepting via Counter Logic:", JSON.stringify(message));
+    socket.send(JSON.stringify(message));
+
+    // Close modal and remove item from list
+    setViewOfferModalVisible(false);
+    removeRideNotification(offer.ride_request_id);
+  };
+
   const handleAccept = async (offer) => {
     try {
       const rideRequestId = offer?.ride_request_view_id ?? offer?.ride_request_id ?? null;
@@ -414,7 +466,6 @@ const handleStartRide = async () => {
   }
 };
 
-
 const handleArrived = async () => {
   if (!rideId || typeof rideId !== "string") {
     setAlertData({ title: "Error", message: "No valid ride ID found", isError: true });
@@ -433,6 +484,17 @@ const handleArrived = async () => {
     console.log("✅ Arrival flow completed");
   } catch (error) {
     console.error("❌ Error in handleArrived:", error);
+    
+    // Handle the "too far from pickup" error
+    if (error.response?.status === 403 && error.response?.data?.message) {
+      const distanceMeters = error.response?.data?.distance_meters;
+      const message = distanceMeters 
+        ? `You are ${Math.round(distanceMeters)}m away from the pickup location. Please move closer to mark arrival.`
+        : error.response.data.message;
+      
+      setArrivalErrorMessage(message);
+      setArrivalErrorModalVisible(true);
+    }
   }
 };
 
@@ -550,6 +612,19 @@ const handleFinishRide = async () => {
   <Text style={styles.debugResetButtonText}>Debug State</Text>
 </TouchableOpacity>
 
+<View style={styles.toggleContainer}>
+  <Text style={styles.toggleLabel}>
+    {(optimisticOnlineStatus !== null ? optimisticOnlineStatus : profile?.is_online) ? "Online" : "Offline"}
+  </Text>
+  <Switch
+    value={optimisticOnlineStatus !== null ? optimisticOnlineStatus : (profile?.is_online || false)}
+    onValueChange={handleToggleOnline}
+    trackColor={{ false: "#555", true: "#4CAF50" }}
+    thumbColor={(optimisticOnlineStatus !== null ? optimisticOnlineStatus : profile?.is_online) ? "#fff" : "#ccc"}
+    disabled={activeStatusMutation.isPending}
+  />
+</View>
+
           <StatusBadge />
 
           {/* Active Ride Section - Pure Component */}
@@ -574,9 +649,8 @@ const handleFinishRide = async () => {
 
           <UpgradeNotificationCard />
 
-       {status === 'not_busy' && (
+{status === 'not_busy' && (
   <>
-
     {kycData?.kyc_status === "PENDING" ? (
       <View style={styles.sectionContainer}>
         <View style={styles.sectionHeader}>
@@ -593,39 +667,49 @@ const handleFinishRide = async () => {
           <Text style={styles.viewButtonText}>Complete KYC</Text>
         </TouchableOpacity>
       </View>
+    ) : kycData?.kyc_status === "IN_REVIEW" ? (
+      <View style={styles.sectionContainer}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>KYC Under Review</Text>
+          <Ionicons name="time-outline" size={20} color="#ff9800" />
+        </View>
+        <Text style={[styles.emptySubtext, { marginBottom: 15, textAlign: 'left' }]}>
+          Your documents are being reviewed. You'll be notified once approved.
+        </Text>
+      </View>
     ) : (
-
+      // Original empty state for approved KYC
       <>
-{rideNotifications.length > 0 ? (
-  <View style={[styles.sectionContainer, { backgroundColor: 'transparent', padding: 0 }]}>
-    
-    <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10, paddingHorizontal: 5}}>
-      <Text style={styles.sectionTitle}>Available Orders</Text>
-      <Text style={{color: '#666', fontSize: 12}}>{rideNotifications.length} Active</Text>
-    </View>
+        {rideNotifications.length > 0 ? (
+          <View style={[styles.sectionContainer, { backgroundColor: 'transparent', padding: 0 }]}>
+            
+            <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10, paddingHorizontal: 5}}>
+              <Text style={styles.sectionTitle}>Available Orders</Text>
+              <Text style={{color: '#666', fontSize: 12}}>{rideNotifications.length} Active</Text>
+            </View>
 
-    {/* Map the first 3 items directly */}
-    {rideNotifications.slice(0, 3).map((item) => (
-      <RideOfferCard
-        key={item.ride_request_id}
-        item={item}
-        onAccept={handleAccept}
-        onCounter={handleCounter}
-        onDecline={handleDecline}
-      />
-    ))}
+            {/* Map the first 3 items directly */}
+            {rideNotifications.slice(0, 3).map((item) => (
+              <RideOfferCard
+                key={item.ride_request_id}
+                item={item}
+                onAccept={handleAccept}
+                onCounter={handleViewOffer}
+                onDecline={handleDecline}
+              />
+            ))}
 
-    {/* Dainty See More Button (Only if > 3) */}
-    {rideNotifications.length > 3 && (
-      <TouchableOpacity
-        style={styles.seeMoreButton}
-        onPress={() => setRideModalVisible(true)}
-      >
-        <Text style={styles.seeMoreText}>See {rideNotifications.length - 3} More</Text>
-        <Ionicons name="chevron-down" size={14} color="#facc15" />
-      </TouchableOpacity>
-    )}
-  </View>
+
+            {rideNotifications.length > 3 && (
+              <TouchableOpacity
+                style={styles.seeMoreButton}
+                onPress={() => setRideModalVisible(true)}
+              >
+                <Text style={styles.seeMoreText}>See {rideNotifications.length - 3} More</Text>
+                <Ionicons name="chevron-down" size={14} color="#facc15" />
+              </TouchableOpacity>
+            )}
+          </View>
         ) : (
           <View style={styles.emptyContainer}>
             <Ionicons name="car-outline" size={48} color="#666" />
@@ -753,7 +837,7 @@ const handleFinishRide = async () => {
                 <RideOfferCard
                   item={item}
                   onAccept={handleAccept}
-                  onCounter={handleCounter}
+                  onCounter={handleViewOffer}
                   onDecline={handleDecline}
                 />
               )}
@@ -886,33 +970,142 @@ const handleFinishRide = async () => {
   </View>
 </Modal>
 
-{/* Ride Cancelled Modal */}
 <Modal
-  animationType="fade"
+  animationType="slide"
   transparent={true}
-  visible={rideCancelledModalVisible}
-  onRequestClose={handleCancelledRideOk}
+  visible={viewOfferModalVisible}
+  onRequestClose={() => setViewOfferModalVisible(false)}
 >
-  <View style={styles.modalOverlay}>
-    <View style={styles.alertBox}>
-      <Ionicons name="alert-circle" size={60} color="#ff9800" />
-      <Text style={styles.alertTitle}>Ride Cancelled</Text>
-      <Text style={styles.alertMessage}>
-        {cancelledRideInfo?.reason
-          ? `Reason: ${cancelledRideInfo.reason}`
-          : "The ride has been cancelled."}
-        {"\n\n"}You're now available for new ride requests.
-      </Text>
+  <View style={styles.fullScreenModal}>
+    <View style={[styles.fullScreenContent, { paddingTop: 20 }]}>
       
-      <TouchableOpacity
-        style={styles.primaryButton}
-        onPress={handleCancelledRideOk}
-      >
-        <Text style={styles.primaryButtonText}>Got it</Text>
-      </TouchableOpacity>
+      {/* Modal Header */}
+      <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20}}>
+        <TouchableOpacity onPress={() => setViewOfferModalVisible(false)} style={{padding: 5}}>
+          <Ionicons name="chevron-down" size={28} color="#666" />
+        </TouchableOpacity>
+        <Text style={{color: 'white', fontSize: 18, fontWeight: 'bold'}}>Ride Request</Text>
+        <View style={{width: 38}} /> 
+      </View>
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{paddingBottom: 40}}>
+        {selectedOffer && (
+          <>
+            {/* Rider Profile Section */}
+            <View style={{alignItems: 'center', marginBottom: 30}}>
+              <View style={{width: 80, height: 80, borderRadius: 40, backgroundColor: '#333', justifyContent: 'center', alignItems: 'center', marginBottom: 15, borderWidth: 2, borderColor: '#facc15'}}>
+                 <Ionicons name="person" size={40} color="#facc15" />
+              </View>
+              <Text style={{color: 'white', fontSize: 24, fontWeight: 'bold'}}>{selectedOffer.rider_name}</Text>
+              <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 5, backgroundColor: '#222', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20}}>
+                <Ionicons name="star" size={14} color="#facc15" />
+                <Text style={{color: '#ccc', marginLeft: 5, fontWeight: '600'}}>{selectedOffer.rider_rating} Rating</Text>
+              </View>
+            </View>
+
+            {/* Price Section */}
+            <View style={{backgroundColor: '#1a1a1a', borderRadius: 16, padding: 20, marginBottom: 20, alignItems: 'center', borderWidth: 1, borderColor: '#333'}}>
+              <Text style={{color: '#888', fontSize: 14, textTransform: 'uppercase', letterSpacing: 1}}>Offered Fare</Text>
+              <Text style={{color: '#facc15', fontSize: 42, fontWeight: 'bold', marginVertical: 5}}>
+                 ₦{(selectedOffer.offer_amount)?.toLocaleString()}
+              </Text>
+              <Text style={{color: '#666', fontSize: 12}}>Estimated: ₦{(selectedOffer.estimated_fare)?.toLocaleString()}</Text>
+            </View>
+
+            {/* Route Details */}
+            <View style={{backgroundColor: '#1a1a1a', borderRadius: 16, padding: 20, marginBottom: 20}}>
+              <View style={{flexDirection: 'row', marginBottom: 20}}>
+                <View style={{alignItems: 'center', marginRight: 15, paddingTop: 5}}>
+                  <View style={{width: 12, height: 12, borderRadius: 6, backgroundColor: '#facc15'}} />
+                  <View style={{width: 2, height: 40, backgroundColor: '#333', marginVertical: 5}} />
+                  <View style={{width: 12, height: 12, borderRadius: 0, backgroundColor: '#fff'}} />
+                </View>
+                <View style={{flex: 1}}>
+                  <View style={{marginBottom: 20}}>
+                    <Text style={{color: '#888', fontSize: 12, marginBottom: 4}}>PICKUP</Text>
+                    <Text style={{color: 'white', fontSize: 16, lineHeight: 22}}>{selectedOffer.address || "Pickup location"}</Text>
+                    <Text style={{color: '#facc15', fontSize: 12, marginTop: 4}}>
+                       ~{selectedOffer.time_to_pickup ? Math.round(parseFloat(selectedOffer.time_to_pickup) / 60) : 0} mins away
+                    </Text>
+                  </View>
+
+                </View>
+              </View>
+              
+              <View style={{flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#333', paddingTop: 15, justifyContent: 'space-around'}}>
+                 <View style={{alignItems: 'center'}}>
+                    <Ionicons name="navigate-outline" size={20} color="#888" />
+                    <Text style={{color: 'white', fontWeight: 'bold', marginTop: 5}}>{selectedOffer.distance_km} km</Text>
+                    <Text style={{color: '#666', fontSize: 10}}>Total Dist</Text>
+                 </View>
+                 <View style={{alignItems: 'center'}}>
+                    <Ionicons name="wallet-outline" size={20} color="#888" />
+                    <Text style={{color: 'white', fontWeight: 'bold', marginTop: 5}}>Cash</Text>
+                    <Text style={{color: '#666', fontSize: 10}}>Payment</Text>
+                 </View>
+                 <View style={{alignItems: 'center'}}>
+                    <Ionicons name="car-sport-outline" size={20} color="#888" />
+                    <Text style={{color: 'white', fontWeight: 'bold', marginTop: 5}}>{selectedOffer.ride_type}</Text>
+                    <Text style={{color: '#666', fontSize: 10}}>Type</Text>
+                 </View>
+              </View>
+            </View>
+          </>
+        )}
+      </ScrollView>
+
+      {/* Footer Buttons */}
+      <View style={{paddingTop: 10}}>
+<TouchableOpacity 
+           style={{backgroundColor: '#facc15', borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginBottom: 12}}
+           onPress={() => {
+             if (selectedOffer) {
+               handleAcceptAsCounter(selectedOffer);
+             }
+           }}
+         >
+           <Text style={{color: 'black', fontWeight: 'bold', fontSize: 18}}>Accept Offer</Text>
+         </TouchableOpacity>
+         <TouchableOpacity 
+           style={{backgroundColor: 'transparent', borderRadius: 12, paddingVertical: 16, alignItems: 'center', borderWidth: 2, borderColor: '#facc15'}}
+           onPress={() => {
+             setViewOfferModalVisible(false);
+             handleCounter(selectedOffer); // Calls your existing counter logic
+           }}
+         >
+           <Text style={{color: '#facc15', fontWeight: 'bold', fontSize: 18}}>Counter Offer</Text>
+         </TouchableOpacity>
+      </View>
     </View>
   </View>
 </Modal>
+
+{/* Arrival Error Modal */}
+<CentralModal
+  visible={arrivalErrorModalVisible}
+  onClose={() => setArrivalErrorModalVisible(false)}
+  title="Too Far From Pickup"
+  subText={arrivalErrorMessage}
+  icon="location-outline"
+  confirmText="Got it"
+  themeColor="#ff9800"
+/>
+
+
+{/* Ride Cancelled Modal */}
+<CentralModal
+  visible={rideCancelledModalVisible}
+  onClose={handleCancelledRideOk}
+  title="Ride Cancelled"
+  subText={
+    cancelledRideInfo?.reason
+      ? `Reason: ${cancelledRideInfo.reason}\n\nYou're now available for new ride requests.`
+      : "The ride has been cancelled.\n\nYou're now available for new ride requests."
+  }
+  icon="alert-circle"
+  confirmText="Got it"
+  themeColor="#ff9800"
+/>
 
 {/* Ride Completed Modal */}
 <Modal
@@ -979,6 +1172,23 @@ const handleFinishRide = async () => {
     </View>
   </View>
 </Modal>
+
+<CentralModal
+  visible={onlineErrorModalVisible}
+  onClose={() => setOnlineErrorModalVisible(false)}
+  title="Cannot Go Online"
+  subText={onlineErrorMessage}
+  icon="alert-circle"
+  confirmText="Upload Documents"
+  closeText="Later"
+  onConfirm={() => {
+    setOnlineErrorModalVisible(false);
+    navigation.navigate("DocumentUploads");
+  }}
+  onCancel={() => setOnlineErrorModalVisible(false)}
+  confirmButtonColor="#facc15"
+  themeColor="#ff9800"
+/>
     </View>
   );
 }
@@ -1079,6 +1289,21 @@ seeMoreText: {
     alignItems: "center",
     marginTop: 10,
   },
+  toggleContainer: {
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "center",
+  backgroundColor: "#1a1a1a",
+  paddingVertical: 12,
+  paddingHorizontal: 15,
+  borderRadius: 10,
+  marginBottom: 15,
+},
+toggleLabel: {
+  color: "white",
+  fontSize: 16,
+  fontWeight: "600",
+},
   viewButtonText: {
     color: "black",
     fontWeight: "bold",

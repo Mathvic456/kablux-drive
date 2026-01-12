@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -15,6 +15,8 @@ import { useUploadFile } from "../../services/fileUpload.service";
 import { useSubmitKycDocument } from "../../services/useSubmitKyc.service";
 import Logo from "../../assets/Logo.png";
 import CentralModal from "../components/CentralModal";
+import { useDriverKycStatus } from "../../services/checkKyc.service";
+
 
 const DocumentUpload = ({ navigation }) => {
   const [documents, setDocuments] = useState({
@@ -32,9 +34,18 @@ const DocumentUpload = ({ navigation }) => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-
+  const [showReviewModal, setShowReviewModal] = useState(false);
   const uploadMutation = useUploadFile();
   const submitKycMutation = useSubmitKycDocument();
+  const submitKycDocMutation = useSubmitKycDocument();
+  const { data: kycData, refetch: refetchKycStatus } = useDriverKycStatus();
+
+
+  useEffect(() => {
+    if (kycData?.kyc_status === "IN_REVIEW") {
+      setShowReviewModal(true);
+    }
+  }, [kycData]);
 
   const documentLabels = {
     DRIVER_LICENSE: "Driver's License",
@@ -100,6 +111,11 @@ const DocumentUpload = ({ navigation }) => {
               ...prev,
               [docType]: fileId,
             }));
+
+            submitKycDocMutation.mutate({
+              doc_type: docType,
+              file: fileId,
+            });
           }
         },
         onError: (error) => {
@@ -128,39 +144,47 @@ const DocumentUpload = ({ navigation }) => {
     }));
   };
 
-  const submitAllDocuments = async () => {
-    const allUploaded = Object.keys(uploadedIds).every(
-      (key) => uploadedIds[key] !== null
-    );
+const submitAllDocuments = async () => {
+  const allUploaded = Object.keys(uploadedIds).every(
+    (key) => uploadedIds[key] !== null
+  );
 
-    if (!allUploaded) {
-      setErrorMessage("Please upload all required documents before submitting");
-      setShowErrorModal(true);
-      return;
-    }
+  if (!allUploaded) {
+    setErrorMessage("Please upload all required documents before submitting");
+    setShowErrorModal(true);
+    return;
+  }
 
-    try {
-      const submissions = Object.keys(uploadedIds).map((docType) =>
-        submitKycMutation.mutateAsync({
-          doc_type: docType,
-          file: uploadedIds[docType],
-        })
-      );
+  try {
+    console.log("🔄 Checking KYC status after uploads...");
+    
+    // Refetch the KYC status to get the latest state
+    const { data: updatedKycData } = await refetchKycStatus();
+    
+    console.log("📋 Updated KYC Status:", updatedKycData?.kyc_status);
 
-      await Promise.all(submissions);
-
+    if (updatedKycData?.kyc_status === "IN_REVIEW") {
+      setShowReviewModal(true);
+      
+      setTimeout(() => {
+        setShowReviewModal(false);
+        navigation.goBack();
+      }, 3000);
+    } else {
+      // Fallback success message if status hasn't changed yet
       setShowSuccessModal(true);
       
       setTimeout(() => {
         setShowSuccessModal(false);
         navigation.goBack();
       }, 3000);
-    } catch (error) {
-      console.error("Submission error:", error);
-      setErrorMessage("Failed to submit documents. Please try again.");
-      setShowErrorModal(true);
     }
-  };
+  } catch (error) {
+    console.error("KYC status check error:", error);
+    setErrorMessage("Documents uploaded but status check failed. Please refresh the app.");
+    setShowErrorModal(true);
+  }
+};
 
   const renderDocumentCard = (docType) => {
     const hasDocument = documents[docType] !== null;
@@ -312,6 +336,23 @@ const DocumentUpload = ({ navigation }) => {
         onConfirm={() => setShowErrorModal(false)}
         confirmButtonColor="#F44336"
         themeColor="#F44336"
+      />
+
+      {/* Review Modal */}
+      <CentralModal
+        visible={showReviewModal}
+        onClose={() => setShowReviewModal(false)}
+        title="Documents Under Review! 🎉"
+        subText="Your documents have been submitted successfully and are now being reviewed by our team. You'll be notified once your verification is complete. Thank you for your patience!"
+        icon="time-outline"
+        confirmText="Got it!"
+        closeText=""
+        onConfirm={() => {
+          setShowReviewModal(false);
+          navigation.goBack();
+        }}
+        confirmButtonColor="#fcbf24"
+        themeColor="#ff9800"
       />
     </View>
   );

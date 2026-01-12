@@ -22,6 +22,48 @@ interface RideNotification {
   distance_km?: number;
 }
 
+const DUMMY_NOTIFICATIONS: RideNotification[] = [
+  {
+    ride_request_id: "req_123456",
+    notification_type: "RIDE_REQUESTED",
+    ride_type: "standard",
+    message: "Rider offer: 15.00",
+    rider_name: "Alex Johnson",
+    rider_rating: "4.8",
+    time_to_pickup: "5",
+    address: "123 Main St, Downtown",
+    offer_amount: 15.00,
+    estimated_fare: 18.50,
+    distance_km: 2.5,
+  },
+  {
+    ride_request_id: "req_789012",
+    notification_type: "RIDE_REQUESTED",
+    ride_type: "premium",
+    message: "Rider offer: 45.00",
+    rider_name: "Sarah Connor",
+    rider_rating: "4.9",
+    time_to_pickup: "12",
+    address: "Terminal 2, International Airport",
+    offer_amount: 45.00,
+    estimated_fare: 42.00,
+    distance_km: 15.2,
+  },
+  {
+    ride_request_id: "req_345678",
+    notification_type: "RIDE_REQUESTED",
+    ride_type: "standard",
+    message: "Rider offer: 8.50",
+    rider_name: "Mike Ross",
+    rider_rating: "4.5",
+    time_to_pickup: "2",
+    address: "450 5th Ave, Shopping Mall",
+    offer_amount: 8.50,
+    estimated_fare: 9.00,
+    distance_km: 0.8,
+  }
+];
+
 interface SocketContextValue {
   socket: WebSocket | null;
   isConnected: boolean;
@@ -60,7 +102,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
 
   // State
   const [isConnected, setIsConnected] = useState(false);
-const [rideNotifications, setRideNotifications] = useState<RideNotification[]>([]);
+  const [rideNotifications, setRideNotifications] = useState<RideNotification[]>([]);
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; long: number } | null>(null);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [, forceUpdate] = useState(0); // For forcing re-render when Map changes

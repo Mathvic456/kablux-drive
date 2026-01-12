@@ -11,6 +11,7 @@ import { setAuthTokenGetter } from './services/api';
 import React, { useEffect } from 'react';
 
 
+
 const queryClient = new QueryClient();
 export default function App() {
   function ApiAuthConnector() {
@@ -24,20 +25,37 @@ export default function App() {
   return null;
 }
 
-  return (
-  <NavigationContainer ref={navigationRef}>
-        <AuthProvider>
-      <ApiAuthConnector />
-      <DriverRideProvider>
-    <WebSocketProvider>
+  try {
+    return (
+    <NavigationContainer ref={navigationRef}>
+          <AuthProvider>
+        <ApiAuthConnector />
+        <DriverRideProvider>
+      <WebSocketProvider>
+        
+        <QueryClientProvider client={queryClient}>
+        <AppNavigator />
+        </QueryClientProvider>
       
-      <QueryClientProvider client={queryClient}>
-      <AppNavigator />
-      </QueryClientProvider>
-    
-    </WebSocketProvider>
-    </DriverRideProvider>
-    </AuthProvider>
-        </NavigationContainer>
-  );
+      </WebSocketProvider>
+      </DriverRideProvider>
+      </AuthProvider>
+          </NavigationContainer>
+    );
+  } catch (error) {
+    console.error("🔴 APP INITIALIZATION ERROR:", JSON.stringify(error, null, 2));
+    return (
+      <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+        <Text style={{ color: '#ff4444', fontSize: 18, fontWeight: 'bold', marginBottom: 10 }}>
+          App Failed to Load
+        </Text>
+        <Text style={{ color: '#ccc', fontSize: 14, textAlign: 'center' }}>
+          {error?.message || 'An unknown error occurred during initialization'}
+        </Text>
+        <Text style={{ color: '#999', fontSize: 12, marginTop: 15, textAlign: 'center', fontFamily: 'monospace' }}>
+          Check console for details
+        </Text>
+      </View>
+    );
+  }
 }

@@ -6,48 +6,49 @@ const StatusBadge = () => {
   const { isConnected, currentLocation, locationPermission, goOnline } = useContext(SocketContext);
 
   // State 1: No permission yet - show call-to-action button
-  if (locationPermission !== 'granted') {
-    return (
-      <TouchableOpacity 
-        style={styles.connectButton} 
-        onPress={goOnline}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.connectText}>TAP TO GO ONLINE</Text>
-      </TouchableOpacity>
-    );
-  }
+ if (locationPermission !== 'granted') {
+  return (
+    <TouchableOpacity 
+      style={styles.connectButton} 
+      onPress={goOnline}
+      activeOpacity={0.8}
+    >
+      <Text style={styles.connectText}>ENABLE LOCATION TRACKING</Text>
+    </TouchableOpacity>
+  );
+}
 
   // State 2: Permission granted but not connected - show connecting state
-  if (locationPermission === 'granted' && !isConnected) {
-    return (
-      <View style={[styles.statusContainer, styles.centerContent]}>
+if (locationPermission === 'granted' && !isConnected) {
+  return (
+    <View style={[styles.statusContainer, styles.centerContent]}>
+      <View style={styles.statusBadge}>
+        <View style={styles.statusDot} />
         <Text style={styles.statusText}>Connecting...</Text>
       </View>
-    );
-  }
-
-  // State 3: Connected - show status with location
-  return (
-    <View style={styles.statusContainer}>
-      <View style={styles.statusBadge}>
-        <View
-          style={[
-            styles.statusDot,
-            isConnected ? styles.onlineDot : styles.offlineDot,
-          ]}
-        />
-        <Text style={styles.statusText}>
-          {isConnected ? "Online" : "Offline"}
-        </Text>
-      </View>
-      {currentLocation && (
-        <Text style={styles.locationText}>
-          {currentLocation.lat.toFixed(4)}, {currentLocation.long.toFixed(4)}
-        </Text>
-      )}
     </View>
   );
+}
+
+  // State 3: Connected - show status with location
+return (
+  <View style={styles.statusContainer}>
+    <View style={styles.statusBadge}>
+      <View
+        style={[
+          styles.statusDot,
+          isConnected ? styles.onlineDot : styles.offlineDot,
+        ]}
+      />
+      <Text style={styles.statusText}>Location Active</Text>
+    </View>
+    {currentLocation && (
+      <Text style={styles.locationText}>
+        {currentLocation.lat.toFixed(4)}, {currentLocation.long.toFixed(4)}
+      </Text>
+    )}
+  </View>
+);
 };
 
 const styles = StyleSheet.create({

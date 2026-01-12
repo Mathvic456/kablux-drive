@@ -9,7 +9,6 @@ interface KycDocumentPayload {
 export const useSubmitKycDocument = () => {
   return useMutation({
     mutationFn: async (data: KycDocumentPayload) => {
-      // 📝 LOGS: See exactly what's going out
       console.log("🚀 [KYC Submit] Initiating request...");
       console.log(`📂 Type: ${data.doc_type}`);
       console.log(`🆔 File ID: ${data.file}`);
@@ -24,7 +23,7 @@ export const useSubmitKycDocument = () => {
     onError: (error: any) => {
       console.error("❌ [KYC Submit] Error Details:");
       if (error.response) {
-        // The request was made and the server responded with a status code
+
         console.error("Status:", error.response.status);
         console.error("Data:", JSON.stringify(error.response.data, null, 2));
       } else {

@@ -38,19 +38,19 @@ const RideOfferCard = ({ item, onAccept, onCounter, onDecline }) => {
       </View>
 
       {/* Actions */}
-      <View style={styles.actions}>
+     <View style={styles.actions}>
         <TouchableOpacity
-          style={styles.counterButton}
-          onPress={() => onCounter(item)}
+          style={styles.viewOfferButton}
+          onPress={() => onCounter(item)} 
         >
-          <Text style={styles.counterButtonText}>Counter</Text>
+          <Text style={styles.viewOfferText}>View Offer</Text>
         </TouchableOpacity>
         
         <TouchableOpacity
           style={styles.declineButton}
           onPress={() => onDecline(item)}
         >
-          <Ionicons name="close" size={20} color="#666" />
+          <Ionicons name="close" size={24} color="#666" />
         </TouchableOpacity>
       </View>
     </View>
@@ -113,24 +113,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
-  counterButton: {
+  viewOfferButton: {
     flex: 1,
-    backgroundColor: "#1a1a1a", // Dark background
-    borderWidth: 1,
-    borderColor: "#facc15", // Yellow border
-    paddingVertical: 8,
+    backgroundColor: "#facc15", // Solid Yellow
+    paddingVertical: 10,
     borderRadius: 8,
     alignItems: "center",
   },
-  counterButtonText: {
-    color: "#facc15", // Yellow text
-    fontWeight: "600",
-    fontSize: 13,
+  viewOfferText: {
+    color: "black", // Black text
+    fontWeight: "bold",
+    fontSize: 14,
   },
   declineButton: {
-    padding: 8,
+    padding: 10,
     alignItems: "center",
     justifyContent: 'center',
+    backgroundColor: '#2a2a2a',
+    borderRadius: 8,
   },
 });
 
