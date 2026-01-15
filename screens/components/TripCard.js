@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   locationAddress: {
-    color: "#fff",
+    color: "white",
     fontSize: 14,
     fontWeight: "500",
     lineHeight: 18,

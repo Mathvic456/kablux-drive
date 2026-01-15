@@ -167,7 +167,68 @@ export default function Leaderboard() {
     }
   ];
 
-  // Dynamic styles based on screen size
+  const TierTable = () => {
+  return (
+    <View style={styles.wrapper}>
+      {/* Row 1 */}
+      <View style={styles.row}>
+        <View style={styles.cell}>
+          <Text style={styles.cellText}>Green Tire</Text>
+        </View>
+        <View style={styles.cell}>
+          <Text style={styles.cellText}>0-999 Points</Text>
+        </View>
+        <View style={styles.cell}>
+          <Text style={styles.cellText}>Standard Driver</Text>
+        </View>
+      </View>
+
+      {/* Row 2 */}
+      <View style={styles.row}>
+        <View style={styles.cell}>
+          <Text style={styles.cellText}>Blue Tire</Text>
+        </View>
+        <View style={styles.cell}>
+          <Text style={styles.cellText}>1,000-2,999{"\n"}Points</Text>
+        </View>
+        <View style={styles.cell}>
+          <Text style={styles.cellText}>+5% Earning on bonus</Text>
+        </View>
+      </View>
+
+      {/* Row 3 */}
+      <View style={styles.row}>
+        <View style={styles.cell}>
+          <Text style={styles.cellText}>Purple Tire</Text>
+        </View>
+        <View style={styles.cell}>
+          <Text style={styles.cellText}>3,000-4,999{"\n"}Points</Text>
+        </View>
+        <View style={styles.cell}>
+          <Text style={styles.cellText}>
+            Priority ride request{"\n"}+10% earning boost
+          </Text>
+        </View>
+      </View>
+
+      {/* Row 4 */}
+      <View style={styles.row}>
+        <View style={styles.cell}>
+          <Text style={styles.cellText}>Gold Tire</Text>
+        </View>
+        <View style={styles.cell}>
+          <Text style={styles.cellText}>5,000 Points</Text>
+        </View>
+        <View style={styles.cell}>
+          <Text style={styles.cellText}>
+            Exclusive rewards{"\n"}
+            (fuel voucher, cash out priority etc)
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+};// Dynamic styles based on screen size
   const dynamicStyles = {
     containerPadding: isSmallScreen ? widthPercentageToDP('3%') : 
                      isTablet ? widthPercentageToDP('5%') : widthPercentageToDP('4%'),
@@ -358,6 +419,10 @@ export default function Leaderboard() {
           </View>
         </View>
       </View>
+
+      <TierTable/>
+
+      
 
       {/* Scrollable Stats Row */}
       <ScrollView
@@ -661,6 +726,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     flex: 1,
+    marginTop: 10,
   },
   header: {
     flexDirection: 'row',
@@ -818,6 +884,34 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#FFC107",
   },
+
+  wrapper: {
+    borderWidth: 1.5,
+    borderColor: "#FACC15",
+    backgroundColor: "#001B2E",
+  },
+
+  row: {
+    flexDirection: "row",
+  },
+
+  cell: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#FACC15",
+    paddingVertical: 14,
+    paddingHorizontal: 6,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  cellText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    textAlign: "center",
+    lineHeight: 16,
+    fontWeight: "500",
+  },
   modalScrollView: {
     flexGrow: 0,
   },
@@ -879,4 +973,44 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#000",
   },
+
+
+  tierGridContainer: {
+  marginTop: 14,
+  flexDirection: "row",
+  flexWrap: "wrap",
+  justifyContent: "space-between",
+  gap: 10,
+},
+
+tierGridItem: {
+  width: "48%",
+  backgroundColor: "#001B2E",
+  borderRadius: 10,
+  padding: 12,
+  borderWidth: 1,
+  minHeight: 110,
+  justifyContent: "space-between",
+},
+
+tierGridTitle: {
+  fontWeight: "700",
+  fontSize: 13,
+  marginBottom: 6,
+},
+
+tierGridPoints: {
+  color: "#FFC107",
+  fontSize: 11,
+  fontWeight: "600",
+  marginBottom: 6,
+},
+
+tierGridBenefit: {
+  color: "#fff",
+  fontSize: 11,
+  lineHeight: 15,
+  opacity: 0.9,
+},
+
 });

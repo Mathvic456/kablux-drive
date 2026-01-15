@@ -422,6 +422,8 @@ const styles = StyleSheet.create({
   tab: {
     borderWidth: 1,
     borderColor: "#FFC107",
+        backgroundColor:'#181818',
+
     borderRadius: 8,
     paddingVertical: 6,
     paddingHorizontal: 18,
@@ -466,7 +468,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   statBox: {
-    backgroundColor: "#062B44",
+        backgroundColor:'#181818',
     borderRadius: 10,
     padding: 14,
     flex: 1,
@@ -494,6 +496,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 12,
     marginBottom: 20,
+    width:'40%',
+    alignSelf:'center',
   },
   buttonText: {
     color: "#000",
@@ -509,14 +513,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 10,
     padding: 12,
-    width: "48%",
+    width: "35%",
+    backgroundColor:'#181818',
   },
   scoreBox: {
     borderColor: "#FFC107",
     borderWidth: 1,
     borderRadius: 10,
     padding: 12,
-    width: "48%",
+    width: "30%",
+    backgroundColor:'#181818',
+
   },
   targetTitle: {
     color: "#fff",
