@@ -74,7 +74,7 @@ export default function Wallet() {
       <ActionButtons
         label="Top up"
         icon={<Entypo name="plus" size={20} color="#FFC107" />}
-        onPress={goToTopUp}
+        // onPress={goToTopUp}
       />
       </View>
 

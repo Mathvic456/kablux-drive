@@ -604,13 +604,13 @@ const handleFinishRide = async () => {
             onMenuPress={handleOpenDrawer}
           />
 
-          <TouchableOpacity 
+          {/* <TouchableOpacity 
   style={styles.debugResetButton} 
   onPress={() => setDebugModalVisible(true)}
 >
   <Ionicons name="settings" size={18} color="white" />
   <Text style={styles.debugResetButtonText}>Debug State</Text>
-</TouchableOpacity>
+</TouchableOpacity> */}
 
 <View style={styles.toggleContainer}>
   <Text style={styles.toggleLabel}>
@@ -774,12 +774,12 @@ const handleFinishRide = async () => {
           </View>
         </View>
       </Modal>
-
+{/* 
       <DebugStateModal
   visible={debugModalVisible}
   onClose={() => setDebugModalVisible(false)}
   onSetState={handleForceSetState}
-    />
+    /> */}
 
       {/* Upload documents modal */}
       <Modal

@@ -1,5 +1,15 @@
 import React, { useState, useContext } from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { 
+  View, 
+  Text, 
+  Image, 
+  TouchableOpacity, 
+  StyleSheet, 
+  ScrollView, 
+  ActivityIndicator,
+  useWindowDimensions,
+  Dimensions 
+} from 'react-native';
 import { MaterialIcons, FontAwesome5, Feather, Entypo } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useLogoutEndPoint } from '../../services/auth.service';
@@ -8,8 +18,15 @@ import { SocketContext } from '../../context/WebSocketProvider';
 import { useAuth } from '../../context/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import CentralModal from '../components/CentralModal';
+import Platform from 'react-native/Libraries/Utilities/Platform';
+
 
 export default function Account() {
+  const { width, height } = useWindowDimensions();
+  const isSmallScreen = width < 375;
+  const isLargeScreen = width > 414;
+  const isTablet = width > 768;
+
   const [modalVisible, setModalVisible] = useState(false);
   const navigation = useNavigation();
   const { data: profile, isPending, isError } = useProfile();
@@ -94,71 +111,176 @@ export default function Account() {
 
   if (isPending) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#facc15" />
+      <View style={[styles.loadingContainer, { height }]}>
+        <ActivityIndicator 
+          size={isSmallScreen ? "large" : "large"} 
+          color="#facc15" 
+        />
       </View>
     );
   }
 
   if (isError) {
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Error loading profile</Text>
+      <View style={[styles.errorContainer, { height }]}>
+        <Text style={[
+          styles.errorText,
+          isSmallScreen && styles.errorTextSmall,
+          isLargeScreen && styles.errorTextLarge
+        ]}>
+          Error loading profile
+        </Text>
       </View>
     );
   }
 
   return (
     <>
-      <ScrollView style={styles.container}>
+      <ScrollView 
+        style={styles.container}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         {/* Header */}
-        <Text style={styles.header}>Account</Text>
+        <Text style={[
+          styles.header,
+          isSmallScreen && styles.headerSmall,
+          isLargeScreen && styles.headerLarge,
+          isTablet && styles.headerTablet
+        ]}>
+          Account
+        </Text>
 
         {/* Profile Section */}
-        <View style={styles.profileSection}>
+        <View style={[
+          styles.profileSection,
+          isSmallScreen && styles.profileSectionSmall,
+          isLargeScreen && styles.profileSectionLarge
+        ]}>
           <Image
             source={require('../../assets/Profileimg.png')}
-            style={styles.profileImage}
+            style={[
+              styles.profileImage,
+              isSmallScreen && styles.profileImageSmall,
+              isLargeScreen && styles.profileImageLarge
+            ]}
           />
-          <View style={{ alignItems: 'left' }}>
-            <Text style={styles.profileName}>{profile.first_name} {profile.last_name}</Text>
+          <View style={[
+            styles.profileInfo,
+            isSmallScreen && styles.profileInfoSmall,
+            isLargeScreen && styles.profileInfoLarge
+          ]}>
+            <Text style={[
+              styles.profileName,
+              isSmallScreen && styles.profileNameSmall,
+              isLargeScreen && styles.profileNameLarge
+            ]}>
+              {profile.first_name} {profile.last_name}
+            </Text>
             <View style={styles.ratingRow}>
-              <Text style={styles.ratingText}>4.99 </Text>
-              <FontAwesome5 name="star" size={14} color="#FFC107" />
+              <Text style={[
+                styles.ratingText,
+                isSmallScreen && styles.ratingTextSmall,
+                isLargeScreen && styles.ratingTextLarge
+              ]}>
+                4.99 
+              </Text>
+              <FontAwesome5 
+                name="star" 
+                size={isSmallScreen ? 12 : 14} 
+                color="#FFC107" 
+              />
             </View>
           </View>
         </View>
 
         {/* First Box: Personal Info / Security */}
-        <View style={styles.box}>
-          <TouchableOpacity style={styles.row} onPress={PersonalInfo}>
-            <MaterialIcons name="person-outline" size={20} color="#FFC107" />
-            <Text style={styles.rowText}>Personal info</Text>
-            <Entypo name="chevron-right" size={18} color="#FFC107" style={{ marginLeft: 'auto' }} />
-          </TouchableOpacity>
-          <View style={styles.divider} />
-          <TouchableOpacity style={styles.row} onPress={LoginAndSecurity}>
-            <Feather name="lock" size={20} color="#FFC107" />
-            <Text style={styles.rowText}>Login & security</Text>
-            <Entypo name="chevron-right" size={18} color="#FFC107" style={{ marginLeft: 'auto' }} />
-          </TouchableOpacity>
+        <View style={[
+          styles.box,
+          isSmallScreen && styles.boxSmall,
+          isLargeScreen && styles.boxLarge,
+          isTablet && styles.boxTablet
+        ]}>
+          <MenuItem 
+            onPress={PersonalInfo} 
+            icon={<MaterialIcons name="person-outline" size={isSmallScreen ? 18 : 20} color="#FFC107" />} 
+            label="Personal info" 
+            isSmallScreen={isSmallScreen}
+            isLargeScreen={isLargeScreen}
+          />
+          <Divider isSmallScreen={isSmallScreen} isLargeScreen={isLargeScreen} />
+          <MenuItem 
+            onPress={LoginAndSecurity} 
+            icon={<Feather name="lock" size={isSmallScreen ? 18 : 20} color="#FFC107" />} 
+            label="Login & security" 
+            isSmallScreen={isSmallScreen}
+            isLargeScreen={isLargeScreen}
+          />
         </View>
 
         {/* Second Box: Settings, Safety, etc. */}
-        <View style={styles.box}>
-          <MenuItem onPress={Settings} icon={<Feather name="settings" size={20} color="#FFC107" />} label="Settings" />
-          <Divider />
-          <MenuItem onPress={Safety} icon={<Feather name="shield" size={20} color="#FFC107" />} label="Safety" />
-          <Divider />
-          <MenuItem onPress={City} icon={<Entypo name="location-pin" size={20} color="#FFC107" />} label="City" />
-          <Divider />
-          <MenuItem onPress={ReferAndEarn} icon={<Feather name="gift" size={20} color="#FFC107" />} label="Refer & Earn" />
-          <Divider />
-          <MenuItem onPress={HelpAndSupport} icon={<Feather name="help-circle" size={20} color="#FFC107" />} label="Help & Support" />
-          <Divider />
-          <MenuItem onPress={Legal} icon={<Feather name="file-text" size={20} color="#FFC107" />} label="Legal" />
-          <Divider />
-          <MenuItem onPress={() => setModalVisible(true)} icon={<Feather name="log-out" size={20} color="#ff4444" />} label="Log Out" isLogout />
+        <View style={[
+          styles.box,
+          isSmallScreen && styles.boxSmall,
+          isLargeScreen && styles.boxLarge,
+          isTablet && styles.boxTablet
+        ]}>
+          <MenuItem 
+            onPress={Settings} 
+            icon={<Feather name="settings" size={isSmallScreen ? 18 : 20} color="#FFC107" />} 
+            label="Settings" 
+            isSmallScreen={isSmallScreen}
+            isLargeScreen={isLargeScreen}
+          />
+          <Divider isSmallScreen={isSmallScreen} isLargeScreen={isLargeScreen} />
+          <MenuItem 
+            onPress={Safety} 
+            icon={<Feather name="shield" size={isSmallScreen ? 18 : 20} color="#FFC107" />} 
+            label="Safety" 
+            isSmallScreen={isSmallScreen}
+            isLargeScreen={isLargeScreen}
+          />
+          <Divider isSmallScreen={isSmallScreen} isLargeScreen={isLargeScreen} />
+          <MenuItem 
+            onPress={City} 
+            icon={<Entypo name="location-pin" size={isSmallScreen ? 18 : 20} color="#FFC107" />} 
+            label="City" 
+            isSmallScreen={isSmallScreen}
+            isLargeScreen={isLargeScreen}
+          />
+          <Divider isSmallScreen={isSmallScreen} isLargeScreen={isLargeScreen} />
+          <MenuItem 
+            onPress={ReferAndEarn} 
+            icon={<Feather name="gift" size={isSmallScreen ? 18 : 20} color="#FFC107" />} 
+            label="Refer & Earn" 
+            isSmallScreen={isSmallScreen}
+            isLargeScreen={isLargeScreen}
+          />
+          <Divider isSmallScreen={isSmallScreen} isLargeScreen={isLargeScreen} />
+          <MenuItem 
+            onPress={HelpAndSupport} 
+            icon={<Feather name="help-circle" size={isSmallScreen ? 18 : 20} color="#FFC107" />} 
+            label="Help & Support" 
+            isSmallScreen={isSmallScreen}
+            isLargeScreen={isLargeScreen}
+          />
+          <Divider isSmallScreen={isSmallScreen} isLargeScreen={isLargeScreen} />
+          <MenuItem 
+            onPress={Legal} 
+            icon={<Feather name="file-text" size={isSmallScreen ? 18 : 20} color="#FFC107" />} 
+            label="Legal" 
+            isSmallScreen={isSmallScreen}
+            isLargeScreen={isLargeScreen}
+          />
+          <Divider isSmallScreen={isSmallScreen} isLargeScreen={isLargeScreen} />
+          <MenuItem 
+            onPress={() => setModalVisible(true)} 
+            icon={<Feather name="log-out" size={isSmallScreen ? 18 : 20} color="#ff4444" />} 
+            label="Log Out" 
+            isLogout
+            isSmallScreen={isSmallScreen}
+            isLargeScreen={isLargeScreen}
+          />
         </View>
       </ScrollView>
 
@@ -179,23 +301,54 @@ export default function Account() {
 }
 
 /* --- Small Components --- */
-const MenuItem = ({ icon, label, onPress, isLogout }) => (
-  <TouchableOpacity style={styles.row} onPress={onPress}>
+const MenuItem = ({ icon, label, onPress, isLogout, isSmallScreen, isLargeScreen }) => (
+  <TouchableOpacity 
+    style={[
+      styles.row,
+      isSmallScreen && styles.rowSmall,
+      isLargeScreen && styles.rowLarge
+    ]} 
+    onPress={onPress}
+    activeOpacity={0.7}
+  >
     {icon}
-    <Text style={[styles.rowText, isLogout && styles.logoutRowText]}>{label}</Text>
-    <Entypo name="chevron-right" size={18} color={isLogout ? "#ff4444" : "#FFC107"} style={{ marginLeft: 'auto' }} />
+    <Text style={[
+      styles.rowText,
+      isSmallScreen && styles.rowTextSmall,
+      isLargeScreen && styles.rowTextLarge,
+      isLogout && styles.logoutRowText
+    ]}>
+      {label}
+    </Text>
+    <Entypo 
+      name="chevron-right" 
+      size={isSmallScreen ? 16 : 18} 
+      color={isLogout ? "#ff4444" : "#FFC107"} 
+      style={{ marginLeft: 'auto' }} 
+    />
   </TouchableOpacity>
 );
 
-const Divider = () => <View style={styles.divider} />;
+const Divider = ({ isSmallScreen, isLargeScreen }) => (
+  <View style={[
+    styles.divider,
+    isSmallScreen && styles.dividerSmall,
+    isLargeScreen && styles.dividerLarge
+  ]} />
+);
+
+const { width, height } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'black',
-    paddingHorizontal: 20,
-    paddingTop: 40,
-    paddingLeft: 30,
+  },
+  scrollContent: {
+    paddingHorizontal: width * 0.05,
+    paddingTop: Platform.OS === 'ios' ? 50 : 40,
+    paddingBottom: height * 0.05,
+    minHeight: height * 0.9,
   },
   loadingContainer: {
     flex: 1,
@@ -211,27 +364,79 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: 'red',
-    fontSize: 16,
+    fontSize: width * 0.04,
+  },
+  errorTextSmall: {
+    fontSize: width * 0.038,
+  },
+  errorTextLarge: {
+    fontSize: width * 0.042,
   },
   header: {
     color: 'white',
-    fontSize: 32,
+    fontSize: width * 0.08,
     fontWeight: '700',
-    marginBottom: 20,
+    marginBottom: height * 0.02,
+  },
+  headerSmall: {
+    fontSize: width * 0.075,
+    marginBottom: height * 0.015,
+  },
+  headerLarge: {
+    fontSize: width * 0.085,
+    marginBottom: height * 0.025,
+  },
+  headerTablet: {
+    fontSize: width * 0.09,
+    textAlign: 'center',
   },
   profileSection: {
-    marginBottom: 30,
+    marginBottom: height * 0.03,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  profileSectionSmall: {
+    marginBottom: height * 0.025,
+  },
+  profileSectionLarge: {
+    marginBottom: height * 0.035,
   },
   profileImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    marginBottom: 10,
+    width: width * 0.2,
+    height: width * 0.2,
+    borderRadius: width * 0.1,
+    marginRight: width * 0.04,
+  },
+  profileImageSmall: {
+    width: width * 0.18,
+    height: width * 0.18,
+    borderRadius: width * 0.09,
+  },
+  profileImageLarge: {
+    width: width * 0.22,
+    height: width * 0.22,
+    borderRadius: width * 0.11,
+  },
+  profileInfo: {
+    flex: 1,
+  },
+  profileInfoSmall: {
+    marginLeft: width * 0.03,
+  },
+  profileInfoLarge: {
+    marginLeft: width * 0.05,
   },
   profileName: {
     color: 'white',
-    fontSize: 16,
+    fontSize: width * 0.045,
     fontWeight: '600',
+    marginBottom: height * 0.005,
+  },
+  profileNameSmall: {
+    fontSize: width * 0.042,
+  },
+  profileNameLarge: {
+    fontSize: width * 0.048,
   },
   ratingRow: {
     flexDirection: 'row',
@@ -239,27 +444,67 @@ const styles = StyleSheet.create({
   },
   ratingText: {
     color: '#FFC107',
-    fontSize: 14,
+    fontSize: width * 0.038,
     fontWeight: '500',
+    marginRight: width * 0.01,
+  },
+  ratingTextSmall: {
+    fontSize: width * 0.036,
+  },
+  ratingTextLarge: {
+    fontSize: width * 0.04,
   },
   box: {
     backgroundColor: '#04223A',
     borderWidth: 1,
     borderColor: '#FFC107',
-    borderRadius: 16,
-    marginBottom: 25,
+    borderRadius: width * 0.04,
+    marginBottom: height * 0.025,
+    width: '100%',
+  },
+  boxSmall: {
+    borderRadius: width * 0.035,
+    marginBottom: height * 0.02,
+  },
+  boxLarge: {
+    borderRadius: width * 0.045,
+    marginBottom: height * 0.03,
+  },
+  boxTablet: {
+    maxWidth: 500,
+    alignSelf: 'center',
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingVertical: height * 0.016,
+    paddingHorizontal: width * 0.04,
+    minHeight: height * 0.06,
+  },
+  rowSmall: {
+    paddingVertical: height * 0.014,
+    paddingHorizontal: width * 0.035,
+    minHeight: height * 0.055,
+  },
+  rowLarge: {
+    paddingVertical: height * 0.018,
+    paddingHorizontal: width * 0.045,
+    minHeight: height * 0.065,
   },
   rowText: {
     color: 'white',
-    fontSize: 15,
-    marginLeft: 10,
+    fontSize: width * 0.04,
+    marginLeft: width * 0.03,
     fontWeight: '500',
+    flex: 1,
+  },
+  rowTextSmall: {
+    fontSize: width * 0.038,
+    marginLeft: width * 0.025,
+  },
+  rowTextLarge: {
+    fontSize: width * 0.042,
+    marginLeft: width * 0.035,
   },
   logoutRowText: {
     color: '#ff4444',
@@ -268,7 +513,13 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#FFC107',
     opacity: 0.5,
-    marginHorizontal: 16,
+    marginHorizontal: width * 0.04,
+  },
+  dividerSmall: {
+    marginHorizontal: width * 0.035,
+  },
+  dividerLarge: {
+    marginHorizontal: width * 0.045,
   },
   centeredView: {
     flex: 1,
