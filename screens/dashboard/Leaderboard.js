@@ -7,6 +7,9 @@ import {
   TouchableOpacity,
   ScrollView,
   Modal,
+  Dimensions,
+  PixelRatio,
+  useWindowDimensions,
 } from "react-native";
 import {
   FontAwesome5,
@@ -15,9 +18,43 @@ import {
 } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 
-export default function Leaderboard() {
+// Get screen dimensions
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
+// Responsive sizing functions
+const widthPercentageToDP = (widthPercent) => {
+  const elemWidth = parseFloat(widthPercent);
+  return PixelRatio.roundToNearestPixel(SCREEN_WIDTH * elemWidth / 100);
+};
+
+const heightPercentageToDP = (heightPercent) => {
+  const elemHeight = parseFloat(heightPercent);
+  return PixelRatio.roundToNearestPixel(SCREEN_HEIGHT * elemHeight / 100);
+};
+
+// Font scaling
+const scaleFont = (size) => {
+  const scale = SCREEN_WIDTH / 375;
+  const newSize = size * scale;
+  return Math.round(PixelRatio.roundToNearestPixel(newSize));
+};
+
+export default function Leaderboard() {
   const navigation = useNavigation();
+  
+  // Get window dimensions for responsive layout
+  const { width, height } = useWindowDimensions();
+  const isSmallScreen = width < 375;
+  const isMediumScreen = width >= 375 && width < 768;
+  const isLargeScreen = width >= 768;
+  const isTablet = width >= 768;
+  
+  // Dynamic sizing calculations
+  const getResponsiveValue = (small, medium, large) => {
+    if (isSmallScreen) return small;
+    if (isMediumScreen) return medium;
+    return large;
+  };
 
   const goBack = () => {
     navigation.goBack();
@@ -26,6 +63,7 @@ export default function Leaderboard() {
   const handleEarningsPress = () => {
     navigation.navigate("DriverIncomeDashboard");
   }
+  
   const [modalVisible, setModalVisible] = useState(false);
 
   const tiersData = [
@@ -129,80 +167,194 @@ export default function Leaderboard() {
     }
   ];
 
+  // Dynamic styles based on screen size
+  const dynamicStyles = {
+    containerPadding: isSmallScreen ? widthPercentageToDP('3%') : 
+                     isTablet ? widthPercentageToDP('5%') : widthPercentageToDP('4%'),
+    headerFontSize: isSmallScreen ? scaleFont(24) : scaleFont(30),
+    backIconSize: isSmallScreen ? 28 : 32,
+    tierCardPadding: isSmallScreen ? widthPercentageToDP('4%') : widthPercentageToDP('4.5%'),
+    tierTitleSize: isSmallScreen ? scaleFont(18) : scaleFont(22),
+    avatarSize: isSmallScreen ? 38 : 45,
+    statBoxWidth: isSmallScreen ? widthPercentageToDP('42%') : 
+                  isTablet ? 150 : 130,
+    statBoxHeight: isSmallScreen ? 65 : 70,
+    modalWidth: isSmallScreen ? '95%' : 
+                isTablet ? '85%' : '90%',
+    modalMaxHeight: isTablet ? '85%' : '80%',
+    modalPadding: isSmallScreen ? widthPercentageToDP('4%') : widthPercentageToDP('5%'),
+  };
+
   return (
     <ScrollView
-      style={styles.container}
-      contentContainerStyle={{ paddingBottom: 30, gap: 20 }}
+      style={[styles.container, { padding: dynamicStyles.containerPadding }]}
+      contentContainerStyle={{ 
+        paddingBottom: getResponsiveValue(20, 25, 30),
+        gap: getResponsiveValue(15, 18, 20)
+      }}
       showsVerticalScrollIndicator={false}
     >
-
-
+      {/* Header */}
       <View style={styles.header}>
-                      <TouchableOpacity onPress={goBack}>
-                          <Ionicons name="arrow-back-circle" size={32} color="white" />
-                      </TouchableOpacity>
-                      <Text style={styles.text}>Leaderboards</Text>
-                      <View style={{width:24}}></View>
-                  </View>
-
+        <TouchableOpacity 
+          onPress={goBack}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons 
+            name="arrow-back-circle" 
+            size={dynamicStyles.backIconSize} 
+            color="white" 
+          />
+        </TouchableOpacity>
+        <Text style={[styles.text, { fontSize: dynamicStyles.headerFontSize }]}>
+          Leaderboards
+        </Text>
+        <View style={{ width: dynamicStyles.backIconSize }} />
+      </View>
 
       {/* Tier Card */}
-      <View style={styles.tierCard}>
+      <View style={[styles.tierCard, { padding: dynamicStyles.tierCardPadding }]}>
         <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.tierTitle}>Green</Text>
-            <Text style={styles.tierSubtitle}>Your tier this week</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.tierTitle, { fontSize: dynamicStyles.tierTitleSize }]}>
+              Green
+            </Text>
+            <Text style={[
+              styles.tierSubtitle, 
+              { fontSize: isSmallScreen ? scaleFont(12) : scaleFont(14) }
+            ]}>
+              Your tier this week
+            </Text>
           </View>
           <View style={styles.avatarContainer}>
             <Image
               source={{ uri: "https://i.pravatar.cc/100" }}
-              style={styles.avatar}
+              style={[styles.avatar, { 
+                width: dynamicStyles.avatarSize, 
+                height: dynamicStyles.avatarSize 
+              }]}
             />
-            <View style={styles.ratingBadge}>
-              <FontAwesome5 name="star" size={10} color="#fff" />
-              <Text style={styles.ratingText}>3.2</Text>
+            <View style={[
+              styles.ratingBadge,
+              { 
+                paddingHorizontal: isSmallScreen ? 4 : 6,
+                paddingVertical: isSmallScreen ? 2 : 3
+              }
+            ]}>
+              <FontAwesome5 
+                name="star" 
+                size={isSmallScreen ? 8 : 10} 
+                color="#fff" 
+              />
+              <Text style={[
+                styles.ratingText,
+                { fontSize: isSmallScreen ? 8 : 10 }
+              ]}>
+                3.2
+              </Text>
             </View>
           </View>
         </View>
 
         <View style={styles.progressContainer}>
-          <Text style={styles.progressLabel}>Progress till Blue</Text>
+          <Text style={[
+            styles.progressLabel,
+            { fontSize: isSmallScreen ? scaleFont(13) : scaleFont(14) }
+          ]}>
+            Progress till Blue
+          </Text>
           <View style={styles.progressBarBackground}>
-            <View style={styles.progressFill} />
+            <View style={[styles.progressFill, { width: "40%" }]} />
           </View>
-          <Text style={styles.keepText}>Keep 3.50+ rating</Text>
+          <Text style={[
+            styles.keepText,
+            { fontSize: isSmallScreen ? scaleFont(10) : scaleFont(12) }
+          ]}>
+            Keep 3.50+ rating
+          </Text>
         </View>
 
-        <View style={styles.buttonsRow}>
+        <View style={[
+          styles.buttonsRow,
+          { gap: isSmallScreen ? 8 : 10 }
+        ]}>
           <TouchableOpacity
-            style={styles.primaryButton}
+            style={[
+              styles.primaryButton,
+              { 
+                paddingVertical: isSmallScreen ? 8 : 10,
+                minHeight: getResponsiveValue(42, 44, 46)
+              }
+            ]}
             onPress={() => setModalVisible(true)}
+            activeOpacity={0.8}
           >
-            <Text style={styles.primaryButtonText}>See more</Text>
+            <Text style={[
+              styles.primaryButtonText,
+              { fontSize: isSmallScreen ? scaleFont(13) : scaleFont(14) }
+            ]}>
+              See more
+            </Text>
           </TouchableOpacity>
           
           <TouchableOpacity
-            style={styles.secondaryButton}
+            style={[
+              styles.secondaryButton,
+              { 
+                paddingVertical: isSmallScreen ? 8 : 10,
+                minHeight: getResponsiveValue(42, 44, 46)
+              }
+            ]}
             onPress={() => setModalVisible(true)}
+            activeOpacity={0.8}
           >
-            <Text style={styles.secondaryButtonText}>See all tiers</Text>
+            <Text style={[
+              styles.secondaryButtonText,
+              { fontSize: isSmallScreen ? scaleFont(13) : scaleFont(14) }
+            ]}>
+              See all tiers
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
 
       {/* Prize Card */}
-      <View style={styles.prizeCard}>
-        <Text style={styles.prizeSubtitle}>Get to Blue tier to win prize</Text>
-        <View style={styles.prizeRow}>
+      <View style={[
+        styles.prizeCard,
+        { padding: isSmallScreen ? 12 : 14 }
+      ]}>
+        <Text style={[
+          styles.prizeSubtitle,
+          { fontSize: isSmallScreen ? scaleFont(11) : scaleFont(13) }
+        ]}>
+          Get to Blue tier to win prize
+        </Text>
+        <View style={[styles.prizeRow, { gap: isSmallScreen ? 8 : 10 }]}>
           <Image
             source={{
               uri: "https://cdn-icons-png.flaticon.com/512/743/743007.png",
             }}
-            style={styles.carImage}
+            style={[
+              styles.carImage,
+              { 
+                width: isSmallScreen ? 40 : 50,
+                height: isSmallScreen ? 20 : 25
+              }
+            ]}
           />
-          <View>
-            <Text style={styles.prizeTitle}>Car wash voucher</Text>
-            <Text style={styles.prizeCount}>1 prize</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={[
+              styles.prizeTitle,
+              { fontSize: isSmallScreen ? scaleFont(13) : scaleFont(15) }
+            ]}>
+              Car wash voucher
+            </Text>
+            <Text style={[
+              styles.prizeCount,
+              { fontSize: isSmallScreen ? scaleFont(10) : scaleFont(12) }
+            ]}>
+              1 prize
+            </Text>
           </View>
         </View>
       </View>
@@ -211,47 +363,163 @@ export default function Leaderboard() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.statsRow}
+        contentContainerStyle={[
+          styles.statsRow,
+          { paddingRight: isSmallScreen ? 10 : 20 }
+        ]}
       >
-        <TouchableOpacity style={styles.statBox} onPress={handleEarningsPress}>
-          <Text style={styles.statLabel}>Today's earnings</Text>
+        <TouchableOpacity 
+          style={[
+            styles.statBox, 
+            { 
+              width: dynamicStyles.statBoxWidth,
+              height: dynamicStyles.statBoxHeight,
+              padding: isSmallScreen ? 10 : 12
+            }
+          ]} 
+          onPress={handleEarningsPress}
+          activeOpacity={0.8}
+        >
+          <Text style={[
+            styles.statLabel,
+            { fontSize: isSmallScreen ? scaleFont(10) : scaleFont(12) }
+          ]}>
+            Today's earnings
+          </Text>
           <View style={styles.statValueRow}>
-            <Ionicons name="cash-outline" size={16} color="#fff" />
-            <Text style={styles.statValue}>NGN 0</Text>
+            <Ionicons 
+              name="cash-outline" 
+              size={isSmallScreen ? 14 : 16} 
+              color="#fff" 
+            />
+            <Text style={[
+              styles.statValue,
+              { fontSize: isSmallScreen ? scaleFont(13) : scaleFont(15) }
+            ]}>
+              NGN 0
+            </Text>
           </View>
         </TouchableOpacity>
 
-        <View style={styles.statBox}>
-          <Text style={styles.statLabel}>Acceptance rate</Text>
+        <View style={[
+          styles.statBox, 
+          { 
+            width: dynamicStyles.statBoxWidth,
+            height: dynamicStyles.statBoxHeight,
+            padding: isSmallScreen ? 10 : 12
+          }
+        ]}>
+          <Text style={[
+            styles.statLabel,
+            { fontSize: isSmallScreen ? scaleFont(10) : scaleFont(12) }
+          ]}>
+            Acceptance rate
+          </Text>
           <View style={styles.statValueRow}>
-            <MaterialCommunityIcons name="chart-bar" size={16} color="#fff" />
-            <Text style={styles.statValue}>27%</Text>
+            <MaterialCommunityIcons 
+              name="chart-bar" 
+              size={isSmallScreen ? 14 : 16} 
+              color="#fff" 
+            />
+            <Text style={[
+              styles.statValue,
+              { fontSize: isSmallScreen ? scaleFont(13) : scaleFont(15) }
+            ]}>
+              27%
+            </Text>
           </View>
         </View>
 
-        <View style={styles.statBox}>
-          <Text style={styles.statLabel}>Trip bonus</Text>
+        <View style={[
+          styles.statBox, 
+          { 
+            width: dynamicStyles.statBoxWidth,
+            height: dynamicStyles.statBoxHeight,
+            padding: isSmallScreen ? 10 : 12
+          }
+        ]}>
+          <Text style={[
+            styles.statLabel,
+            { fontSize: isSmallScreen ? scaleFont(10) : scaleFont(12) }
+          ]}>
+            Trip bonus
+          </Text>
           <View style={styles.statValueRow}>
-            <Ionicons name="gift-outline" size={16} color="#fff" />
-            <Text style={styles.statValue}>NGN 0</Text>
+            <Ionicons 
+              name="gift-outline" 
+              size={isSmallScreen ? 14 : 16} 
+              color="#fff" 
+            />
+            <Text style={[
+              styles.statValue,
+              { fontSize: isSmallScreen ? scaleFont(13) : scaleFont(15) }
+            ]}>
+              NGN 0
+            </Text>
           </View>
         </View>
 
-        <View style={styles.statBox}>
-          <Text style={styles.statLabel}>Weekly trips</Text>
-          <View style={styles.statValueRow}>
-            <MaterialCommunityIcons name="car" size={16} color="#fff" />
-            <Text style={styles.statValue}>12</Text>
-          </View>
-        </View>
+        {isSmallScreen ? null : ( // Hide some stats on very small screens
+          <>
+            <View style={[
+              styles.statBox, 
+              { 
+                width: dynamicStyles.statBoxWidth,
+                height: dynamicStyles.statBoxHeight,
+                padding: isSmallScreen ? 10 : 12
+              }
+            ]}>
+              <Text style={[
+                styles.statLabel,
+                { fontSize: isSmallScreen ? scaleFont(10) : scaleFont(12) }
+              ]}>
+                Weekly trips
+              </Text>
+              <View style={styles.statValueRow}>
+                <MaterialCommunityIcons 
+                  name="car" 
+                  size={isSmallScreen ? 14 : 16} 
+                  color="#fff" 
+                />
+                <Text style={[
+                  styles.statValue,
+                  { fontSize: isSmallScreen ? scaleFont(13) : scaleFont(15) }
+                ]}>
+                  12
+                </Text>
+              </View>
+            </View>
 
-        <View style={styles.statBox}>
-          <Text style={styles.statLabel}>Customer rating</Text>
-          <View style={styles.statValueRow}>
-            <FontAwesome5 name="star" size={14} color="#fff" />
-            <Text style={styles.statValue}>4.8</Text>
-          </View>
-        </View>
+            <View style={[
+              styles.statBox, 
+              { 
+                width: dynamicStyles.statBoxWidth,
+                height: dynamicStyles.statBoxHeight,
+                padding: isSmallScreen ? 10 : 12
+              }
+            ]}>
+              <Text style={[
+                styles.statLabel,
+                { fontSize: isSmallScreen ? scaleFont(10) : scaleFont(12) }
+              ]}>
+                Customer rating
+              </Text>
+              <View style={styles.statValueRow}>
+                <FontAwesome5 
+                  name="star" 
+                  size={isSmallScreen ? 12 : 14} 
+                  color="#fff" 
+                />
+                <Text style={[
+                  styles.statValue,
+                  { fontSize: isSmallScreen ? scaleFont(13) : scaleFont(15) }
+                ]}>
+                  4.8
+                </Text>
+              </View>
+            </View>
+          </>
+        )}
       </ScrollView>
 
       {/* Tier Rewards Modal */}
@@ -262,33 +530,94 @@ export default function Leaderboard() {
         onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>Driver Rewards Tiers</Text>
+          <View style={[
+            styles.modalContainer,
+            {
+              width: dynamicStyles.modalWidth,
+              maxWidth: isTablet ? 500 : 400,
+              maxHeight: dynamicStyles.modalMaxHeight,
+              padding: dynamicStyles.modalPadding
+            }
+          ]}>
+            <Text style={[
+              styles.modalTitle,
+              { fontSize: isSmallScreen ? scaleFont(16) : scaleFont(18) }
+            ]}>
+              Driver Rewards Tiers
+            </Text>
             
             <ScrollView 
               style={styles.modalScrollView}
               showsVerticalScrollIndicator={false}
             >
               {tiersData.map((tier, index) => (
-                <View key={index} style={styles.tierBox}>
+                <View 
+                  key={index} 
+                  style={[
+                    styles.tierBox,
+                    { 
+                      padding: isSmallScreen ? 12 : 16,
+                      marginBottom: isSmallScreen ? 8 : 12
+                    }
+                  ]}
+                >
                   <View style={styles.tierHeader}>
-                    <View style={[styles.tierColorIndicator, { backgroundColor: tier.color }]} />
-                    <Text style={styles.tierName}>{tier.name} Tier</Text>
-                    <Text style={styles.tierPoints}>{tier.points} points</Text>
+                    <View style={[
+                      styles.tierColorIndicator, 
+                      { 
+                        backgroundColor: tier.color,
+                        width: isSmallScreen ? 10 : 12,
+                        height: isSmallScreen ? 10 : 12
+                      }
+                    ]} />
+                    <Text style={[
+                      styles.tierName,
+                      { fontSize: isSmallScreen ? scaleFont(14) : scaleFont(16) }
+                    ]}>
+                      {tier.name} Tier
+                    </Text>
+                    <Text style={[
+                      styles.tierPoints,
+                      { fontSize: isSmallScreen ? scaleFont(10) : scaleFont(12) }
+                    ]}>
+                      {tier.points} points
+                    </Text>
                   </View>
                   
-                  <View style={styles.benefitsContainer}>
+                  <View style={[
+                    styles.benefitsContainer,
+                    { gap: isSmallScreen ? 6 : 10 }
+                  ]}>
                     {tier.benefits.map((benefit, benefitIndex) => (
-                      <View key={benefitIndex} style={styles.benefitItem}>
+                      <View 
+                        key={benefitIndex} 
+                        style={[
+                          styles.benefitItem,
+                          { gap: isSmallScreen ? 6 : 10 }
+                        ]}
+                      >
                         <MaterialCommunityIcons 
                           name={benefit.icon} 
-                          size={20} 
+                          size={isSmallScreen ? 16 : 20} 
                           color={tier.color} 
                           style={styles.benefitIcon}
                         />
                         <View style={styles.benefitText}>
-                          <Text style={styles.benefitTitle}>{benefit.title}</Text>
-                          <Text style={styles.benefitSubtitle}>{benefit.subtitle}</Text>
+                          <Text style={[
+                            styles.benefitTitle,
+                            { fontSize: isSmallScreen ? scaleFont(12) : scaleFont(14) }
+                          ]}>
+                            {benefit.title}
+                          </Text>
+                          <Text style={[
+                            styles.benefitSubtitle,
+                            { 
+                              fontSize: isSmallScreen ? scaleFont(10) : scaleFont(12),
+                              lineHeight: isSmallScreen ? 14 : 16
+                            }
+                          ]}>
+                            {benefit.subtitle}
+                          </Text>
                         </View>
                       </View>
                     ))}
@@ -298,10 +627,22 @@ export default function Leaderboard() {
             </ScrollView>
 
             <TouchableOpacity
-              style={styles.closeButton}
+              style={[
+                styles.closeButton,
+                { 
+                  paddingVertical: isSmallScreen ? 10 : 12,
+                  marginTop: isSmallScreen ? 14 : 18
+                }
+              ]}
               onPress={() => setModalVisible(false)}
+              activeOpacity={0.8}
             >
-              <Text style={styles.closeButtonText}>Close</Text>
+              <Text style={[
+                styles.closeButtonText,
+                { fontSize: isSmallScreen ? scaleFont(14) : scaleFont(16) }
+              ]}>
+                Close
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -314,27 +655,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#000",
-    padding: 16,
   },
-
   text: {
-        fontSize: 30,
-        color: 'white',
-        alignSelf: 'center',
-        justifyContent: 'center',
-    },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
+    color: 'white',
+    fontWeight: 'bold',
+    textAlign: 'center',
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
   tierCard: {
     backgroundColor: "#063B5D",
     borderRadius: 14,
-    padding: 16,
-    marginBottom: 16,
-    marginTop: 15,
-    
   },
   headerRow: {
     flexDirection: "row",
@@ -343,20 +679,19 @@ const styles = StyleSheet.create({
   },
   tierTitle: {
     color: "#50FF66",
-    fontSize: 22,
     fontWeight: "700",
   },
   tierSubtitle: {
     color: "#fff",
     opacity: 0.7,
+    marginTop: 2,
   },
   avatarContainer: {
+    position: 'relative',
     alignItems: "center",
   },
   avatar: {
-    width: 45,
-    height: 45,
-    borderRadius: 22,
+    borderRadius: 100,
   },
   ratingBadge: {
     position: "absolute",
@@ -366,11 +701,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#50FF66",
     borderRadius: 20,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
   },
   ratingText: {
-    fontSize: 10,
     color: "#000",
     fontWeight: "700",
     marginLeft: 3,
@@ -391,25 +723,22 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: 6,
-    width: "40%",
     backgroundColor: "#FFC107",
   },
   keepText: {
     color: "#aaa",
     marginTop: 6,
-    fontSize: 12,
   },
   buttonsRow: {
     marginTop: 14,
     flexDirection: "row",
-    gap: 10,
   },
   primaryButton: {
     flex: 1,
     backgroundColor: "#FFC107",
     borderRadius: 8,
-    paddingVertical: 10,
     alignItems: "center",
+    justifyContent: 'center',
   },
   primaryButtonText: {
     fontWeight: "600",
@@ -421,8 +750,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#FFC107",
     borderRadius: 8,
-    paddingVertical: 10,
     alignItems: "center",
+    justifyContent: 'center',
   },
   secondaryButtonText: {
     fontWeight: "600",
@@ -431,8 +760,6 @@ const styles = StyleSheet.create({
   prizeCard: {
     backgroundColor: "#062B44",
     borderRadius: 10,
-    padding: 14,
-    marginBottom: 16,
   },
   prizeSubtitle: {
     color: "#fff",
@@ -442,11 +769,8 @@ const styles = StyleSheet.create({
   prizeRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
   },
   carImage: {
-    width: 50,
-    height: 25,
     resizeMode: "contain",
   },
   prizeTitle: {
@@ -455,28 +779,22 @@ const styles = StyleSheet.create({
   },
   prizeCount: {
     color: "#aaa",
-    fontSize: 12,
   },
   statsRow: {
     paddingVertical: 4,
-    paddingRight: 20,
   },
   statBox: {
     backgroundColor: "#062B44",
     borderWidth: 1,
     borderColor: "#FFC107",
     borderRadius: 10,
-    padding: 12,
     marginRight: 10,
-    width: 130,
-    height: 70,
     justifyContent: "center",
   },
   statLabel: {
     color: "#fff",
     opacity: 0.8,
-    fontSize: 12,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   statValueRow: {
     flexDirection: "row",
@@ -487,8 +805,6 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "700",
   },
-
-  // Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.7)",
@@ -499,19 +815,14 @@ const styles = StyleSheet.create({
   modalContainer: {
     backgroundColor: "#001B2E",
     borderRadius: 14,
-    padding: 20,
-    width: "100%",
-    maxWidth: 360,
-    maxHeight: "80%",
     borderWidth: 1,
     borderColor: "#FFC107",
   },
   modalScrollView: {
-    maxHeight: 400,
+    flexGrow: 0,
   },
   modalTitle: {
     color: "#FFC107",
-    fontSize: 18,
     fontWeight: "700",
     textAlign: "center",
     marginBottom: 16,
@@ -519,8 +830,6 @@ const styles = StyleSheet.create({
   tierBox: {
     backgroundColor: "#063B5D",
     borderRadius: 10,
-    padding: 16,
-    marginBottom: 12,
     borderLeftWidth: 4,
   },
   tierHeader: {
@@ -529,29 +838,23 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   tierColorIndicator: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    borderRadius: 100,
     marginRight: 8,
   },
   tierName: {
     color: "#fff",
-    fontSize: 16,
     fontWeight: "700",
     flex: 1,
   },
   tierPoints: {
     color: "#FFC107",
-    fontSize: 12,
     fontWeight: "600",
   },
   benefitsContainer: {
-    gap: 10,
   },
   benefitItem: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 10,
   },
   benefitIcon: {
     marginTop: 2,
@@ -561,20 +864,15 @@ const styles = StyleSheet.create({
   },
   benefitTitle: {
     color: "#fff",
-    fontSize: 14,
     fontWeight: "600",
     marginBottom: 2,
   },
   benefitSubtitle: {
     color: "#aaa",
-    fontSize: 12,
-    lineHeight: 16,
   },
   closeButton: {
-    marginTop: 18,
     backgroundColor: "#FFC107",
     borderRadius: 8,
-    paddingVertical: 10,
     alignItems: "center",
   },
   closeButtonText: {

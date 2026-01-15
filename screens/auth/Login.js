@@ -11,12 +11,35 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Dimensions,
+  PixelRatio,
+  useWindowDimensions,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import Logo from "../../assets/Logo.png";
 import { useLoginEndPoint } from "../../services/auth.service";
-
 import { useAuth } from "../../context/AuthContext";
+
+// Get screen dimensions
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+// Responsive sizing functions
+const widthPercentageToDP = (widthPercent) => {
+  const elemWidth = parseFloat(widthPercent);
+  return PixelRatio.roundToNearestPixel(SCREEN_WIDTH * elemWidth / 100);
+};
+
+const heightPercentageToDP = (heightPercent) => {
+  const elemHeight = parseFloat(heightPercent);
+  return PixelRatio.roundToNearestPixel(SCREEN_HEIGHT * elemHeight / 100);
+};
+
+// Font scaling
+const scaleFont = (size) => {
+  const scale = SCREEN_WIDTH / 375; // 375 is standard iPhone width
+  const newSize = size * scale;
+  return Math.round(PixelRatio.roundToNearestPixel(newSize));
+};
 
 const Login = ({ navigation }) => {
   const [email, setEmail] = useState("");
@@ -29,6 +52,10 @@ const Login = ({ navigation }) => {
   });
   const [authError, setAuthError] = useState("");
 
+  // Get window dimensions for responsive layout
+  const { width, height } = useWindowDimensions();
+  const isSmallScreen = width < 375;
+  const isLargeScreen = width > 768;
 
   // Get setTokens from AuthContext
   const { setTokens } = useAuth();
@@ -71,21 +98,21 @@ const Login = ({ navigation }) => {
     setAuthError("");
 
     if (validateForm()) {
-login(
-  { email, password },
-  {
-    onSuccess: () => {
-      setActiveStatus({ is_online: true });
-    },
-    onError: (error) => {
-      if (error?.response?.status === 401) {
-        setAuthError("Invalid email or password");
-      } else {
-        setAuthError("Something went wrong. Please try again.");
-      }
-    },
-  }
-)
+      login(
+        { email, password },
+        {
+          onSuccess: () => {
+            // Handle success if needed
+          },
+          onError: (error) => {
+            if (error?.response?.status === 401) {
+              setAuthError("Invalid email or password");
+            } else {
+              setAuthError("Something went wrong. Please try again.");
+            }
+          },
+        }
+      )
     }
   };
 
@@ -97,36 +124,70 @@ login(
     navigation.navigate('ResetPasswordEmail');
   };
 
+  // Dynamic styles based on screen size
+  const dynamicStyles = {
+    bannerHeight: isSmallScreen ? heightPercentageToDP('15%') : heightPercentageToDP('20%'),
+    logoSize: isSmallScreen ? widthPercentageToDP('30%') : widthPercentageToDP('35%'),
+    cardPadding: isSmallScreen ? widthPercentageToDP('5%') : widthPercentageToDP('8%'),
+    titleFontSize: isSmallScreen ? scaleFont(20) : scaleFont(24),
+    subtitleFontSize: isSmallScreen ? scaleFont(12) : scaleFont(14),
+    inputHeight: isSmallScreen ? heightPercentageToDP('6%') : heightPercentageToDP('7%'),
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 40 : 0}
     >
-      <View style={styles.banner} />
+      <View style={[styles.banner, { height: dynamicStyles.bannerHeight }]} />
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: isSmallScreen ? 20 : 30 }
+        ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.card}>
+        <View style={[
+          styles.card,
+          {
+            padding: dynamicStyles.cardPadding,
+            width: isSmallScreen ? '100%' : isLargeScreen ? '85%' : '95%',
+            maxWidth: 500, // Prevents stretching on tablets
+            alignSelf: 'center',
+          }
+        ]}>
           <View style={styles.logoContainer}>
-            <Image source={Logo} style={styles.logoIcon} />
+            <Image 
+              source={Logo} 
+              style={[
+                styles.logoIcon, 
+                { 
+                  width: dynamicStyles.logoSize,
+                  height: dynamicStyles.logoSize,
+                }
+              ]} 
+              resizeMode="contain"
+            />
           </View>
           
-          <Text style={styles.title}>Sign In</Text>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.title, { fontSize: dynamicStyles.titleFontSize }]}>
+            Sign In
+          </Text>
+          <Text style={[styles.subtitle, { fontSize: dynamicStyles.subtitleFontSize }]}>
             Need a ride? Skip the stress and rent a car in minutes. Whether
             it's a quick trip, a business ride or a family vacation, we got
             you covered.
           </Text>
 
           {/* Email Input */}
-          <View style={styles.inputContainer}>
+          <View style={[styles.inputContainer, { height: dynamicStyles.inputHeight }]}>
             <MaterialIcons
               name="email"
-              size={20}
+              size={isSmallScreen ? 18 : 20}
               color="#aaa"
               style={styles.inputIcon}
             />
@@ -144,10 +205,10 @@ login(
           {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
 
           {/* Password Input */}
-          <View style={styles.inputContainer}>
+          <View style={[styles.inputContainer, { height: dynamicStyles.inputHeight }]}>
             <FontAwesome
               name="lock"
-              size={20}
+              size={isSmallScreen ? 18 : 20}
               color="#aaa"
               style={styles.inputIcon}
             />
@@ -160,10 +221,13 @@ login(
               onChangeText={setPassword}
               editable={!isPending}
             />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+            <TouchableOpacity 
+              onPress={() => setShowPassword(!showPassword)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
               <Feather
                 name={showPassword ? "eye" : "eye-off"}
-                size={20}
+                size={isSmallScreen ? 18 : 20}
                 color="#aaa"
               />
             </TouchableOpacity>
@@ -176,24 +240,38 @@ login(
               style={styles.checkboxRow}
               onPress={() => setRemember(!remember)}
               disabled={isPending}
+              hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
             >
               <View style={[styles.checkbox, !remember && styles.checkboxUnchecked]}>
-                {remember && <MaterialIcons name="check" size={16} color="#000" />}
+                {remember && <MaterialIcons name="check" size={isSmallScreen ? 14 : 16} color="#000" />}
               </View>
-              <Text style={styles.checkboxLabel}>Remember Password</Text>
+              <Text style={[
+                styles.checkboxLabel,
+                { fontSize: isSmallScreen ? scaleFont(11) : scaleFont(12) }
+              ]}>
+                Remember Password
+              </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={handleForgotPassword} disabled={isPending}>
-              <Text style={styles.forgot}>Forgot Password</Text>
+            <TouchableOpacity 
+              onPress={handleForgotPassword} 
+              disabled={isPending}
+              hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
+            >
+              <Text style={[
+                styles.forgot,
+                { fontSize: isSmallScreen ? scaleFont(11) : scaleFont(12) }
+              ]}>
+                Forgot Password
+              </Text>
             </TouchableOpacity>
           </View>
+          
           {authError ? (
-            <Text style={{ 
-              color: "#ff4444",
-              textAlign: "center",
-              marginBottom: 10,
-              fontSize: 13
-            }}>
+            <Text style={[
+              styles.authError,
+              { fontSize: isSmallScreen ? scaleFont(11) : scaleFont(13) }
+            ]}>
               {authError}
             </Text>
           ) : null}
@@ -203,33 +281,50 @@ login(
             style={[styles.proceedBtn, isPending && styles.proceedBtnDisabled]}
             onPress={handleSubmit}
             disabled={isPending}
+            activeOpacity={0.8}
           >
             {isPending ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="small" color="#000" />
-                <Text style={styles.proceedText}>  Signing In...</Text>
+                <Text style={[
+                  styles.proceedText,
+                  { fontSize: isSmallScreen ? scaleFont(14) : scaleFont(16) }
+                ]}>
+                  Signing In...
+                </Text>
               </View>
             ) : (
-              <Text style={styles.proceedText}>Proceed</Text>
+              <Text style={[
+                styles.proceedText,
+                { fontSize: isSmallScreen ? scaleFont(14) : scaleFont(16) }
+              ]}>
+                Proceed
+              </Text>
             )}
           </TouchableOpacity>
 
           {/* Divider */}
           <View style={styles.dividerRow}>
             <View style={styles.divider} />
-            <Text style={styles.dividerText}>or</Text>
+            <Text style={[
+              styles.dividerText,
+              { fontSize: isSmallScreen ? scaleFont(12) : scaleFont(14) }
+            ]}>
+              or
+            </Text>
             <View style={styles.divider} />
           </View>
 
-          {/* Google Sign In */}
-          <TouchableOpacity style={styles.googleBtn} disabled={isPending}>
-            <FontAwesome name="google" size={18} color="#fff" />
-            <Text style={styles.googleText}>Sign in with Google</Text>
-          </TouchableOpacity>
-
           {/* Sign Up */}
-          <TouchableOpacity onPress={handleSignUpPress} disabled={isPending}>
-            <Text style={styles.footerText}>
+          <TouchableOpacity 
+            onPress={handleSignUpPress} 
+            disabled={isPending}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={[
+              styles.footerText,
+              { fontSize: isSmallScreen ? scaleFont(11) : scaleFont(12) }
+            ]}>
               Don't have an account?{" "}
               <Text style={styles.signup}>Sign up</Text>
             </Text>
@@ -246,7 +341,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#000" 
   },
   banner: {
-    height: 200,
     backgroundColor: "#0B2633",
     borderBottomLeftRadius: 40,
     borderBottomRightRadius: 40,
@@ -257,37 +351,31 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 30,
   },
   card: {
     backgroundColor: "#000",
     borderTopLeftRadius: 40,
     borderTopRightRadius: 40,
-    padding: 30,
-    width: "95%",
-    alignSelf: "center",
   },
   logoContainer: {
     marginBottom: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   logoIcon: {
-    width: 130,
-    height: 100,
     resizeMode: "contain",
-    alignSelf: "center",
   },
   title: {
-    fontSize: 24,
     fontWeight: "bold",
     color: "#fff",
     textAlign: "center",
     marginBottom: 10,
   },
   subtitle: {
-    fontSize: 14,
     color: "#ccc",
     textAlign: "center",
     marginBottom: 20,
+    lineHeight: 20,
   },
   inputContainer: {
     flexDirection: "row",
@@ -303,14 +391,20 @@ const styles = StyleSheet.create({
   },
   input: { 
     flex: 1, 
-    color: "#fff", 
-    height: 50 
+    color: "#fff",
+    fontSize: 14,
+    paddingVertical: 0, // Better for Android
   },
   errorText: {
     color: "#ff4444",
-    fontSize: 12,
+    fontSize: 11,
     marginBottom: 10,
     marginLeft: 10,
+  },
+  authError: {
+    color: "#ff4444",
+    textAlign: "center",
+    marginBottom: 10,
   },
   row: {
     flexDirection: "row",
@@ -318,10 +412,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 20,
     marginTop: 10,
+    flexWrap: 'wrap', // For very small screens
   },
   checkboxRow: { 
     flexDirection: "row", 
-    alignItems: "center" 
+    alignItems: "center",
+    flexShrink: 1, // Prevents overflow
   },
   checkbox: {
     width: 20,
@@ -338,12 +434,13 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent" 
   },
   checkboxLabel: { 
-    color: "#fff", 
-    fontSize: 12 
+    color: "#fff",
+    flexShrink: 1,
   },
   forgot: { 
-    color: "#fcbf24", 
-    fontSize: 12 
+    color: "#fcbf24",
+    flexShrink: 1,
+    textAlign: 'right',
   },
   proceedBtn: {
     backgroundColor: "#fcbf24",
@@ -351,6 +448,8 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     marginTop: 10,
     alignItems: "center",
+    justifyContent: "center",
+    minHeight: 50, // Ensures touchable area on all screens
   },
   proceedBtnDisabled: {
     backgroundColor: "#666",
@@ -363,8 +462,7 @@ const styles = StyleSheet.create({
   },
   proceedText: { 
     color: "#000", 
-    fontWeight: "bold", 
-    fontSize: 16 
+    fontWeight: "bold",
   },
   dividerRow: {
     flexDirection: "row",
@@ -378,26 +476,11 @@ const styles = StyleSheet.create({
   },
   dividerText: { 
     color: "#aaa", 
-    marginHorizontal: 10 
-  },
-  googleBtn: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    borderColor: "#fcbf24",
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingVertical: 12,
-    marginBottom: 30,
-  },
-  googleText: { 
-    color: "#fff", 
-    marginLeft: 8 
+    marginHorizontal: 10,
   },
   footerText: { 
     textAlign: "center", 
-    color: "#888", 
-    fontSize: 12,
+    color: "#888",
     marginBottom: 20,
   },
   signup: { 
