@@ -394,6 +394,7 @@ const styles = StyleSheet.create({
     marginBottom: height * 0.03,
     flexDirection: 'row',
     alignItems: 'center',
+    alignSelf:'center',
   },
   profileSectionSmall: {
     marginBottom: height * 0.025,
@@ -406,6 +407,7 @@ const styles = StyleSheet.create({
     height: width * 0.2,
     borderRadius: width * 0.1,
     marginRight: width * 0.04,
+    alignSelf:'center',
   },
   profileImageSmall: {
     width: width * 0.18,
