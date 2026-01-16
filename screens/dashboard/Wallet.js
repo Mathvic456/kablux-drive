@@ -108,12 +108,11 @@ const styles = StyleSheet.create({
     gap:30,
   },
   errorBanner: {
-    backgroundColor: '#d32f2f',
+    backgroundColor: '#660000',
     borderRadius: 12,
     padding: 16,
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginTop: 16,
   },
   errorBannerTitle: {
     color: '#fff',
