@@ -108,6 +108,7 @@ const {
   } = useProfile();
 
   const { data: kycData, isLoading } = useDriverKycStatus();
+  const { data: balanceData } = useGetMyBalance();
 
   const startRideMutation = useStartRide();
   const finishRideMutation = useFinishRide();
@@ -237,6 +238,9 @@ useEffect(() => {
   useEffect(() => {
     if (status === "ride_created") {
       setAcceptedModalVisible(true);
+      // Clear all notifications when ride is accepted
+      setRideNotifications([]);
+      setNegotiationUpdates({});
     }
   }, [status]);
   useEffect(() => {
@@ -677,8 +681,24 @@ const handleFinishRide = async () => {
           Your documents are being reviewed. You'll be notified once approved.
         </Text>
       </View>
+    ) : balanceData?.balance <= 1000 ? (
+      <View style={styles.sectionContainer}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Low Balance</Text>
+          <Ionicons name="wallet-outline" size={20} color="#ff9800" />
+        </View>
+        <Text style={[styles.emptySubtext, { marginBottom: 15, textAlign: 'left' }]}>
+          Your balance is too low to receive ride orders. Please add funds to continue.
+        </Text>
+        <TouchableOpacity
+          style={[styles.viewButton, { backgroundColor: "#facc15" }]}
+          onPress={() => navigation.navigate("Wallet")}
+        >
+          <Text style={styles.viewButtonText}>Add Funds</Text>
+        </TouchableOpacity>
+      </View>
     ) : (
-      // Original empty state for approved KYC
+      // Original empty state for approved KYC and sufficient balance
       <>
         {rideNotifications.length > 0 ? (
           <View style={[styles.sectionContainer, { backgroundColor: 'transparent', padding: 0 }]}>
