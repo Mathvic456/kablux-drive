@@ -5,6 +5,7 @@ import ActionButtons from '../components/ActionButtons';
 import TransactionHistory from '../components/TransactionHistory';
 import { MaterialIcons, Entypo } from "@expo/vector-icons";
 import { useNavigation } from '@react-navigation/native';
+import { Text } from 'react-native';
 // Import the hooks here instead
 import { useGetMyBalance, useGetMyTransactions } from '../../services/funding.service';
 
@@ -65,6 +66,16 @@ export default function Wallet() {
         isError={isBalanceError}
       />
 
+      {balanceData?.balance < 1000 && (
+        <View style={styles.errorBanner}>
+          <MaterialIcons name="warning" size={20} color="#fff" />
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={styles.errorBannerTitle}>Low Balance</Text>
+            <Text style={styles.errorBannerText}>Your wallet balance is too low to receive ride orders.</Text>
+          </View>
+        </View>
+      )}
+
       <View style={{marginTop:30, gap:15}}>
        <ActionButtons
         label="Add funds"
@@ -95,6 +106,25 @@ const styles = StyleSheet.create({
     paddingTop:50,
     backgroundColor: '#000000',
     gap:30,
+  },
+  errorBanner: {
+    backgroundColor: '#d32f2f',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 16,
+  },
+  errorBannerTitle: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  errorBannerText: {
+    color: '#fff',
+    fontSize: 12,
+    lineHeight: 16,
   },
   text: {
     fontSize: 20,
