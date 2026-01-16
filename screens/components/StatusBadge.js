@@ -1,114 +1,302 @@
-import React, { useContext } from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import React, { useContext, useState } from "react";
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  TouchableOpacity,
+  Switch,
+  ActivityIndicator 
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { SocketContext } from "../../context/WebSocketProvider";
 
 const StatusBadge = () => {
-  const { isConnected, currentLocation, locationPermission, goOnline } = useContext(SocketContext);
+  const { isConnected, currentLocation, locationPermission, goOnline, goOffline } = useContext(SocketContext);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // State 1: No permission yet - show call-to-action button
- if (locationPermission !== 'granted') {
-  return (
-    <TouchableOpacity 
-      style={styles.connectButton} 
-      onPress={goOnline}
-      activeOpacity={0.8}
-    >
-      <Text style={styles.connectText}>ENABLE LOCATION TRACKING</Text>
-    </TouchableOpacity>
-  );
-}
+  const handleToggle = async () => {
+    if (!isConnected) {
+      setIsLoading(true);
+      try {
+        await goOnline();
+      } catch (error) {
+        console.error("Failed to go online:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      goOffline();
+    }
+  };
 
-  // State 2: Permission granted but not connected - show connecting state
-if (locationPermission === 'granted' && !isConnected) {
+  // State 1: No location permission yet
+  if (locationPermission !== 'granted') {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Go Online</Text>
+          <TouchableOpacity style={styles.infoButton}>
+            <Ionicons name="information-circle-outline" size={18} color="#888" />
+          </TouchableOpacity>
+        </View>
+        
+        <View style={styles.permissionContainer}>
+          <Ionicons name="location-outline" size={24} color="#FFC107" />
+          <Text style={styles.permissionText}>
+            Location permission required to go online
+          </Text>
+          <TouchableOpacity 
+            style={styles.permissionButton}
+            onPress={goOnline}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.permissionButtonText}>Enable Location</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // State 2: Connecting state
+  if (locationPermission === 'granted' && !isConnected && !isLoading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Go Online</Text>
+          <TouchableOpacity style={styles.infoButton}>
+            <Ionicons name="information-circle-outline" size={18} color="#888" />
+          </TouchableOpacity>
+        </View>
+        
+        <View style={styles.switchContainer}>
+          <View style={styles.switchInfo}>
+            <Ionicons name="location-outline" size={20} color="#888" />
+            <Text style={styles.switchLabel}>Tap to start receiving rides</Text>
+          </View>
+          
+          <TouchableOpacity 
+            style={styles.offlineSwitch}
+            onPress={handleToggle}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.offlineSwitchText}>Go Online</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // State 3: Loading/Connecting
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Go Online</Text>
+          <TouchableOpacity style={styles.infoButton}>
+            <Ionicons name="information-circle-outline" size={18} color="#888" />
+          </TouchableOpacity>
+        </View>
+        
+        <View style={styles.switchContainer}>
+          <View style={styles.switchInfo}>
+            <ActivityIndicator size="small" color="#FFC107" />
+            <Text style={styles.switchLabel}>Connecting to server...</Text>
+          </View>
+          
+          <View style={styles.disabledSwitch}>
+            <Text style={styles.disabledSwitchText}>Connecting</Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  // State 4: Connected and online
   return (
-    <View style={[styles.statusContainer, styles.centerContent]}>
-      <View style={styles.statusBadge}>
-        <View style={styles.statusDot} />
-        <Text style={styles.statusText}>Connecting...</Text>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Go Online</Text>
+        <TouchableOpacity style={styles.infoButton}>
+          <Ionicons name="information-circle-outline" size={18} color="#888" />
+        </TouchableOpacity>
+      </View>
+      
+      <View style={styles.switchContainer}>
+        <View style={styles.switchInfo}>
+          <View style={styles.locationInfo}>
+            <View style={[styles.statusDot, styles.onlineDot]} />
+            <Text style={styles.onlineStatus}>Online & Receiving Rides</Text>
+          </View>
+          {/* {currentLocation && (
+            <Text style={styles.locationText}>
+              {currentLocation.lat.toFixed(4)}, {currentLocation.long.toFixed(4)}
+            </Text>
+          )} */}
+        </View>
+        
+        <TouchableOpacity 
+          style={styles.switchToggle}
+          onPress={handleToggle}
+          activeOpacity={0.7}
+        >
+          <View style={styles.toggleTrack}>
+            <View style={styles.toggleThumbOnline} />
+          </View>
+          <Text style={styles.toggleText}>Online</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
-}
-
-  // State 3: Connected - show status with location
-return (
-  <View style={styles.statusContainer}>
-    <View style={styles.statusBadge}>
-      <View
-        style={[
-          styles.statusDot,
-          isConnected ? styles.onlineDot : styles.offlineDot,
-        ]}
-      />
-      <Text style={styles.statusText}>Location Active</Text>
-    </View>
-    {currentLocation && (
-      <Text style={styles.locationText}>
-        {currentLocation.lat.toFixed(4)}, {currentLocation.long.toFixed(4)}
-      </Text>
-    )}
-  </View>
-);
 };
 
 const styles = StyleSheet.create({
-  statusContainer: {
+  container: {
+    backgroundColor: "#1a1a1a",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#333",
+  },
+  header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#333",
+  },
+  title: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  infoButton: {
+    padding: 4,
+  },
+  // Permission Required State
+  permissionContainer: {
+    alignItems: "center",
+    paddingVertical: 12,
+  },
+  permissionText: {
+    color: "#888",
+    fontSize: 14,
+    textAlign: "center",
+    marginVertical: 12,
+    lineHeight: 20,
+  },
+  permissionButton: {
+    backgroundColor: "#4CAF50",
+    paddingHorizontal: 20,
     paddingVertical: 10,
-    paddingHorizontal: 15,
-    backgroundColor: "#1a1a1a",
-    borderRadius: 10,
+    borderRadius: 8,
+    marginTop: 8,
   },
-  centerContent: {
-    justifyContent: 'center',
+  permissionButtonText: {
+    color: "white",
+    fontWeight: "600",
+    fontSize: 14,
   },
-  statusBadge: {
+  // Switch Container
+  switchContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  switchInfo: {
+    flex: 1,
+  },
+  switchLabel: {
+    color: "#888",
+    fontSize: 14,
+    marginLeft: 8,
+  },
+  locationInfo: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 6,
-    borderRadius: 15,
-    backgroundColor: "#333",
+    marginBottom: 4,
   },
   statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     marginRight: 8,
   },
   onlineDot: {
     backgroundColor: "#4CAF50",
+    shadowColor: "#4CAF50",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  offlineDot: {
-    backgroundColor: "#f44336",
-  },
-  statusText: {
-    color: "white",
+  onlineStatus: {
+    color: "#4CAF50",
+    fontSize: 14,
     fontWeight: "600",
   },
   locationText: {
-    color: "#aaa",
+    color: "#666",
     fontSize: 12,
+    marginTop: 2,
+    fontFamily: 'monospace',
   },
-  connectButton: {
-    backgroundColor: "#4CAF50",
-    paddingVertical: 15,
-    borderRadius: 10,
+  // Offline Switch (Button Style)
+  offlineSwitch: {
+    backgroundColor: "#FFC107",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    minWidth: 100,
     alignItems: "center",
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 5,
   },
-  connectText: {
-    color: "white",
+  offlineSwitchText: {
+    color: "#000",
     fontWeight: "bold",
-    fontSize: 16,
-    letterSpacing: 1,
+    fontSize: 14,
+  },
+  // Disabled Switch (Loading State)
+  disabledSwitch: {
+    backgroundColor: "#666",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    minWidth: 100,
+    alignItems: "center",
+    opacity: 0.7,
+  },
+  disabledSwitchText: {
+    color: "#aaa",
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  // Online Switch (Toggle Style)
+  switchToggle: {
+    alignItems: "center",
+    minWidth: 80,
+  },
+  toggleTrack: {
+    width: 50,
+    height: 28,
+    backgroundColor: "#4CAF50",
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "flex-end",
+    paddingHorizontal: 3,
+    marginBottom: 4,
+  },
+  toggleThumbOnline: {
+    width: 22,
+    height: 22,
+    backgroundColor: "white",
+    borderRadius: 11,
+  },
+  toggleText: {
+    color: "#4CAF50",
+    fontSize: 12,
+    fontWeight: "600",
   },
 });
 
