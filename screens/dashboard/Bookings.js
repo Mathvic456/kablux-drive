@@ -1,7 +1,8 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, Alert, Platform, ScrollView, useWindowDimensions, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, Platform, useWindowDimensions, Dimensions, ScrollView } from 'react-native';
 import { useState, useMemo, useCallback } from 'react';
 import { useRideHistory } from '../../services/rideHistory.service';
 import { Ionicons } from "@expo/vector-icons";
+import CentralModal from '../components/CentralModal';
 
 // Expo Imports
 import * as FileSystem from 'expo-file-system';
@@ -461,235 +462,80 @@ export default function Bookings() {
       />
 
       {/* --- RECEIPT MODAL --- */}
-      {showReceiptModal && (
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={showReceiptModal}
-          onRequestClose={closeReceiptModal}
-          statusBarTranslucent={true}
-        >
-          <View style={[
-            styles.modalOverlay,
-            isTablet && styles.modalOverlayTablet
-          ]}>
-            <View style={[
-              styles.modalContent,
-              isSmallScreen && styles.modalContentSmall,
-              isLargeScreen && styles.modalContentLarge,
-              isTablet && styles.modalContentTablet
-            ]}>
-              {selectedReceipt && (
-                <>
-                  <View style={[
-                    styles.modalHeader,
-                    isSmallScreen && styles.modalHeaderSmall,
-                    isLargeScreen && styles.modalHeaderLarge
-                  ]}>
-                    <Text style={[
-                      styles.modalTitle,
-                      isSmallScreen && styles.modalTitleSmall,
-                      isLargeScreen && styles.modalTitleLarge
-                    ]}>Trip Details</Text>
-                    <TouchableOpacity onPress={closeReceiptModal}>
-                      <Ionicons 
-                        name="close" 
-                        size={isSmallScreen ? 24 : 28} 
-                        color="#fff" 
-                      />
-                    </TouchableOpacity>
-                  </View>
-
-                  <ScrollView 
-                    style={styles.receiptScroll}
-                    showsVerticalScrollIndicator={false}
-                    contentContainerStyle={[
-                      styles.receiptScrollContent,
-                      isSmallScreen && styles.receiptScrollContentSmall
-                    ]}
-                  >
-                    <View style={[
-                      styles.receiptDetail,
-                      isSmallScreen && styles.receiptDetailSmall,
-                      isLargeScreen && styles.receiptDetailLarge
-                    ]}>
-                      
-                      {/* ID & Status */}
-                      <View style={[
-                        styles.receiptHeader,
-                        isSmallScreen && styles.receiptHeaderSmall,
-                        isLargeScreen && styles.receiptHeaderLarge
-                      ]}>
-                        <Text style={[
-                          styles.receiptId,
-                          isSmallScreen && styles.receiptIdSmall,
-                          isLargeScreen && styles.receiptIdLarge
-                        ]}>Trip #{selectedReceipt.id || 'N/A'}</Text>
-                        <View style={[
-                          styles.statusBadge,
-                          selectedReceipt.status === 'completed' ? styles.statusCompleted : 
-                          selectedReceipt.status === 'cancelled' ? styles.statusCancelled :
-                          { backgroundColor: 'rgba(247, 183, 49, 0.2)' },
-                          isSmallScreen && styles.statusBadgeSmall,
-                          isLargeScreen && styles.statusBadgeLarge
-                        ]}>
-                          <Text style={[
-                            styles.statusText,
-                            isSmallScreen && styles.statusTextSmall,
-                            isLargeScreen && styles.statusTextLarge
-                          ]}>{(selectedReceipt.status || "unknown").toUpperCase()}</Text>
-                        </View>
-                      </View>
-
-                      {/* Details List */}
-                      <View style={[
-                        styles.detailRow,
-                        isSmallScreen && styles.detailRowSmall,
-                        isLargeScreen && styles.detailRowLarge
-                      ]}>
-                        <Text style={[
-                          styles.detailLabel,
-                          isSmallScreen && styles.detailLabelSmall,
-                          isLargeScreen && styles.detailLabelLarge
-                        ]}>Date</Text>
-                        <Text style={[
-                          styles.detailValue,
-                          isSmallScreen && styles.detailValueSmall,
-                          isLargeScreen && styles.detailValueLarge
-                        ]} numberOfLines={2}>
-                          {formatDate(selectedReceipt.start_time)}
-                        </Text>
-                      </View>
-
-                      <View style={[
-                        styles.detailRow,
-                        isSmallScreen && styles.detailRowSmall,
-                        isLargeScreen && styles.detailRowLarge
-                      ]}>
-                        <Text style={[
-                          styles.detailLabel,
-                          isSmallScreen && styles.detailLabelSmall,
-                          isLargeScreen && styles.detailLabelLarge
-                        ]}>Pickup</Text>
-                        <Text style={[
-                          styles.detailValue,
-                          isSmallScreen && styles.detailValueSmall,
-                          isLargeScreen && styles.detailValueLarge
-                        ]} numberOfLines={2}>
-                          {selectedReceipt.pickup_address || 'N/A'}
-                        </Text>
-                      </View>
-
-                      <View style={[
-                        styles.detailRow,
-                        isSmallScreen && styles.detailRowSmall,
-                        isLargeScreen && styles.detailRowLarge
-                      ]}>
-                        <Text style={[
-                          styles.detailLabel,
-                          isSmallScreen && styles.detailLabelSmall,
-                          isLargeScreen && styles.detailLabelLarge
-                        ]}>Drop-off</Text>
-                        <Text style={[
-                          styles.detailValue,
-                          isSmallScreen && styles.detailValueSmall,
-                          isLargeScreen && styles.detailValueLarge
-                        ]} numberOfLines={2}>
-                          {selectedReceipt.dropoff_address || 'N/A'}
-                        </Text>
-                      </View>
-
-                      <View style={[
-                        styles.detailRow,
-                        isSmallScreen && styles.detailRowSmall,
-                        isLargeScreen && styles.detailRowLarge
-                      ]}>
-                        <Text style={[
-                          styles.detailLabel,
-                          isSmallScreen && styles.detailLabelSmall,
-                          isLargeScreen && styles.detailLabelLarge
-                        ]}>Rider</Text>
-                        <Text style={[
-                          styles.detailValue,
-                          isSmallScreen && styles.detailValueSmall,
-                          isLargeScreen && styles.detailValueLarge
-                        ]}>
-                          {selectedReceipt.rider_name || 'Rider'}
-                        </Text>
-                      </View>
-
-                      <View style={[
-                        styles.totalSection,
-                        isSmallScreen && styles.totalSectionSmall,
-                        isLargeScreen && styles.totalSectionLarge
-                      ]}>
-                        <Text style={[
-                          styles.totalLabel,
-                          isSmallScreen && styles.totalLabelSmall,
-                          isLargeScreen && styles.totalLabelLarge
-                        ]}>TOTAL EARNINGS</Text>
-                        <Text style={[
-                          styles.totalValue,
-                          isSmallScreen && styles.totalValueSmall,
-                          isLargeScreen && styles.totalValueLarge
-                        ]}>
-                          {formatCurrency(selectedReceipt.fare)}
-                        </Text>
-                      </View>
-                      
-                      <View style={[
-                        styles.noteSection,
-                        isSmallScreen && styles.noteSectionSmall,
-                        isLargeScreen && styles.noteSectionLarge
-                      ]}>
-                        <Text style={[
-                          styles.noteText,
-                          isSmallScreen && styles.noteTextSmall,
-                          isLargeScreen && styles.noteTextLarge
-                        ]}>
-                          Tap "Download Waybill" below to save a PDF receipt of this trip.
-                        </Text>
-                      </View>
-                    </View>
-                  </ScrollView>
-
-                  {/* Download Button */}
-                  <TouchableOpacity 
-                    style={[
-                      styles.downloadButton,
-                      isSmallScreen && styles.downloadButtonSmall,
-                      isLargeScreen && styles.downloadButtonLarge,
-                      isTablet && styles.downloadButtonTablet
-                    ]}
-                    onPress={() => downloadReceipt(selectedReceipt)}
-                    disabled={isDownloading}
-                  >
-                    {isDownloading ? (
-                      <ActivityIndicator 
-                        color="#000" 
-                        size={isSmallScreen ? "small" : "small"} 
-                      />
-                    ) : (
-                      <>
-                        <Ionicons 
-                          name="download" 
-                          size={isSmallScreen ? 18 : 20} 
-                          color="#000" 
-                        />
-                        <Text style={[
-                          styles.downloadButtonText,
-                          isSmallScreen && styles.downloadButtonTextSmall,
-                          isLargeScreen && styles.downloadButtonTextLarge
-                        ]}>Download Waybill</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                </>
-              )}
+      <CentralModal
+        visible={showReceiptModal}
+        onClose={closeReceiptModal}
+        title="Trip Details"
+        icon="document-text-outline"
+        contentMode="custom"
+        confirmText="Download Waybill"
+        closeText="Close"
+        confirmButtonColor="#FFC107"
+        themeColor="#FFC107"
+        onConfirm={() => downloadReceipt(selectedReceipt)}
+      >
+        {selectedReceipt && (
+          <ScrollView 
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.receiptScrollContent}
+          >
+            {/* Trip ID & Status */}
+            <View style={styles.detailSection}>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Trip ID</Text>
+                <Text style={styles.detailValue}>#{selectedReceipt.id || 'N/A'}</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Status</Text>
+                <View style={[
+                  styles.statusBadge,
+                  selectedReceipt.status === 'completed' ? styles.statusCompleted : 
+                  selectedReceipt.status === 'cancelled' ? styles.statusCancelled :
+                  { backgroundColor: 'rgba(247, 183, 49, 0.2)' }
+                ]}>
+                  <Text style={styles.statusText}>{(selectedReceipt.status || "unknown").toUpperCase()}</Text>
+                </View>
+              </View>
             </View>
-          </View>
-        </Modal>
-      )}
+
+            {/* Date */}
+            <View style={styles.detailSection}>
+              <Text style={styles.detailLabel}>Date</Text>
+              <Text style={styles.detailValue}>{formatDate(selectedReceipt.start_time)}</Text>
+            </View>
+
+            {/* Pickup Location */}
+            <View style={styles.detailSection}>
+              <View style={styles.locationHeader}>
+                <Ionicons name="ellipse" size={10} color="#4CAF50" />
+                <Text style={styles.detailLabel}>Pickup Location</Text>
+              </View>
+              <Text style={styles.detailValue}>{selectedReceipt.pickup_address || 'N/A'}</Text>
+            </View>
+
+            {/* Dropoff Location */}
+            <View style={styles.detailSection}>
+              <View style={styles.locationHeader}>
+                <Ionicons name="location" size={10} color="#FF5252" />
+                <Text style={styles.detailLabel}>Drop-off Location</Text>
+              </View>
+              <Text style={styles.detailValue}>{selectedReceipt.dropoff_address || 'N/A'}</Text>
+            </View>
+
+            {/* Rider */}
+            <View style={styles.detailSection}>
+              <Text style={styles.detailLabel}>Rider</Text>
+              <Text style={styles.detailValue}>{selectedReceipt.rider_name || 'Rider'}</Text>
+            </View>
+
+            {/* Total Earnings */}
+            <View style={[styles.detailSection, styles.totalSection]}>
+              <Text style={styles.totalLabel}>Total Earnings</Text>
+              <Text style={styles.totalValue}>{formatCurrency(selectedReceipt.fare)}</Text>
+            </View>
+          </ScrollView>
+        )}
+      </CentralModal>
     </View>
   );
 }
@@ -1340,5 +1186,73 @@ const styles = StyleSheet.create({
   },
   downloadButtonTextLarge: {
     fontSize: width * 0.042,
+  },
+  // --- NEW MODAL STYLES FOR CENTRALMODAL ---
+  receiptScrollContent: {
+    paddingBottom: 20,
+  },
+  detailSection: {
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  locationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  detailLabel: {
+    color: '#888',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  detailValue: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '500',
+    maxWidth: '60%',
+    textAlign: 'right',
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  statusCompleted: {
+    backgroundColor: 'rgba(76, 175, 80, 0.15)',
+  },
+  statusCancelled: {
+    backgroundColor: 'rgba(244, 67, 54, 0.15)',
+  },
+  statusText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: 'bold',
+    textTransform: 'capitalize',
+  },
+  totalSection: {
+    backgroundColor: '#FFC107',
+    borderRadius: 8,
+    padding: 16,
+    marginTop: 8,
+    marginBottom: 0,
+  },
+  totalLabel: {
+    color: '#000',
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  totalValue: {
+    color: '#000',
+    fontSize: 24,
+    fontWeight: '800',
   },
 });
