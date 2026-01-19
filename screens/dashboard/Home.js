@@ -329,6 +329,7 @@ useEffect(() => {
   // -- Handlers --
 
   const handleOpenDrawer = () => {
+    console.log("clicky")
     navigation.getParent()?.getParent("DrawerNavigator")?.openDrawer();
   };
 

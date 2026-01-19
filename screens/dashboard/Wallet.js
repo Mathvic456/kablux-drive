@@ -6,14 +6,13 @@ import TransactionHistory from '../components/TransactionHistory';
 import { MaterialIcons, Entypo } from "@expo/vector-icons";
 import { useNavigation } from '@react-navigation/native';
 import { Text } from 'react-native';
-// Import the hooks here instead
 import { useGetMyBalance, useGetMyTransactions } from '../../services/funding.service';
 
 export default function Wallet() {
   const navigation = useNavigation();
   const [refreshing, setRefreshing] = useState(false);
 
-  // 1. Call hooks here to get access to data and refetch functions
+
   const { 
     data: balanceData, 
     isLoading: isBalanceLoading, 

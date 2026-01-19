@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Dimensions,
   PixelRatio,
   useWindowDimensions,
+  SafeAreaView,
 } from "react-native";
 import {
   FontAwesome5,
@@ -17,6 +18,7 @@ import {
   Ionicons,
 } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import { useDriverDashboard } from "../../services/rewards.service";
 
 // Get screen dimensions
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -41,6 +43,19 @@ const scaleFont = (size) => {
 
 export default function Leaderboard() {
   const navigation = useNavigation();
+  const { data, isLoading, error } = useDriverDashboard();
+
+  useEffect(() => {
+    if (data) {
+      console.log("🎯 Driver Dashboard Data:", JSON.stringify(data, null, 2));
+    }
+    if (error) {
+      console.error("❌ Error fetching dashboard:", error);
+    }
+    if (isLoading) {
+      console.log("⏳ Loading dashboard data...");
+    }
+  }, [data, error, isLoading]);
   
   // Get window dimensions for responsive layout
   const { width, height } = useWindowDimensions();
@@ -247,14 +262,15 @@ export default function Leaderboard() {
   };
 
   return (
-    <ScrollView
-      style={[styles.container, { padding: dynamicStyles.containerPadding }]}
-      contentContainerStyle={{ 
-        paddingBottom: getResponsiveValue(20, 25, 30),
-        gap: getResponsiveValue(15, 18, 20)
-      }}
-      showsVerticalScrollIndicator={false}
-    >
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView
+        style={[styles.container, { padding: dynamicStyles.containerPadding }]}
+        contentContainerStyle={{ 
+          paddingBottom: getResponsiveValue(40, 50, 60),
+          gap: getResponsiveValue(15, 18, 20)
+        }}
+        showsVerticalScrollIndicator={false}
+      >
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity 
@@ -380,212 +396,82 @@ export default function Leaderboard() {
       </View>
 
       {/* Prize Card */}
-      <View style={[
-        styles.prizeCard,
-        { padding: isSmallScreen ? 12 : 14 }
-      ]}>
-        <Text style={[
-          styles.prizeSubtitle,
-          { fontSize: isSmallScreen ? scaleFont(11) : scaleFont(13) }
-        ]}>
-          Get to Blue tier to win prize
-        </Text>
-        <View style={[styles.prizeRow, { gap: isSmallScreen ? 8 : 10 }]}>
-          <Image
-            source={{
-              uri: "https://cdn-icons-png.flaticon.com/512/743/743007.png",
-            }}
-            style={[
-              styles.carImage,
-              { 
-                width: isSmallScreen ? 40 : 50,
-                height: isSmallScreen ? 20 : 25
-              }
-            ]}
-          />
-          <View style={{ flex: 1 }}>
-            <Text style={[
-              styles.prizeTitle,
-              { fontSize: isSmallScreen ? scaleFont(13) : scaleFont(15) }
-            ]}>
-              Car wash voucher
-            </Text>
-            <Text style={[
-              styles.prizeCount,
-              { fontSize: isSmallScreen ? scaleFont(10) : scaleFont(12) }
-            ]}>
-              1 prize
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      <TierTable/>
 
       
+{/* Trip Stats Card */}
+<View style={[styles.prizeCard, { padding: isSmallScreen ? 12 : 14 }]}>
+  <Text style={[styles.sectionTitle, { fontSize: isSmallScreen ? scaleFont(14) : scaleFont(16) }]}>
+    Trip Statistics
+  </Text>
+  <View style={[styles.tripStatsGrid, { gap: isSmallScreen ? 8 : 12 }]}>
+    <View style={styles.tripStatItem}>
+      <MaterialCommunityIcons name="car-clock" size={isSmallScreen ? 20 : 24} color="#FFC107" />
+      <Text style={[styles.tripStatValue, { fontSize: isSmallScreen ? scaleFont(18) : scaleFont(22) }]}>
+        {data?.trip_stats?.today || 0}
+      </Text>
+      <Text style={[styles.tripStatLabel, { fontSize: isSmallScreen ? scaleFont(11) : scaleFont(12) }]}>
+        Today
+      </Text>
+    </View>
+    <View style={styles.tripStatItem}>
+      <MaterialCommunityIcons name="calendar-week" size={isSmallScreen ? 20 : 24} color="#50FF66" />
+      <Text style={[styles.tripStatValue, { fontSize: isSmallScreen ? scaleFont(18) : scaleFont(22) }]}>
+        {data?.trip_stats?.week || 0}
+      </Text>
+      <Text style={[styles.tripStatLabel, { fontSize: isSmallScreen ? scaleFont(11) : scaleFont(12) }]}>
+        This Week
+      </Text>
+    </View>
+    <View style={styles.tripStatItem}>
+      <MaterialCommunityIcons name="calendar-month" size={isSmallScreen ? 20 : 24} color="#2196F3" />
+      <Text style={[styles.tripStatValue, { fontSize: isSmallScreen ? scaleFont(18) : scaleFont(22) }]}>
+        {data?.trip_stats?.month || 0}
+      </Text>
+      <Text style={[styles.tripStatLabel, { fontSize: isSmallScreen ? scaleFont(11) : scaleFont(12) }]}>
+        This Month
+      </Text>
+    </View>
+  </View>
+</View>
 
-      {/* Scrollable Stats Row */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={[
-          styles.statsRow,
-          { paddingRight: isSmallScreen ? 10 : 20 }
-        ]}
-      >
-        <TouchableOpacity 
-          style={[
-            styles.statBox, 
-            { 
-              width: dynamicStyles.statBoxWidth,
-              height: dynamicStyles.statBoxHeight,
-              padding: isSmallScreen ? 10 : 12
-            }
-          ]} 
-          onPress={handleEarningsPress}
-          activeOpacity={0.8}
-        >
-          <Text style={[
-            styles.statLabel,
-            { fontSize: isSmallScreen ? scaleFont(10) : scaleFont(12) }
-          ]}>
-            Today's earnings
-          </Text>
-          <View style={styles.statValueRow}>
-            <Ionicons 
-              name="cash-outline" 
-              size={isSmallScreen ? 14 : 16} 
-              color="#fff" 
-            />
-            <Text style={[
-              styles.statValue,
-              { fontSize: isSmallScreen ? scaleFont(13) : scaleFont(15) }
-            ]}>
-              NGN 0
+{/* Active Bonuses */}
+<View style={[styles.prizeCard, { padding: isSmallScreen ? 12 : 14 }]}>
+  <Text style={[styles.sectionTitle, { fontSize: isSmallScreen ? scaleFont(14) : scaleFont(16) }]}>
+    Active Bonuses ({data?.active_bonuses?.length || 0})
+  </Text>
+  {data?.active_bonuses?.map((bonusData, index) => {
+    const bonus = bonusData.bonus;
+    const progress = (bonusData.current_value / bonus.target_value) * 100;
+    
+    return (
+      <View key={index} style={[styles.bonusItem, { marginTop: index === 0 ? 12 : 8 }]}>
+        <View style={styles.bonusHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.bonusName, { fontSize: isSmallScreen ? scaleFont(13) : scaleFont(14) }]}>
+              {bonus.name}
+            </Text>
+            <Text style={[styles.bonusDescription, { fontSize: isSmallScreen ? scaleFont(10) : scaleFont(11) }]}>
+              {bonus.description}
             </Text>
           </View>
-        </TouchableOpacity>
-
-        <View style={[
-          styles.statBox, 
-          { 
-            width: dynamicStyles.statBoxWidth,
-            height: dynamicStyles.statBoxHeight,
-            padding: isSmallScreen ? 10 : 12
-          }
-        ]}>
-          <Text style={[
-            styles.statLabel,
-            { fontSize: isSmallScreen ? scaleFont(10) : scaleFont(12) }
-          ]}>
-            Acceptance rate
-          </Text>
-          <View style={styles.statValueRow}>
-            <MaterialCommunityIcons 
-              name="chart-bar" 
-              size={isSmallScreen ? 14 : 16} 
-              color="#fff" 
-            />
-            <Text style={[
-              styles.statValue,
-              { fontSize: isSmallScreen ? scaleFont(13) : scaleFont(15) }
-            ]}>
-              27%
+          <View style={styles.bonusReward}>
+            <Text style={[styles.bonusAmount, { fontSize: isSmallScreen ? scaleFont(14) : scaleFont(16) }]}>
+              ₦{parseFloat(bonus.reward_amount).toLocaleString()}
             </Text>
           </View>
         </View>
-
-        <View style={[
-          styles.statBox, 
-          { 
-            width: dynamicStyles.statBoxWidth,
-            height: dynamicStyles.statBoxHeight,
-            padding: isSmallScreen ? 10 : 12
-          }
-        ]}>
-          <Text style={[
-            styles.statLabel,
-            { fontSize: isSmallScreen ? scaleFont(10) : scaleFont(12) }
-          ]}>
-            Trip bonus
-          </Text>
-          <View style={styles.statValueRow}>
-            <Ionicons 
-              name="gift-outline" 
-              size={isSmallScreen ? 14 : 16} 
-              color="#fff" 
-            />
-            <Text style={[
-              styles.statValue,
-              { fontSize: isSmallScreen ? scaleFont(13) : scaleFont(15) }
-            ]}>
-              NGN 0
-            </Text>
+        <View style={styles.bonusProgress}>
+          <View style={styles.bonusProgressBar}>
+            <View style={[styles.bonusProgressFill, { width: `${Math.min(progress, 100)}%` }]} />
           </View>
+          <Text style={[styles.bonusProgressText, { fontSize: isSmallScreen ? scaleFont(10) : scaleFont(11) }]}>
+            {bonusData.current_value}/{bonus.target_value}
+          </Text>
         </View>
-
-        {isSmallScreen ? null : ( // Hide some stats on very small screens
-          <>
-            <View style={[
-              styles.statBox, 
-              { 
-                width: dynamicStyles.statBoxWidth,
-                height: dynamicStyles.statBoxHeight,
-                padding: isSmallScreen ? 10 : 12
-              }
-            ]}>
-              <Text style={[
-                styles.statLabel,
-                { fontSize: isSmallScreen ? scaleFont(10) : scaleFont(12) }
-              ]}>
-                Weekly trips
-              </Text>
-              <View style={styles.statValueRow}>
-                <MaterialCommunityIcons 
-                  name="car" 
-                  size={isSmallScreen ? 14 : 16} 
-                  color="#fff" 
-                />
-                <Text style={[
-                  styles.statValue,
-                  { fontSize: isSmallScreen ? scaleFont(13) : scaleFont(15) }
-                ]}>
-                  12
-                </Text>
-              </View>
-            </View>
-
-            <View style={[
-              styles.statBox, 
-              { 
-                width: dynamicStyles.statBoxWidth,
-                height: dynamicStyles.statBoxHeight,
-                padding: isSmallScreen ? 10 : 12
-              }
-            ]}>
-              <Text style={[
-                styles.statLabel,
-                { fontSize: isSmallScreen ? scaleFont(10) : scaleFont(12) }
-              ]}>
-                Customer rating
-              </Text>
-              <View style={styles.statValueRow}>
-                <FontAwesome5 
-                  name="star" 
-                  size={isSmallScreen ? 12 : 14} 
-                  color="#fff" 
-                />
-                <Text style={[
-                  styles.statValue,
-                  { fontSize: isSmallScreen ? scaleFont(13) : scaleFont(15) }
-                ]}>
-                  4.8
-                </Text>
-              </View>
-            </View>
-          </>
-        )}
-      </ScrollView>
+      </View>
+    );
+  })}
+</View>
 
       {/* Tier Rewards Modal */}
       <Modal
@@ -712,11 +598,16 @@ export default function Leaderboard() {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#000",
+  },
   container: {
     flex: 1,
     backgroundColor: "#000",
@@ -1011,6 +902,78 @@ tierGridBenefit: {
   fontSize: 11,
   lineHeight: 15,
   opacity: 0.9,
+},
+
+sectionTitle: {
+  color: "#FFC107",
+  fontWeight: "700",
+  marginBottom: 4,
+},
+tripStatsGrid: {
+  flexDirection: "row",
+  justifyContent: "space-around",
+  marginTop: 8,
+},
+tripStatItem: {
+  alignItems: "center",
+},
+tripStatValue: {
+  color: "#fff",
+  fontWeight: "700",
+  marginTop: 8,
+},
+tripStatLabel: {
+  color: "#aaa",
+  marginTop: 4,
+},
+bonusItem: {
+  backgroundColor: "#001B2E",
+  borderRadius: 8,
+  padding: 12,
+  borderLeftWidth: 3,
+  borderLeftColor: "#50FF66",
+},
+bonusHeader: {
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  marginBottom: 8,
+},
+bonusName: {
+  color: "#fff",
+  fontWeight: "700",
+},
+bonusDescription: {
+  color: "#aaa",
+  marginTop: 2,
+  lineHeight: 14,
+},
+bonusReward: {
+  backgroundColor: "#50FF66",
+  paddingHorizontal: 8,
+  paddingVertical: 4,
+  borderRadius: 6,
+},
+bonusAmount: {
+  color: "#000",
+  fontWeight: "700",
+},
+bonusProgress: {
+  gap: 6,
+},
+bonusProgressBar: {
+  height: 4,
+  backgroundColor: "#001B2E",
+  borderRadius: 10,
+  overflow: "hidden",
+},
+bonusProgressFill: {
+  height: 4,
+  backgroundColor: "#50FF66",
+},
+bonusProgressText: {
+  color: "#aaa",
+  fontSize: 10,
 },
 
 });
