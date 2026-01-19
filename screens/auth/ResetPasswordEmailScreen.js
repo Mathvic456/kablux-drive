@@ -1,8 +1,4 @@
-import { useForgotPassword } from "../../services/forgotPassword.service";
-import { FontAwesome, Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useState } from "react";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -10,10 +6,21 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  SafeAreaView,
+  StatusBar,
+  Dimensions,
+  Platform
 } from "react-native";
+import { FontAwesome, Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+import { useForgotPassword } from "../../services/forgotPassword.service";
 import Logo from '../../assets/Logo.png';
 import CentralModal from '../components/CentralModal';
+
+const { width, height } = Dimensions.get('window');
 
 export default function ResetPasswordEmailScreen() {
   const navigation = useNavigation();
@@ -22,6 +29,17 @@ export default function ResetPasswordEmailScreen() {
   const [emailError, setEmailError] = useState("");
   const forgotPassword = useForgotPassword();
   
+  // Responsive scaling functions
+  const scaleFont = (size) => {
+    const scaleFactor = width / 375;
+    return Math.round(size * Math.min(scaleFactor, 1.3));
+  };
+
+  const scaleSize = (size) => {
+    const scaleFactor = width / 375;
+    return Math.round(size * Math.min(scaleFactor, 1.2));
+  };
+
   const validateEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
@@ -43,7 +61,6 @@ export default function ResetPasswordEmailScreen() {
     try {
       await forgotPassword.mutateAsync({ email });
       await AsyncStorage.setItem("forgotPasswordEmail", email);
-      console.log("📩 Email saved for OTP verification:", email);
       setShowModal(true);
     } catch (error) {
       const errorMessage = 
@@ -68,91 +85,186 @@ export default function ResetPasswordEmailScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.banner} />
+    <SafeAreaView style={styles.mainContainer}>
+      <StatusBar barStyle="light-content" backgroundColor="#0B2633" />
+      
+      <View style={styles.container}>
+        <View style={[
+          styles.banner,
+          { height: Math.max(200, height * 0.25) }
+        ]} />
 
-      <View style={styles.card}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={22} color="#fff" />
-        </TouchableOpacity>
-
-        <View style={styles.LogoContainer}>
-          <Image source={Logo} style={styles.Logoicon} />
-        </View>
-
-        <View style={styles.envelopeContainer}>
-          <FontAwesome name="envelope" size={24} color="#fcbf24" />
-        </View>
-
-        <View style={styles.bottomSection}>
-          <Text style={styles.title}>Reset Password</Text>
-          <Text style={styles.subtitle}>
-            Enter your email address and we'll send you a verification code
-          </Text>
-
-          <View style={styles.inputContainer}>
-            <FontAwesome 
-              name="envelope" 
-              size={20} 
-              color="#aaa" 
-              style={styles.inputIcon} 
+        <View style={[
+          styles.card,
+          { 
+            paddingHorizontal: Math.max(20, width * 0.05),
+            paddingTop: Math.max(20, height * 0.02),
+            paddingBottom: Math.max(30, height * 0.03)
+          }
+        ]}>
+          <TouchableOpacity 
+            style={styles.backButton} 
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.7}
+          >
+            <Ionicons 
+              name="arrow-back" 
+              size={scaleSize(22)} 
+              color="#fff" 
             />
-            <TextInput
-              style={styles.input}
-              placeholder="Email Address"
-              placeholderTextColor="#aaa"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={handleEmailChange}
-              editable={!forgotPassword.isPending}
+          </TouchableOpacity>
+
+          <View style={styles.logoContainer}>
+            <Image 
+              source={Logo} 
+              style={[
+                styles.logoIcon,
+                {
+                  width: scaleSize(130),
+                  height: scaleSize(100)
+                }
+              ]} 
+              resizeMode="contain"
             />
           </View>
 
-          {emailError ? (
-            <Text style={styles.errorText}>{emailError}</Text>
-          ) : null}
+          <View style={[
+            styles.envelopeContainer,
+            {
+              width: scaleSize(50),
+              height: scaleSize(50),
+              borderRadius: scaleSize(25),
+              marginTop: scaleSize(30)
+            }
+          ]}>
+            <FontAwesome 
+              name="envelope" 
+              size={scaleSize(24)} 
+              color="#fcbf24" 
+            />
+          </View>
 
-          <TouchableOpacity 
-            style={[
-              styles.proceedButton,
-              (!email.trim() || forgotPassword.isPending) && styles.disabledButton
-            ]} 
-            onPress={handleProceed}
-            disabled={!email.trim() || forgotPassword.isPending}
-          >
-            {forgotPassword.isPending ? (
-              <ActivityIndicator color="#000" />
-            ) : (
-              <Text style={styles.proceedButtonText}>Send Code</Text>
-            )}
-          </TouchableOpacity>        
+          <View style={[
+            styles.bottomSection,
+            { paddingTop: scaleSize(40) }
+          ]}>
+            <Text style={[
+              styles.title,
+              { fontSize: scaleFont(24) }
+            ]}>
+              Reset Password
+            </Text>
+            
+            <Text style={[
+              styles.subtitle,
+              { 
+                fontSize: scaleFont(14),
+                marginBottom: scaleSize(30)
+              }
+            ]}>
+              Enter your email address and we'll send you a verification code
+            </Text>
+
+            <View style={[
+              styles.inputContainer,
+              { 
+                height: scaleSize(50),
+                borderRadius: scaleSize(10),
+                borderWidth: 2,
+                marginBottom: 5
+              }
+            ]}>
+              <FontAwesome 
+                name="envelope" 
+                size={scaleSize(20)} 
+                color="#aaa" 
+                style={styles.inputIcon} 
+              />
+              
+              <TextInput
+                style={[
+                  styles.input,
+                  { fontSize: scaleFont(14) }
+                ]}
+                placeholder="Email Address"
+                placeholderTextColor="#aaa"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                value={email}
+                onChangeText={handleEmailChange}
+                editable={!forgotPassword.isPending}
+                returnKeyType="done"
+                onSubmitEditing={handleProceed}
+              />
+            </View>
+
+            {emailError ? (
+              <Text style={[
+                styles.errorText,
+                { 
+                  fontSize: scaleFont(12),
+                  marginBottom: scaleSize(10)
+                }
+              ]}>
+                {emailError}
+              </Text>
+            ) : null}
+
+            <TouchableOpacity 
+              style={[
+                styles.proceedButton,
+                (!email.trim() || forgotPassword.isPending) && styles.disabledButton,
+                { 
+                  paddingVertical: scaleSize(15),
+                  marginTop: scaleSize(20),
+                  minHeight: scaleSize(50)
+                }
+              ]} 
+              onPress={handleProceed}
+              disabled={!email.trim() || forgotPassword.isPending}
+              activeOpacity={0.8}
+            >
+              {forgotPassword.isPending ? (
+                <ActivityIndicator color="#000" size="small" />
+              ) : (
+                <Text style={[
+                  styles.proceedButtonText,
+                  { fontSize: scaleFont(16) }
+                ]}>
+                  Send Code
+                </Text>
+              )}
+            </TouchableOpacity>        
+          </View>
         </View>
-      </View>
 
-      <CentralModal
-        visible={showModal}
-        onClose={() => setShowModal(false)}
-        title="Code Sent!"
-        subText={`A verification code has been sent to\n${email}\n\nCheck your email and enter the code to continue.`}
-        icon="mail"
-        confirmText="Continue"
-        closeText=""
-        onConfirm={handleModalContinue}
-        confirmButtonColor="#fcbf24"
-        themeColor="#4CAF50"
-      />
-    </View>
+        <CentralModal
+          visible={showModal}
+          onClose={() => setShowModal(false)}
+          title="Code Sent!"
+          subText={`A verification code has been sent to\n${email}\n\nCheck your email and enter the code to continue.`}
+          icon="mail"
+          confirmText="Continue"
+          closeText=""
+          onConfirm={handleModalContinue}
+          confirmButtonColor="#fcbf24"
+          themeColor="#4CAF50"
+        />
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  mainContainer: {
+    flex: 1,
+    backgroundColor: "#000",
+  },
   container: { 
     flex: 1, 
     backgroundColor: "#000" 
   },
-  banner: { 
-    height: 200, 
+  banner: {
     backgroundColor: "#0B2633", 
     borderBottomLeftRadius: 40, 
     borderBottomRightRadius: 40 
@@ -163,82 +275,76 @@ const styles = StyleSheet.create({
     backgroundColor: "#000", 
     borderTopLeftRadius: 40, 
     borderTopRightRadius: 40, 
-    padding: 30, 
-    width: '95%', 
-    alignSelf: 'center' 
+    width: '100%', 
+    alignSelf: 'center',
+    maxWidth: 500,
   },
-  LogoContainer: {
+  backButton: {
+    flexDirection: "row",
     alignItems: "center",
+    marginBottom: Math.max(10, height * 0.01),
+    padding: Math.max(5, width * 0.01),
   },
-  Logoicon: {
-    width: 130,
-    height: 100,
-    resizeMode: 'contain',
+  logoContainer: {
+    alignItems: "center",
+    marginBottom: Math.max(10, height * 0.01),
+  },
+  logoIcon: {
     alignSelf: 'center',
   },
   envelopeContainer: {
     backgroundColor: '#FEB91454',
-    borderRadius: 50,
-    marginTop: 30,
-    width: 50,
-    height: 50,
     alignSelf: 'center',
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#fcbf24',
   },
   bottomSection: {
-    flex: 0.6,
     backgroundColor: '#000',
     alignItems: 'center',
-    paddingTop: 40,
+    width: '100%',
   },
   title: {
-    fontSize: 24,
     fontWeight: "bold",
     color: '#fff',
-    marginBottom: 5,
+    marginBottom: Math.max(5, height * 0.01),
+    textAlign: 'center',
   },
   subtitle: {
-    fontSize: 14,
     color: '#aaa',
-    marginBottom: 30,
     textAlign: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: Math.max(20, width * 0.05),
+    lineHeight: Math.max(20, width * 0.053),
   },
   inputContainer: { 
     flexDirection: "row", 
     alignItems: "center", 
     backgroundColor: "#111", 
-    borderRadius: 10, 
-    marginBottom: 5, 
-    paddingHorizontal: 10, 
-    borderWidth: 2, 
+    paddingHorizontal: Math.max(10, width * 0.03), 
     borderColor: '#333', 
     width: '100%' 
   },
   inputIcon: { 
-    marginRight: 10 
+    marginRight: Math.max(8, width * 0.02),
   },
   input: { 
     flex: 1, 
-    color: "#fff", 
-    height: 50 
+    color: "#fff",
+    paddingHorizontal: Math.max(8, width * 0.02),
   },
   errorText: {
     color: '#ff5252',
-    fontSize: 12,
     alignSelf: 'flex-start',
-    marginBottom: 10,
-    marginLeft: 5,
+    marginLeft: Math.max(5, width * 0.01),
+    fontWeight: '500',
   },
   proceedButton: {
     backgroundColor: '#fcbf24',
-    paddingVertical: 15,
-    paddingHorizontal: 80,
     borderRadius: 10,
     width: '100%',
     alignItems: 'center',
-    marginTop: 20,
+    justifyContent: 'center',
   },
   disabledButton: {
     backgroundColor: '#666',
@@ -246,70 +352,8 @@ const styles = StyleSheet.create({
   },
   proceedButtonText: {
     color: '#000',
-    fontSize: 16,
     fontWeight: "bold",
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 20,
-    padding: 30,
-    alignItems: 'center',
-    width: '100%',
-    maxWidth: 350,
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  modalIconContainer: {
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: '#fff',
-    marginBottom: 15,
-    textAlign: 'center',
-  },
-  modalMessage: {
-    fontSize: 16,
-    color: '#ccc',
-    textAlign: 'center',
-    marginBottom: 10,
-    lineHeight: 22,
-  },
-  emailText: {
-    color: '#fcbf24',
-    fontWeight: 'bold',
-  },
-  modalSubtext: {
-    fontSize: 14,
-    color: '#aaa',
-    textAlign: 'center',
-    marginBottom: 25,
-    lineHeight: 20,
-  },
-  modalButton: {
-    backgroundColor: '#fcbf24',
-    paddingVertical: 12,
-    paddingHorizontal: 40,
-    borderRadius: 10,
-    width: '100%',
-    alignItems: 'center',
-  },
-  modalButtonText: {
-    color: '#000',
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  backButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 10,
   },
 });
+
+export default ResetPasswordEmailScreen;

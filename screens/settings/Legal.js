@@ -1,4 +1,15 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  TouchableOpacity, 
+  ScrollView,
+  SafeAreaView,
+  StatusBar,
+  Platform,
+  useWindowDimensions,
+  Dimensions 
+} from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { useState } from 'react';
@@ -6,6 +17,14 @@ import { useState } from 'react';
 export default function Legal() {
     const navigation = useNavigation();
     const [activeSection, setActiveSection] = useState('terms');
+    
+    const { width, height } = useWindowDimensions();
+    const isSmallScreen = width < 375; // iPhone SE, small Android
+    const isMediumScreen = width >= 375 && width <= 414; // iPhone 12-15, most Android
+    const isLargeScreen = width > 414; // iPhone Plus/Pro Max
+    const isTablet = width > 768;
+    const screenHeight = Dimensions.get('window').height;
+    const isShortScreen = screenHeight < 700; // Small height devices
 
     const goBack = () => {
         navigation.goBack();
@@ -168,94 +187,200 @@ The deductible for comprehensive and collision coverage is $2,500, which may be 
     };
 
     return (
-        <View style={styles.container}>
-            {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity onPress={goBack}>
-                    <Ionicons name="arrow-back-circle" size={32} color="white" />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Legal</Text>
-                <View style={{ width: 32 }}></View>
-            </View>
+        <SafeAreaView style={styles.safeArea}>
+            <StatusBar barStyle="light-content" backgroundColor="black" />
+            <View style={[
+                styles.container,
+                isShortScreen && styles.containerShort
+            ]}>
+                {/* Header */}
+                <View style={[
+                    styles.header,
+                    isSmallScreen && styles.headerSmall,
+                    isLargeScreen && styles.headerLarge,
+                    isTablet && styles.headerTablet,
+                    isShortScreen && styles.headerShort
+                ]}>
+                    <TouchableOpacity 
+                        onPress={goBack}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                        <Ionicons 
+                            name="arrow-back-circle" 
+                            size={isSmallScreen ? 28 : isShortScreen ? 26 : 32} 
+                            color="white" 
+                        />
+                    </TouchableOpacity>
+                    <Text style={[
+                        styles.headerTitle,
+                        isSmallScreen && styles.headerTitleSmall,
+                        isLargeScreen && styles.headerTitleLarge,
+                        isTablet && styles.headerTitleTablet,
+                        isShortScreen && styles.headerTitleShort
+                    ]}>Legal</Text>
+                    <View style={{ width: isSmallScreen ? 28 : 32 }}></View>
+                </View>
 
-            {/* Tabs - Fixed Layout */}
-            <View style={styles.tabsContainer}>
+                {/* Tabs - Fixed Layout */}
+                <View style={[
+                    styles.tabsContainer,
+                    isSmallScreen && styles.tabsContainerSmall,
+                    isLargeScreen && styles.tabsContainerLarge,
+                    isTablet && styles.tabsContainerTablet,
+                    isShortScreen && styles.tabsContainerShort
+                ]}>
+                    <ScrollView 
+                        horizontal 
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={[
+                            styles.tabsContent,
+                            isShortScreen && styles.tabsContentShort
+                        ]}
+                    >
+                        {Object.keys(legalSections).map((sectionKey) => (
+                            <TouchableOpacity
+                                key={sectionKey}
+                                style={[
+                                    styles.tab,
+                                    isSmallScreen && styles.tabSmall,
+                                    isLargeScreen && styles.tabLarge,
+                                    isTablet && styles.tabTablet,
+                                    isShortScreen && styles.tabShort,
+                                    activeSection === sectionKey && styles.tabActive
+                                ]}
+                                onPress={() => setActiveSection(sectionKey)}
+                            >
+                                <Text style={[
+                                    styles.tabText,
+                                    isSmallScreen && styles.tabTextSmall,
+                                    isLargeScreen && styles.tabTextLarge,
+                                    isTablet && styles.tabTextTablet,
+                                    isShortScreen && styles.tabTextShort,
+                                    activeSection === sectionKey && styles.tabTextActive
+                                ]}>
+                                    {getShortTitle(legalSections[sectionKey].title)}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                </View>
+
+                {/* Main Content - Scrollable */}
                 <ScrollView 
-                    horizontal 
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.tabsContent}
+                    style={styles.mainContent}
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={[
+                        styles.contentContainer,
+                        isSmallScreen && styles.contentContainerSmall,
+                        isLargeScreen && styles.contentContainerLarge,
+                        isTablet && styles.contentContainerTablet,
+                        isShortScreen && styles.contentContainerShort
+                    ]}
                 >
-                    {Object.keys(legalSections).map((sectionKey) => (
-                        <TouchableOpacity
-                            key={sectionKey}
-                            style={[
-                                styles.tab,
-                                activeSection === sectionKey && styles.tabActive
-                            ]}
-                            onPress={() => setActiveSection(sectionKey)}
-                        >
-                            <Text style={[
-                                styles.tabText,
-                                activeSection === sectionKey && styles.tabTextActive
-                            ]}>
-                                {getShortTitle(legalSections[sectionKey].title)}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
-            </View>
-
-            {/* Main Content - Scrollable */}
-            <ScrollView 
-                style={styles.mainContent}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.contentContainer}
-            >
-                <View style={styles.contentCard}>
-                    <Text style={styles.sectionTitle}>
-                        {legalSections[activeSection].title}
-                    </Text>
-                    <Text style={styles.contentText}>
-                        {legalSections[activeSection].content}
-                    </Text>
-                </View>
-
-                {/* Additional Legal Information */}
-                <View style={styles.legalNotice}>
-                    <Ionicons name="warning-outline" size={20} color="#FFC107" />
-                    <Text style={styles.legalNoticeText}>
-                        These terms are legally binding. By using KabLux Driver services, you agree to comply with all applicable terms and conditions.
-                    </Text>
-                </View>
-
-                {/* Contact Legal */}
-                <View style={styles.contactCard}>
-                    <Text style={styles.contactTitle}>Legal Questions?</Text>
-                    <Text style={styles.contactText}>
-                        For legal inquiries or clarification on any terms, please contact our legal department:
-                    </Text>
-                    <View style={styles.contactInfo}>
-                        <Text style={styles.contactDetail}>📧 legal@kablux.com</Text>
-                        <Text style={styles.contactDetail}>📞 +1 (555) 123-LEGAL</Text>
-                        <Text style={styles.contactDetail}>📍 123 Legal Lane, Suite 100, Business City</Text>
-                    </View>
-                </View>
-
-                {/* Agreement Section */}
-                <View style={styles.agreementSection}>
-                    <Text style={styles.agreementTitle}>Driver Agreement</Text>
-                    <Text style={styles.agreementText}>
-                        By continuing to use the KabLux Driver app, you acknowledge that you have read, understood, and agree to be bound by all the terms and conditions outlined in these legal documents.
-                    </Text>
-                    <View style={styles.agreementStatus}>
-                        <Ionicons name="checkmark-circle" size={20} color="#FFC107" />
-                        <Text style={styles.agreementStatusText}>
-                            Last accepted: December 15, 2024
+                    <View style={[
+                        styles.contentCard,
+                        isSmallScreen && styles.contentCardSmall,
+                        isLargeScreen && styles.contentCardLarge,
+                        isTablet && styles.contentCardTablet,
+                        isShortScreen && styles.contentCardShort
+                    ]}>
+                        <Text style={[
+                            styles.sectionTitle,
+                            isSmallScreen && styles.sectionTitleSmall,
+                            isLargeScreen && styles.sectionTitleLarge,
+                            isTablet && styles.sectionTitleTablet,
+                            isShortScreen && styles.sectionTitleShort
+                        ]}>
+                            {legalSections[activeSection].title}
+                        </Text>
+                        <Text style={[
+                            styles.contentText,
+                            isSmallScreen && styles.contentTextSmall,
+                            isLargeScreen && styles.contentTextLarge,
+                            isTablet && styles.contentTextTablet,
+                            isShortScreen && styles.contentTextShort
+                        ]}>
+                            {legalSections[activeSection].content}
                         </Text>
                     </View>
-                </View>
-            </ScrollView>
-        </View>
+
+                    {/* Additional Legal Information */}
+                    <View style={[
+                        styles.legalNotice,
+                        isSmallScreen && styles.legalNoticeSmall,
+                        isLargeScreen && styles.legalNoticeLarge,
+                        isTablet && styles.legalNoticeTablet,
+                        isShortScreen && styles.legalNoticeShort
+                    ]}>
+                        <Ionicons 
+                            name="warning-outline" 
+                            size={isSmallScreen ? 18 : isShortScreen ? 16 : 20} 
+                            color="#FEB914" 
+                        />
+                        <Text style={[
+                            styles.legalNoticeText,
+                            isSmallScreen && styles.legalNoticeTextSmall,
+                            isLargeScreen && styles.legalNoticeTextLarge,
+                            isTablet && styles.legalNoticeTextTablet,
+                            isShortScreen && styles.legalNoticeTextShort
+                        ]}>
+                            These terms are legally binding. By using KabLux Driver services, you agree to comply with all applicable terms and conditions.
+                        </Text>
+                    </View>
+
+                    {/* Contact Legal */}
+                    <View style={[
+                        styles.contactCard,
+                        isSmallScreen && styles.contactCardSmall,
+                        isLargeScreen && styles.contactCardLarge,
+                        isTablet && styles.contactCardTablet,
+                        isShortScreen && styles.contactCardShort
+                    ]}>
+                        <Text style={[
+                            styles.contactTitle,
+                            isSmallScreen && styles.contactTitleSmall,
+                            isLargeScreen && styles.contactTitleLarge,
+                            isTablet && styles.contactTitleTablet,
+                            isShortScreen && styles.contactTitleShort
+                        ]}>Legal Questions?</Text>
+                        <Text style={[
+                            styles.contactText,
+                            isSmallScreen && styles.contactTextSmall,
+                            isLargeScreen && styles.contactTextLarge,
+                            isTablet && styles.contactTextTablet,
+                            isShortScreen && styles.contactTextShort
+                        ]}>
+                            For legal inquiries or clarification on any terms, please contact our legal department:
+                        </Text>
+                        <View style={[
+                            styles.contactInfo,
+                            isSmallScreen && styles.contactInfoSmall,
+                            isLargeScreen && styles.contactInfoLarge,
+                            isShortScreen && styles.contactInfoShort
+                        ]}>
+                            <Text style={[
+                                styles.contactDetail,
+                                isSmallScreen && styles.contactDetailSmall,
+                                isLargeScreen && styles.contactDetailLarge,
+                                isShortScreen && styles.contactDetailShort
+                            ]}>📧 hello@kabluxe.com</Text>
+                            <Text style={[
+                                styles.contactDetail,
+                                isSmallScreen && styles.contactDetailSmall,
+                                isLargeScreen && styles.contactDetailLarge,
+                                isShortScreen && styles.contactDetailShort
+                            ]}>📞 +234 806 026 1407-LEGAL</Text>
+                        </View>
+                    </View>
+                    
+                    {/* Spacer for bottom safe area */}
+                    <View style={[
+                        styles.bottomSpacer,
+                        isShortScreen && styles.bottomSpacerShort
+                    ]} />
+                </ScrollView>
+            </View>
+        </SafeAreaView>
     );
 }
 
@@ -271,58 +396,155 @@ const getShortTitle = (title) => {
     return shortTitles[title] || title;
 }
 
+const { width, height } = Dimensions.get('window');
+
 const styles = StyleSheet.create({
+    safeArea: {
+        flex: 1,
+        backgroundColor: 'black',
+    },
     container: {
         flex: 1,
         backgroundColor: 'black',
-        paddingTop: 50,
+        paddingTop: Platform.OS === 'ios' ? 10 : 20,
+    },
+    containerShort: {
+        paddingTop: Platform.OS === 'ios' ? 5 : 15,
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingBottom: 15,
+        paddingHorizontal: Math.min(width * 0.05, 20),
+        paddingBottom: Math.min(height * 0.015, 15),
         borderBottomWidth: 1,
         borderBottomColor: '#333',
     },
+    headerSmall: {
+        paddingHorizontal: Math.min(width * 0.04, 16),
+        paddingBottom: Math.min(height * 0.012, 12),
+    },
+    headerLarge: {
+        paddingHorizontal: Math.min(width * 0.06, 24),
+        paddingBottom: Math.min(height * 0.018, 18),
+    },
+    headerTablet: {
+        paddingHorizontal: Math.min(width * 0.08, 32),
+        paddingBottom: Math.min(height * 0.02, 20),
+    },
+    headerShort: {
+        paddingHorizontal: Math.min(width * 0.035, 14),
+        paddingBottom: Math.min(height * 0.01, 10),
+    },
     headerTitle: {
         color: 'white',
-        fontSize: 20,
+        fontSize: Math.min(width * 0.055, 24),
         fontWeight: '700',
+    },
+    headerTitleSmall: {
+        fontSize: Math.min(width * 0.052, 20),
+    },
+    headerTitleLarge: {
+        fontSize: Math.min(width * 0.058, 28),
+    },
+    headerTitleTablet: {
+        fontSize: Math.min(width * 0.06, 32),
+    },
+    headerTitleShort: {
+        fontSize: Math.min(width * 0.048, 18),
     },
     tabsContainer: {
         borderBottomWidth: 1,
         borderBottomColor: '#333',
         backgroundColor: 'black',
-        height: 60,
+        height: Math.min(height * 0.065, 60),
         justifyContent: 'center',
+    },
+    tabsContainerSmall: {
+        height: Math.min(height * 0.06, 56),
+    },
+    tabsContainerLarge: {
+        height: Math.min(height * 0.07, 64),
+    },
+    tabsContainerTablet: {
+        height: Math.min(height * 0.075, 68),
+    },
+    tabsContainerShort: {
+        height: Math.min(height * 0.055, 52),
     },
     tabsContent: {
-        paddingHorizontal: 15,
+        paddingHorizontal: Math.min(width * 0.04, 16),
         alignItems: 'center',
+    },
+    tabsContentShort: {
+        paddingHorizontal: Math.min(width * 0.03, 12),
     },
     tab: {
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
-        marginRight: 8,
-        backgroundColor: '#04223A',
+        paddingHorizontal: Math.min(width * 0.035, 16),
+        paddingVertical: Math.min(height * 0.01, 8),
+        borderRadius: Math.min(width * 0.045, 20),
+        marginRight: Math.min(width * 0.015, 8),
+        backgroundColor: '#181818',
         borderWidth: 1,
         borderColor: 'transparent',
-        minWidth: 80,
+        minWidth: Math.min(width * 0.2, 80),
         alignItems: 'center',
         justifyContent: 'center',
+        minHeight: Math.min(height * 0.035, 32),
+    },
+    tabSmall: {
+        paddingHorizontal: Math.min(width * 0.03, 14),
+        paddingVertical: Math.min(height * 0.008, 6),
+        borderRadius: Math.min(width * 0.04, 18),
+        marginRight: Math.min(width * 0.012, 6),
+        minWidth: Math.min(width * 0.18, 70),
+        minHeight: Math.min(height * 0.032, 28),
+    },
+    tabLarge: {
+        paddingHorizontal: Math.min(width * 0.04, 18),
+        paddingVertical: Math.min(height * 0.012, 10),
+        borderRadius: Math.min(width * 0.05, 22),
+        marginRight: Math.min(width * 0.018, 10),
+        minWidth: Math.min(width * 0.22, 90),
+        minHeight: Math.min(height * 0.038, 36),
+    },
+    tabTablet: {
+        paddingHorizontal: Math.min(width * 0.045, 20),
+        paddingVertical: Math.min(height * 0.014, 12),
+        borderRadius: Math.min(width * 0.055, 25),
+        marginRight: Math.min(width * 0.02, 12),
+        minWidth: Math.min(width * 0.24, 100),
+        minHeight: Math.min(height * 0.042, 40),
+    },
+    tabShort: {
+        paddingHorizontal: Math.min(width * 0.025, 10),
+        paddingVertical: Math.min(height * 0.007, 5),
+        borderRadius: Math.min(width * 0.035, 16),
+        marginRight: Math.min(width * 0.01, 4),
+        minWidth: Math.min(width * 0.16, 60),
+        minHeight: Math.min(height * 0.03, 26),
     },
     tabActive: {
-        backgroundColor: '#FFC107',
-        borderColor: '#FFC107',
+        backgroundColor: '#FEB914',
+        borderColor: '#FEB914',
     },
     tabText: {
-        color: '#FFC107',
-        fontSize: 13,
+        color: '#FEB914',
+        fontSize: Math.min(width * 0.035, 14),
         fontWeight: '600',
         textAlign: 'center',
+    },
+    tabTextSmall: {
+        fontSize: Math.min(width * 0.033, 12),
+    },
+    tabTextLarge: {
+        fontSize: Math.min(width * 0.037, 16),
+    },
+    tabTextTablet: {
+        fontSize: Math.min(width * 0.04, 18),
+    },
+    tabTextShort: {
+        fontSize: Math.min(width * 0.031, 11),
     },
     tabTextActive: {
         color: '#000',
@@ -332,108 +554,273 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     contentContainer: {
-        padding: 20,
-        paddingBottom: 40,
+        padding: Math.min(width * 0.05, 20),
+        paddingBottom: Math.min(height * 0.05, 40),
+    },
+    contentContainerSmall: {
+        padding: Math.min(width * 0.04, 16),
+        paddingBottom: Math.min(height * 0.04, 32),
+    },
+    contentContainerLarge: {
+        padding: Math.min(width * 0.06, 24),
+        paddingBottom: Math.min(height * 0.06, 48),
+    },
+    contentContainerTablet: {
+        padding: Math.min(width * 0.08, 32),
+        paddingBottom: Math.min(height * 0.08, 64),
+        maxWidth: 800,
+        alignSelf: 'center',
+        width: '100%',
+    },
+    contentContainerShort: {
+        padding: Math.min(width * 0.035, 14),
+        paddingBottom: Math.min(height * 0.03, 24),
     },
     contentCard: {
-        backgroundColor: '#04223A',
+        backgroundColor: '#181818',
         borderWidth: 1,
-        borderColor: '#FFC107',
-        borderRadius: 16,
-        padding: 20,
-        marginBottom: 20,
+        borderColor: '#FEB914',
+        borderRadius: Math.min(width * 0.04, 16),
+        padding: Math.min(width * 0.05, 20),
+        marginBottom: Math.min(height * 0.025, 20),
+    },
+    contentCardSmall: {
+        borderRadius: Math.min(width * 0.035, 14),
+        padding: Math.min(width * 0.04, 16),
+        marginBottom: Math.min(height * 0.02, 16),
+    },
+    contentCardLarge: {
+        borderRadius: Math.min(width * 0.045, 18),
+        padding: Math.min(width * 0.06, 24),
+        marginBottom: Math.min(height * 0.03, 24),
+    },
+    contentCardTablet: {
+        borderRadius: Math.min(width * 0.05, 20),
+        padding: Math.min(width * 0.08, 32),
+        marginBottom: Math.min(height * 0.04, 32),
+    },
+    contentCardShort: {
+        borderRadius: Math.min(width * 0.03, 12),
+        padding: Math.min(width * 0.035, 14),
+        marginBottom: Math.min(height * 0.015, 12),
     },
     sectionTitle: {
-        color: '#FFC107',
-        fontSize: 22,
+        color: '#FEB914',
+        fontSize: Math.min(width * 0.055, 24),
         fontWeight: '700',
-        marginBottom: 16,
+        marginBottom: Math.min(height * 0.02, 16),
         textAlign: 'center',
+    },
+    sectionTitleSmall: {
+        fontSize: Math.min(width * 0.052, 20),
+        marginBottom: Math.min(height * 0.016, 12),
+    },
+    sectionTitleLarge: {
+        fontSize: Math.min(width * 0.058, 28),
+        marginBottom: Math.min(height * 0.024, 20),
+    },
+    sectionTitleTablet: {
+        fontSize: Math.min(width * 0.062, 32),
+        marginBottom: Math.min(height * 0.03, 24),
+    },
+    sectionTitleShort: {
+        fontSize: Math.min(width * 0.048, 18),
+        marginBottom: Math.min(height * 0.012, 10),
     },
     contentText: {
         color: 'white',
-        fontSize: 14,
-        lineHeight: 22,
+        fontSize: Math.min(width * 0.038, 15),
+        lineHeight: Math.min(width * 0.05, 24),
+    },
+    contentTextSmall: {
+        fontSize: Math.min(width * 0.036, 14),
+        lineHeight: Math.min(width * 0.048, 22),
+    },
+    contentTextLarge: {
+        fontSize: Math.min(width * 0.04, 16),
+        lineHeight: Math.min(width * 0.052, 26),
+    },
+    contentTextTablet: {
+        fontSize: Math.min(width * 0.045, 18),
+        lineHeight: Math.min(width * 0.058, 28),
+    },
+    contentTextShort: {
+        fontSize: Math.min(width * 0.034, 13),
+        lineHeight: Math.min(width * 0.045, 20),
     },
     legalNotice: {
         flexDirection: 'row',
         backgroundColor: 'rgba(255, 193, 7, 0.1)',
-        borderLeftWidth: 4,
-        borderLeftColor: '#FFC107',
-        padding: 16,
-        borderRadius: 8,
-        marginBottom: 20,
+        borderLeftWidth: Math.min(width * 0.01, 4),
+        borderLeftColor: '#FEB914',
+        padding: Math.min(width * 0.04, 16),
+        borderRadius: Math.min(width * 0.025, 8),
+        marginBottom: Math.min(height * 0.025, 20),
         alignItems: 'flex-start',
     },
+    legalNoticeSmall: {
+        padding: Math.min(width * 0.035, 14),
+        borderRadius: Math.min(width * 0.02, 6),
+        marginBottom: Math.min(height * 0.02, 16),
+    },
+    legalNoticeLarge: {
+        padding: Math.min(width * 0.045, 18),
+        borderRadius: Math.min(width * 0.03, 10),
+        marginBottom: Math.min(height * 0.03, 24),
+    },
+    legalNoticeTablet: {
+        padding: Math.min(width * 0.06, 24),
+        borderRadius: Math.min(width * 0.035, 12),
+        marginBottom: Math.min(height * 0.04, 32),
+    },
+    legalNoticeShort: {
+        padding: Math.min(width * 0.03, 12),
+        borderRadius: Math.min(width * 0.018, 6),
+        marginBottom: Math.min(height * 0.015, 12),
+        borderLeftWidth: Math.min(width * 0.008, 3),
+    },
     legalNoticeText: {
-        color: '#FFC107',
-        fontSize: 14,
-        lineHeight: 20,
-        marginLeft: 10,
+        color: '#FEB914',
+        fontSize: Math.min(width * 0.038, 14),
+        lineHeight: Math.min(width * 0.048, 22),
+        marginLeft: Math.min(width * 0.025, 10),
         flex: 1,
+    },
+    legalNoticeTextSmall: {
+        fontSize: Math.min(width * 0.036, 13),
+        lineHeight: Math.min(width * 0.045, 20),
+        marginLeft: Math.min(width * 0.02, 8),
+    },
+    legalNoticeTextLarge: {
+        fontSize: Math.min(width * 0.04, 16),
+        lineHeight: Math.min(width * 0.05, 24),
+        marginLeft: Math.min(width * 0.03, 12),
+    },
+    legalNoticeTextTablet: {
+        fontSize: Math.min(width * 0.045, 18),
+        lineHeight: Math.min(width * 0.055, 26),
+        marginLeft: Math.min(width * 0.035, 14),
+    },
+    legalNoticeTextShort: {
+        fontSize: Math.min(width * 0.034, 12),
+        lineHeight: Math.min(width * 0.042, 18),
+        marginLeft: Math.min(width * 0.018, 6),
     },
     contactCard: {
         backgroundColor: '#04223A',
         borderWidth: 1,
-        borderColor: '#FFC107',
-        borderRadius: 16,
-        padding: 20,
-        marginBottom: 20,
+        borderColor: '#FEB914',
+        borderRadius: Math.min(width * 0.04, 16),
+        padding: Math.min(width * 0.05, 20),
+        marginBottom: Math.min(height * 0.025, 20),
+    },
+    contactCardSmall: {
+        borderRadius: Math.min(width * 0.035, 14),
+        padding: Math.min(width * 0.04, 16),
+        marginBottom: Math.min(height * 0.02, 16),
+    },
+    contactCardLarge: {
+        borderRadius: Math.min(width * 0.045, 18),
+        padding: Math.min(width * 0.06, 24),
+        marginBottom: Math.min(height * 0.03, 24),
+    },
+    contactCardTablet: {
+        borderRadius: Math.min(width * 0.05, 20),
+        padding: Math.min(width * 0.08, 32),
+        marginBottom: Math.min(height * 0.04, 32),
+    },
+    contactCardShort: {
+        borderRadius: Math.min(width * 0.03, 12),
+        padding: Math.min(width * 0.035, 14),
+        marginBottom: Math.min(height * 0.015, 12),
     },
     contactTitle: {
-        color: '#FFC107',
-        fontSize: 18,
+        color: '#FEB914',
+        fontSize: Math.min(width * 0.048, 18),
         fontWeight: '700',
-        marginBottom: 10,
+        marginBottom: Math.min(height * 0.012, 10),
+    },
+    contactTitleSmall: {
+        fontSize: Math.min(width * 0.045, 16),
+        marginBottom: Math.min(height * 0.01, 8),
+    },
+    contactTitleLarge: {
+        fontSize: Math.min(width * 0.05, 20),
+        marginBottom: Math.min(height * 0.015, 12),
+    },
+    contactTitleTablet: {
+        fontSize: Math.min(width * 0.055, 22),
+        marginBottom: Math.min(height * 0.02, 16),
+    },
+    contactTitleShort: {
+        fontSize: Math.min(width * 0.042, 14),
+        marginBottom: Math.min(height * 0.008, 6),
     },
     contactText: {
         color: 'white',
-        fontSize: 14,
-        lineHeight: 20,
-        marginBottom: 15,
+        fontSize: Math.min(width * 0.038, 14),
+        lineHeight: Math.min(width * 0.048, 22),
+        marginBottom: Math.min(height * 0.018, 15),
+    },
+    contactTextSmall: {
+        fontSize: Math.min(width * 0.036, 13),
+        lineHeight: Math.min(width * 0.045, 20),
+        marginBottom: Math.min(height * 0.015, 12),
+    },
+    contactTextLarge: {
+        fontSize: Math.min(width * 0.04, 16),
+        lineHeight: Math.min(width * 0.05, 24),
+        marginBottom: Math.min(height * 0.02, 18),
+    },
+    contactTextTablet: {
+        fontSize: Math.min(width * 0.045, 18),
+        lineHeight: Math.min(width * 0.055, 26),
+        marginBottom: Math.min(height * 0.025, 20),
+    },
+    contactTextShort: {
+        fontSize: Math.min(width * 0.034, 12),
+        lineHeight: Math.min(width * 0.042, 18),
+        marginBottom: Math.min(height * 0.012, 10),
     },
     contactInfo: {
         backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        padding: 15,
-        borderRadius: 8,
+        padding: Math.min(width * 0.04, 15),
+        borderRadius: Math.min(width * 0.025, 8),
+    },
+    contactInfoSmall: {
+        padding: Math.min(width * 0.035, 12),
+        borderRadius: Math.min(width * 0.02, 6),
+    },
+    contactInfoLarge: {
+        padding: Math.min(width * 0.045, 18),
+        borderRadius: Math.min(width * 0.03, 10),
+    },
+    contactInfoShort: {
+        padding: Math.min(width * 0.03, 10),
+        borderRadius: Math.min(width * 0.018, 6),
     },
     contactDetail: {
-        color: '#FFC107',
-        fontSize: 14,
-        marginBottom: 8,
+        color: '#FEB914',
+        fontSize: Math.min(width * 0.038, 14),
+        marginBottom: Math.min(height * 0.01, 8),
         fontWeight: '500',
     },
-    agreementSection: {
-        backgroundColor: '#04223A',
-        borderWidth: 1,
-        borderColor: '#FFC107',
-        borderRadius: 16,
-        padding: 20,
-        marginBottom: 20,
+    contactDetailSmall: {
+        fontSize: Math.min(width * 0.036, 13),
+        marginBottom: Math.min(height * 0.008, 6),
     },
-    agreementTitle: {
-        color: '#FFC107',
-        fontSize: 18,
-        fontWeight: '700',
-        marginBottom: 10,
+    contactDetailLarge: {
+        fontSize: Math.min(width * 0.04, 16),
+        marginBottom: Math.min(height * 0.012, 10),
     },
-    agreementText: {
-        color: 'white',
-        fontSize: 14,
-        lineHeight: 20,
-        marginBottom: 15,
+    contactDetailShort: {
+        fontSize: Math.min(width * 0.034, 12),
+        marginBottom: Math.min(height * 0.006, 4),
     },
-    agreementStatus: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(255, 193, 7, 0.1)',
-        padding: 12,
-        borderRadius: 8,
+    bottomSpacer: {
+        height: Math.min(height * 0.03, 24),
     },
-    agreementStatusText: {
-        color: '#FFC107',
-        fontSize: 14,
-        fontWeight: '600',
-        marginLeft: 8,
+    bottomSpacerShort: {
+        height: Math.min(height * 0.02, 16),
     },
 });

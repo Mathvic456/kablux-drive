@@ -114,12 +114,12 @@ const StatusBadge = () => {
   // State 4: Connected and online
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      {/* <View style={styles.header}>
         <Text style={styles.title}>Go Online</Text>
         <TouchableOpacity style={styles.infoButton}>
           <Ionicons name="information-circle-outline" size={18} color="#888" />
         </TouchableOpacity>
-      </View>
+      </View> */}
       
       <View style={styles.switchContainer}>
         <View style={styles.switchInfo}>

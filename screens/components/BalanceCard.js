@@ -6,7 +6,10 @@ import {
   StyleSheet, 
   ActivityIndicator,
   useWindowDimensions,
-  Dimensions 
+  Dimensions,
+  SafeAreaView,
+  StatusBar,
+  Platform
 } from 'react-native';
 import { MaterialIcons, Entypo, Ionicons, FontAwesome } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -27,16 +30,12 @@ export default function BalanceCard({ balanceData, isLoading, isError }) {
   const [balanceVisible, setBalanceVisible] = useState(false);
   
   const { width, height } = useWindowDimensions();
-  const isSmallScreen = width < 375;
-  const isLargeScreen = width > 414;
+  const isSmallScreen = width < 375; // iPhone SE, small Android
+  const isMediumScreen = width >= 375 && width <= 414; // iPhone 12-15, most Android
+  const isLargeScreen = width > 414; // iPhone Plus/Pro Max
   const isTablet = width > 768;
-  
-  // Calculate responsive sizes
-  const cardPadding = isSmallScreen ? width * 0.04 : width * 0.05;
-  const cardGap = isSmallScreen ? height * 0.03 : height * 0.04;
-  const iconSize = isSmallScreen ? 18 : 20;
-  const balanceFontSize = isSmallScreen ? 24 : 28;
-  const buttonFontSize = isSmallScreen ? 14 : 16;
+  const screenHeight = Dimensions.get('window').height;
+  const isShortScreen = screenHeight < 700; // Small height devices
   
   // No hook call here anymore!
   const balance = balanceData?.balance ?? 0;
@@ -53,11 +52,15 @@ export default function BalanceCard({ balanceData, isLoading, isError }) {
     if (isLoading) {
       return (
         <View style={styles.amountRow}>
-          <ActivityIndicator size={isSmallScreen ? "small" : "large"} color="white" />
+          <ActivityIndicator 
+            size={isSmallScreen ? "small" : isShortScreen ? "small" : "large"} 
+            color="white" 
+          />
           <Text style={[
             styles.loadingText,
             isSmallScreen && styles.loadingTextSmall,
-            isLargeScreen && styles.loadingTextLarge
+            isLargeScreen && styles.loadingTextLarge,
+            isShortScreen && styles.loadingTextShort
           ]}>Fetching Balance...</Text>
         </View>
       );
@@ -69,9 +72,14 @@ export default function BalanceCard({ balanceData, isLoading, isError }) {
           <Text style={[
             styles.errorText,
             isSmallScreen && styles.errorTextSmall,
-            isLargeScreen && styles.errorTextLarge
+            isLargeScreen && styles.errorTextLarge,
+            isShortScreen && styles.errorTextShort
           ]}>Error loading balance</Text>
-          <Entypo name="warning" size={isSmallScreen ? 18 : 22} color="red" />
+          <Entypo 
+            name="warning" 
+            size={isSmallScreen ? 16 : isShortScreen ? 14 : 22} 
+            color="red" 
+          />
         </View>
       );
     }
@@ -83,7 +91,8 @@ export default function BalanceCard({ balanceData, isLoading, isError }) {
             <Text style={[
               styles.amount,
               isSmallScreen && styles.amountSmall,
-              isLargeScreen && styles.amountLarge
+              isLargeScreen && styles.amountLarge,
+              isShortScreen && styles.amountShort
             ]}>
               {formatCurrency(balance)}
             </Text>
@@ -92,7 +101,8 @@ export default function BalanceCard({ balanceData, isLoading, isError }) {
               <Text style={[
                 styles.hiddenText,
                 isSmallScreen && styles.hiddenTextSmall,
-                isLargeScreen && styles.hiddenTextLarge
+                isLargeScreen && styles.hiddenTextLarge,
+                isShortScreen && styles.hiddenTextShort
               ]}>
                 ●●●●●●●●●●
               </Text>
@@ -107,7 +117,7 @@ export default function BalanceCard({ balanceData, isLoading, isError }) {
           >
             <Ionicons 
               name={balanceVisible ? "eye-off-outline" : "eye-outline"} 
-              size={isSmallScreen ? 20 : 24} 
+              size={isSmallScreen ? 18 : isShortScreen ? 16 : 24} 
               color="white" 
             />
           </TouchableOpacity>
@@ -119,33 +129,37 @@ export default function BalanceCard({ balanceData, isLoading, isError }) {
   return (
     <View style={[
       styles.card,
-      {
-        padding: cardPadding,
-        gap: cardGap,
-        borderRadius: isSmallScreen ? 12 : 16,
-        marginHorizontal: isTablet ? 'auto' : 0,
-        maxWidth: isTablet ? 500 : '100%',
-      }
+      isSmallScreen && styles.cardSmall,
+      isLargeScreen && styles.cardLarge,
+      isTablet && styles.cardTablet,
+      isShortScreen && styles.cardShort
     ]}>
       {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.balanceRow}>
+      <View style={[
+        styles.header,
+        isShortScreen && styles.headerShort
+      ]}>
+        <View style={[
+          styles.balanceRow,
+          isShortScreen && styles.balanceRowShort
+        ]}>
           <MaterialIcons 
             name="monetization-on" 
-            size={iconSize} 
+            size={isSmallScreen ? 16 : isShortScreen ? 14 : 20} 
             color="#FFC107" 
           />
           <Text style={[
             styles.balanceLabel,
             isSmallScreen && styles.balanceLabelSmall,
-            isLargeScreen && styles.balanceLabelLarge
+            isLargeScreen && styles.balanceLabelLarge,
+            isShortScreen && styles.balanceLabelShort
           ]}>
             Available Balance
           </Text>
         </View>
         <Entypo 
           name="help-with-circle" 
-          size={isSmallScreen ? 16 : 18} 
+          size={isSmallScreen ? 14 : isShortScreen ? 12 : 18} 
           color="#FFC107" 
         />
       </View>
@@ -157,10 +171,10 @@ export default function BalanceCard({ balanceData, isLoading, isError }) {
         style={[
           styles.button,
           (isLoading || isError) && styles.buttonDisabled,
-          {
-            paddingVertical: isSmallScreen ? 12 : 14,
-            borderRadius: isSmallScreen ? 8 : 10,
-          }
+          isSmallScreen && styles.buttonSmall,
+          isLargeScreen && styles.buttonLarge,
+          isTablet && styles.buttonTablet,
+          isShortScreen && styles.buttonShort
         ]}
         onPress={handleWithdraw}
         disabled={isLoading || isError} 
@@ -169,6 +183,7 @@ export default function BalanceCard({ balanceData, isLoading, isError }) {
           styles.buttonText,
           isSmallScreen && styles.buttonTextSmall,
           isLargeScreen && styles.buttonTextLarge,
+          isShortScreen && styles.buttonTextShort,
           (isLoading || isError) && styles.buttonTextDisabled
         ]}>
           Withdraw
@@ -183,10 +198,38 @@ const { width, height } = Dimensions.get('window');
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#04223A',
-    padding: width * 0.05,
-    gap: height * 0.04,
-    borderRadius: 16,
+    padding: Math.min(width * 0.05, 20),
+    gap: Math.min(height * 0.04, 24),
+    borderRadius: Math.min(width * 0.04, 16),
     width: '100%',
+    borderWidth: 1,
+    borderColor: '#0a3a5a',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  cardSmall: {
+    padding: Math.min(width * 0.04, 16),
+    gap: Math.min(height * 0.03, 20),
+    borderRadius: Math.min(width * 0.035, 14),
+  },
+  cardLarge: {
+    padding: Math.min(width * 0.06, 24),
+    gap: Math.min(height * 0.05, 28),
+    borderRadius: Math.min(width * 0.045, 18),
+  },
+  cardTablet: {
+    maxWidth: 600,
+    alignSelf: 'center',
+    padding: Math.min(width * 0.04, 24),
+    borderRadius: Math.min(width * 0.04, 20),
+  },
+  cardShort: {
+    padding: Math.min(width * 0.035, 14),
+    gap: Math.min(height * 0.025, 18),
+    borderRadius: Math.min(width * 0.03, 12),
   },
   header: {
     flexDirection: 'row',
@@ -194,99 +237,147 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
   },
+  headerShort: {
+    marginBottom: -2,
+  },
   balanceRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: width * 0.015,
+    gap: Math.min(width * 0.015, 8),
+  },
+  balanceRowShort: {
+    gap: Math.min(width * 0.012, 6),
   },
   balanceLabel: {
     color: 'white',
-    fontSize: width * 0.037,
+    fontSize: Math.min(width * 0.037, 16),
     fontWeight: '500',
   },
   balanceLabelSmall: {
-    fontSize: width * 0.035,
+    fontSize: Math.min(width * 0.035, 14),
   },
   balanceLabelLarge: {
-    fontSize: width * 0.04,
+    fontSize: Math.min(width * 0.04, 18),
+  },
+  balanceLabelShort: {
+    fontSize: Math.min(width * 0.033, 13),
   },
   amountRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginVertical: height * 0.02,
+    marginVertical: Math.min(height * 0.01, 8),
     width: '100%',
+    minHeight: Math.min(height * 0.06, 40),
   },
   balanceContainer: {
     flex: 1,
   },
   amount: {
     color: 'white',
-    fontSize: width * 0.07,
+    fontSize: Math.min(width * 0.07, 32),
     fontWeight: '700',
   },
   amountSmall: {
-    fontSize: width * 0.065,
+    fontSize: Math.min(width * 0.065, 28),
   },
   amountLarge: {
-    fontSize: width * 0.075,
+    fontSize: Math.min(width * 0.075, 36),
+  },
+  amountShort: {
+    fontSize: Math.min(width * 0.06, 26),
   },
   hiddenBalance: {
     paddingVertical: 5,
   },
   hiddenText: {
     color: 'white',
-    fontSize: width * 0.065,
+    fontSize: Math.min(width * 0.065, 30),
     fontWeight: '700',
     letterSpacing: 2,
   },
   hiddenTextSmall: {
-    fontSize: width * 0.06,
+    fontSize: Math.min(width * 0.06, 26),
     letterSpacing: 1.5,
   },
   hiddenTextLarge: {
-    fontSize: width * 0.07,
+    fontSize: Math.min(width * 0.07, 34),
     letterSpacing: 2.5,
+  },
+  hiddenTextShort: {
+    fontSize: Math.min(width * 0.055, 24),
+    letterSpacing: 1.2,
   },
   balanceActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: width * 0.04,
+    gap: Math.min(width * 0.04, 16),
   },
   visibilityButton: {
     padding: 5,
   },
   loadingText: {
     color: 'white',
-    fontSize: width * 0.04,
+    fontSize: Math.min(width * 0.04, 16),
     fontWeight: '500',
-    marginLeft: width * 0.02,
+    marginLeft: Math.min(width * 0.02, 8),
   },
   loadingTextSmall: {
-    fontSize: width * 0.038,
+    fontSize: Math.min(width * 0.038, 14),
   },
   loadingTextLarge: {
-    fontSize: width * 0.042,
+    fontSize: Math.min(width * 0.042, 18),
+  },
+  loadingTextShort: {
+    fontSize: Math.min(width * 0.036, 13),
   },
   errorText: {
     color: 'red',
-    fontSize: width * 0.04,
+    fontSize: Math.min(width * 0.04, 16),
     fontWeight: '500',
   },
   errorTextSmall: {
-    fontSize: width * 0.038,
+    fontSize: Math.min(width * 0.038, 14),
   },
   errorTextLarge: {
-    fontSize: width * 0.042,
+    fontSize: Math.min(width * 0.042, 18),
+  },
+  errorTextShort: {
+    fontSize: Math.min(width * 0.036, 13),
   },
   button: {
     backgroundColor: '#FFC107',
-    paddingVertical: height * 0.016,
-    borderRadius: 10,
+    paddingVertical: Math.min(height * 0.016, 14),
+    borderRadius: Math.min(width * 0.025, 10),
     alignItems: 'center',
     width: '100%',
-    minHeight: height * 0.06,
+    minHeight: Math.min(height * 0.06, 48),
     justifyContent: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+  },
+  buttonSmall: {
+    paddingVertical: Math.min(height * 0.014, 12),
+    borderRadius: Math.min(width * 0.022, 8),
+    minHeight: Math.min(height * 0.055, 44),
+  },
+  buttonLarge: {
+    paddingVertical: Math.min(height * 0.018, 16),
+    borderRadius: Math.min(width * 0.028, 12),
+    minHeight: Math.min(height * 0.065, 52),
+  },
+  buttonTablet: {
+    paddingVertical: Math.min(height * 0.02, 18),
+    borderRadius: Math.min(width * 0.03, 14),
+    minHeight: Math.min(height * 0.07, 56),
+  },
+  buttonShort: {
+    paddingVertical: Math.min(height * 0.012, 10),
+    borderRadius: Math.min(width * 0.02, 8),
+    minHeight: Math.min(height * 0.05, 40),
   },
   buttonDisabled: {
     backgroundColor: '#666',
@@ -294,16 +385,24 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#04223A',
-    fontSize: width * 0.04,
+    fontSize: Math.min(width * 0.04, 16),
     fontWeight: '600',
   },
   buttonTextSmall: {
-    fontSize: width * 0.038,
+    fontSize: Math.min(width * 0.038, 14),
   },
   buttonTextLarge: {
-    fontSize: width * 0.042,
+    fontSize: Math.min(width * 0.042, 18),
+  },
+  buttonTextShort: {
+    fontSize: Math.min(width * 0.036, 13),
   },
   buttonTextDisabled: {
     color: '#999',
   },
 });
+
+
+
+
+

@@ -10,6 +10,9 @@ import {
   ScrollView,
   Modal,
   FlatList,
+  SafeAreaView,
+  StatusBar,
+  Platform
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -18,6 +21,8 @@ export default function TransactionHistory({ data, isLoading, isError }) {
   const isSmallScreen = width < 375;
   const isLargeScreen = width > 414;
   const isTablet = width > 768;
+  const screenHeight = Dimensions.get('window').height;
+  const isShortScreen = screenHeight < 700;
 
   // 1. STATE for the filter
   const [filter, setFilter] = useState("all");
@@ -126,6 +131,7 @@ export default function TransactionHistory({ data, isLoading, isError }) {
           styles.transactionItem,
           isSmallScreen && styles.transactionItemSmall,
           isLargeScreen && styles.transactionItemLarge,
+          isShortScreen && styles.transactionItemShort,
           !isLastItem && styles.borderBottom,
         ]}
       >
@@ -134,7 +140,8 @@ export default function TransactionHistory({ data, isLoading, isError }) {
             <Text style={[
               styles.title,
               isSmallScreen && styles.titleSmall,
-              isLargeScreen && styles.titleLarge
+              isLargeScreen && styles.titleLarge,
+              isShortScreen && styles.titleShort
             ]}>
               {title}
             </Text>
@@ -142,7 +149,8 @@ export default function TransactionHistory({ data, isLoading, isError }) {
             {status && status !== "completed" && status !== "success" && (
               <View style={[
                 styles.statusContainer,
-                isSmallScreen && styles.statusContainerSmall
+                isSmallScreen && styles.statusContainerSmall,
+                isShortScreen && styles.statusContainerShort
               ]}>
                 <Text
                   style={[
@@ -150,7 +158,8 @@ export default function TransactionHistory({ data, isLoading, isError }) {
                     status === "pending" && styles.statusPending,
                     status === "failed" && styles.statusFailed,
                     isSmallScreen && styles.statusBadgeSmall,
-                    isLargeScreen && styles.statusBadgeLarge
+                    isLargeScreen && styles.statusBadgeLarge,
+                    isShortScreen && styles.statusBadgeShort
                   ]}
                 >
                   {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -161,17 +170,19 @@ export default function TransactionHistory({ data, isLoading, isError }) {
 
           <View style={[
             styles.dateContainer,
-            isSmallScreen && styles.dateContainerSmall
+            isSmallScreen && styles.dateContainerSmall,
+            isShortScreen && styles.dateContainerShort
           ]}>
             <Ionicons 
               name="calendar-outline" 
-              size={isSmallScreen ? 12 : 14} 
+              size={isSmallScreen ? 12 : isShortScreen ? 10 : 14} 
               color="#FEB914" 
             />
             <Text style={[
               styles.dateText,
               isSmallScreen && styles.dateTextSmall,
-              isLargeScreen && styles.dateTextLarge
+              isLargeScreen && styles.dateTextLarge,
+              isShortScreen && styles.dateTextShort
             ]}>
               {displayDate}
             </Text>
@@ -183,7 +194,8 @@ export default function TransactionHistory({ data, isLoading, isError }) {
             styles.amount,
             { color: amountColor },
             isSmallScreen && styles.amountSmall,
-            isLargeScreen && styles.amountLarge
+            isLargeScreen && styles.amountLarge,
+            isShortScreen && styles.amountShort
           ]}>
             {amountPrefix}₦{Math.abs(amount).toLocaleString()}
           </Text>
@@ -192,7 +204,8 @@ export default function TransactionHistory({ data, isLoading, isError }) {
             styles.amount,
             { color: "#aaa" },
             isSmallScreen && styles.amountSmall,
-            isLargeScreen && styles.amountLarge
+            isLargeScreen && styles.amountLarge,
+            isShortScreen && styles.amountShort
           ]}>
             Pending
           </Text>
@@ -206,28 +219,31 @@ export default function TransactionHistory({ data, isLoading, isError }) {
     return (
       <View style={[
         styles.container,
-        { minHeight: isSmallScreen ? height * 0.2 : height * 0.25 }
+        { minHeight: isSmallScreen ? height * 0.2 : isShortScreen ? height * 0.18 : height * 0.25 }
       ]}>
         <Text style={[
           styles.header,
           isSmallScreen && styles.headerSmall,
-          isLargeScreen && styles.headerLarge
+          isLargeScreen && styles.headerLarge,
+          isShortScreen && styles.headerShort
         ]}>
           Transaction History
         </Text>
         <View style={[
           styles.loadingContainer,
           isSmallScreen && styles.loadingContainerSmall,
-          isLargeScreen && styles.loadingContainerLarge
+          isLargeScreen && styles.loadingContainerLarge,
+          isShortScreen && styles.loadingContainerShort
         ]}>
           <ActivityIndicator 
-            size={isSmallScreen ? "small" : "large"} 
+            size={isSmallScreen ? "small" : isShortScreen ? "small" : "large"} 
             color="#FEB914" 
           />
           <Text style={[
             styles.loadingText,
             isSmallScreen && styles.loadingTextSmall,
-            isLargeScreen && styles.loadingTextLarge
+            isLargeScreen && styles.loadingTextLarge,
+            isShortScreen && styles.loadingTextShort
           ]}>
             Loading transactions...
           </Text>
@@ -241,29 +257,32 @@ export default function TransactionHistory({ data, isLoading, isError }) {
     return (
       <View style={[
         styles.container,
-        { minHeight: isSmallScreen ? height * 0.2 : height * 0.25 }
+        { minHeight: isSmallScreen ? height * 0.2 : isShortScreen ? height * 0.18 : height * 0.25 }
       ]}>
         <Text style={[
           styles.header,
           isSmallScreen && styles.headerSmall,
-          isLargeScreen && styles.headerLarge
+          isLargeScreen && styles.headerLarge,
+          isShortScreen && styles.headerShort
         ]}>
           Transaction History
         </Text>
         <View style={[
           styles.errorContainer,
           isSmallScreen && styles.errorContainerSmall,
-          isLargeScreen && styles.errorContainerLarge
+          isLargeScreen && styles.errorContainerLarge,
+          isShortScreen && styles.errorContainerShort
         ]}>
           <Ionicons 
             name="alert-circle-outline" 
-            size={isSmallScreen ? 32 : 40} 
+            size={isSmallScreen ? 28 : isShortScreen ? 24 : 40} 
             color="#f44336" 
           />
           <Text style={[
             styles.errorText,
             isSmallScreen && styles.errorTextSmall,
-            isLargeScreen && styles.errorTextLarge
+            isLargeScreen && styles.errorTextLarge,
+            isShortScreen && styles.errorTextShort
           ]}>
             Failed to load transactions
           </Text>
@@ -276,15 +295,19 @@ export default function TransactionHistory({ data, isLoading, isError }) {
     <View style={[
       styles.container,
       { minHeight: filteredTransactions.length === 0 ? 
-        (isSmallScreen ? height * 0.2 : height * 0.25) : undefined 
+        (isSmallScreen ? height * 0.2 : isShortScreen ? height * 0.18 : height * 0.25) : undefined 
       }
     ]}>
-      <View style={styles.headerRow}>
+      <View style={[
+        styles.headerRow,
+        isShortScreen && styles.headerRowShort
+      ]}>
         <Text style={[
           styles.header,
           isSmallScreen && styles.headerSmall,
           isLargeScreen && styles.headerLarge,
-          isTablet && styles.headerTablet
+          isTablet && styles.headerTablet,
+          isShortScreen && styles.headerShort
         ]}>
           Transaction History
         </Text>
@@ -294,7 +317,8 @@ export default function TransactionHistory({ data, isLoading, isError }) {
             style={[
               styles.seeMoreButton,
               isSmallScreen && styles.seeMoreButtonSmall,
-              isLargeScreen && styles.seeMoreButtonLarge
+              isLargeScreen && styles.seeMoreButtonLarge,
+              isShortScreen && styles.seeMoreButtonShort
             ]}
             onPress={() => setShowFullHistory(true)}
             activeOpacity={0.7}
@@ -302,13 +326,14 @@ export default function TransactionHistory({ data, isLoading, isError }) {
             <Text style={[
               styles.seeMoreText,
               isSmallScreen && styles.seeMoreTextSmall,
-              isLargeScreen && styles.seeMoreTextLarge
+              isLargeScreen && styles.seeMoreTextLarge,
+              isShortScreen && styles.seeMoreTextShort
             ]}>
               See More
             </Text>
             <Ionicons 
               name="chevron-forward" 
-              size={isSmallScreen ? 14 : 16} 
+              size={isSmallScreen ? 12 : isShortScreen ? 10 : 16} 
               color="#FEB914" 
             />
           </TouchableOpacity>
@@ -319,14 +344,16 @@ export default function TransactionHistory({ data, isLoading, isError }) {
       <View style={[
         styles.filterRow,
         isSmallScreen && styles.filterRowSmall,
-        isLargeScreen && styles.filterRowLarge
+        isLargeScreen && styles.filterRowLarge,
+        isShortScreen && styles.filterRowShort
       ]}>
         <TouchableOpacity
           style={[
             styles.filterButton,
             isSmallScreen && styles.filterButtonSmall,
             isLargeScreen && styles.filterButtonLarge,
-            isTablet && styles.filterButtonTablet
+            isTablet && styles.filterButtonTablet,
+            isShortScreen && styles.filterButtonShort
           ]}
           onPress={() => {
             const filters = ["all", "today", "week", "month"];
@@ -339,7 +366,8 @@ export default function TransactionHistory({ data, isLoading, isError }) {
           <Text style={[
             styles.filterText,
             isSmallScreen && styles.filterTextSmall,
-            isLargeScreen && styles.filterTextLarge
+            isLargeScreen && styles.filterTextLarge,
+            isShortScreen && styles.filterTextShort
           ]}>
             📅 {filter.charAt(0).toUpperCase() + filter.slice(1)}
           </Text>
@@ -349,7 +377,8 @@ export default function TransactionHistory({ data, isLoading, isError }) {
           <Text style={[
             styles.countText,
             isSmallScreen && styles.countTextSmall,
-            isLargeScreen && styles.countTextLarge
+            isLargeScreen && styles.countTextLarge,
+            isShortScreen && styles.countTextShort
           ]}>
             {limitedTransactions.length} of {filteredTransactions.length}
           </Text>
@@ -362,24 +391,27 @@ export default function TransactionHistory({ data, isLoading, isError }) {
           styles.emptyContainer,
           isSmallScreen && styles.emptyContainerSmall,
           isLargeScreen && styles.emptyContainerLarge,
-          isTablet && styles.emptyContainerTablet
+          isTablet && styles.emptyContainerTablet,
+          isShortScreen && styles.emptyContainerShort
         ]}>
           <Ionicons 
             name="wallet-outline" 
-            size={isSmallScreen ? 32 : 40} 
+            size={isSmallScreen ? 28 : isShortScreen ? 24 : 40} 
             color="#666" 
           />
           <Text style={[
             styles.emptyText,
             isSmallScreen && styles.emptyTextSmall,
-            isLargeScreen && styles.emptyTextLarge
+            isLargeScreen && styles.emptyTextLarge,
+            isShortScreen && styles.emptyTextShort
           ]}>
             No transactions found
           </Text>
           <Text style={[
             styles.emptySubtext,
             isSmallScreen && styles.emptySubtextSmall,
-            isLargeScreen && styles.emptySubtextLarge
+            isLargeScreen && styles.emptySubtextLarge,
+            isShortScreen && styles.emptySubtextShort
           ]}>
             {filter === "all" 
               ? "Your transactions will appear here" 
@@ -389,27 +421,36 @@ export default function TransactionHistory({ data, isLoading, isError }) {
       ) : (
         /* LIMITED TRANSACTIONS LIST */
         <ScrollView 
-          style={styles.scrollContainer}
+          style={[
+            styles.scrollContainer,
+            isShortScreen && styles.scrollContainerShort
+          ]}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            isShortScreen && styles.scrollContentShort
+          ]}
         >
           <View style={[
             styles.card,
             isSmallScreen && styles.cardSmall,
             isLargeScreen && styles.cardLarge,
-            isTablet && styles.cardTablet
+            isTablet && styles.cardTablet,
+            isShortScreen && styles.cardShort
           ]}>
             {Object.entries(groupedLimitedTransactions).map(([month, monthTransactions]) => (
               <View key={month}>
                 <View style={[
                   styles.monthContainer,
                   isSmallScreen && styles.monthContainerSmall,
-                  isLargeScreen && styles.monthContainerLarge
+                  isLargeScreen && styles.monthContainerLarge,
+                  isShortScreen && styles.monthContainerShort
                 ]}>
                   <Text style={[
                     styles.monthText,
                     isSmallScreen && styles.monthTextSmall,
-                    isLargeScreen && styles.monthTextLarge
+                    isLargeScreen && styles.monthTextLarge,
+                    isShortScreen && styles.monthTextShort
                   ]}>
                     {month}
                   </Text>
@@ -434,49 +475,63 @@ export default function TransactionHistory({ data, isLoading, isError }) {
         transparent={true}
         visible={showFullHistory}
         onRequestClose={() => setShowFullHistory(false)}
+        statusBarTranslucent={true}
       >
-        <View style={[
+        <SafeAreaView style={[
           styles.modalOverlay,
           isTablet && styles.modalOverlayTablet
         ]}>
+          <StatusBar 
+            backgroundColor="rgba(0, 0, 0, 0.9)" 
+            barStyle="light-content" 
+            translucent={true}
+          />
           <View style={[
             styles.modalContent,
             isSmallScreen && styles.modalContentSmall,
             isLargeScreen && styles.modalContentLarge,
-            isTablet && styles.modalContentTablet
+            isTablet && styles.modalContentTablet,
+            isShortScreen && styles.modalContentShort
           ]}>
             {/* MODAL HEADER */}
             <View style={[
               styles.modalHeader,
               isSmallScreen && styles.modalHeaderSmall,
-              isLargeScreen && styles.modalHeaderLarge
+              isLargeScreen && styles.modalHeaderLarge,
+              isShortScreen && styles.modalHeaderShort
             ]}>
               <Text style={[
                 styles.modalTitle,
                 isSmallScreen && styles.modalTitleSmall,
-                isLargeScreen && styles.modalTitleLarge
+                isLargeScreen && styles.modalTitleLarge,
+                isShortScreen && styles.modalTitleShort
               ]}>
                 Full Transaction History
               </Text>
               <TouchableOpacity 
                 onPress={() => setShowFullHistory(false)}
                 style={styles.closeButton}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
                 <Ionicons 
                   name="close" 
-                  size={isSmallScreen ? 22 : 24} 
+                  size={isSmallScreen ? 20 : isShortScreen ? 18 : 24} 
                   color="white" 
                 />
               </TouchableOpacity>
             </View>
 
             {/* FILTER IN MODAL */}
-            <View style={styles.modalFilterRow}>
+            <View style={[
+              styles.modalFilterRow,
+              isShortScreen && styles.modalFilterRowShort
+            ]}>
               <TouchableOpacity
                 style={[
                   styles.filterButton,
                   isSmallScreen && styles.filterButtonSmall,
-                  isLargeScreen && styles.filterButtonLarge
+                  isLargeScreen && styles.filterButtonLarge,
+                  isShortScreen && styles.filterButtonShort
                 ]}
                 onPress={() => {
                   const filters = ["all", "today", "week", "month"];
@@ -489,7 +544,8 @@ export default function TransactionHistory({ data, isLoading, isError }) {
                 <Text style={[
                   styles.filterText,
                   isSmallScreen && styles.filterTextSmall,
-                  isLargeScreen && styles.filterTextLarge
+                  isLargeScreen && styles.filterTextLarge,
+                  isShortScreen && styles.filterTextShort
                 ]}>
                   📅 {filter.charAt(0).toUpperCase() + filter.slice(1)}
                 </Text>
@@ -498,7 +554,8 @@ export default function TransactionHistory({ data, isLoading, isError }) {
               <Text style={[
                 styles.modalCountText,
                 isSmallScreen && styles.modalCountTextSmall,
-                isLargeScreen && styles.modalCountTextLarge
+                isLargeScreen && styles.modalCountTextLarge,
+                isShortScreen && styles.modalCountTextShort
               ]}>
                 {filteredTransactions.length} transactions
               </Text>
@@ -509,24 +566,27 @@ export default function TransactionHistory({ data, isLoading, isError }) {
               <View style={[
                 styles.modalEmptyContainer,
                 isSmallScreen && styles.modalEmptyContainerSmall,
-                isLargeScreen && styles.modalEmptyContainerLarge
+                isLargeScreen && styles.modalEmptyContainerLarge,
+                isShortScreen && styles.modalEmptyContainerShort
               ]}>
                 <Ionicons 
                   name="wallet-outline" 
-                  size={isSmallScreen ? 40 : 48} 
+                  size={isSmallScreen ? 32 : isShortScreen ? 28 : 48} 
                   color="#666" 
                 />
                 <Text style={[
                   styles.modalEmptyText,
                   isSmallScreen && styles.modalEmptyTextSmall,
-                  isLargeScreen && styles.modalEmptyTextLarge
+                  isLargeScreen && styles.modalEmptyTextLarge,
+                  isShortScreen && styles.modalEmptyTextShort
                 ]}>
                   No transactions found
                 </Text>
                 <Text style={[
                   styles.modalEmptySubtext,
                   isSmallScreen && styles.modalEmptySubtextSmall,
-                  isLargeScreen && styles.modalEmptySubtextLarge
+                  isLargeScreen && styles.modalEmptySubtextLarge,
+                  isShortScreen && styles.modalEmptySubtextShort
                 ]}>
                   {filter === "all" 
                     ? "Your transactions will appear here" 
@@ -542,12 +602,14 @@ export default function TransactionHistory({ data, isLoading, isError }) {
                     <View style={[
                       styles.monthContainer,
                       isSmallScreen && styles.monthContainerSmall,
-                      isLargeScreen && styles.monthContainerLarge
+                      isLargeScreen && styles.monthContainerLarge,
+                      isShortScreen && styles.monthContainerShort
                     ]}>
                       <Text style={[
                         styles.monthText,
                         isSmallScreen && styles.monthTextSmall,
-                        isLargeScreen && styles.monthTextLarge
+                        isLargeScreen && styles.monthTextLarge,
+                        isShortScreen && styles.monthTextShort
                       ]}>
                         {month}
                       </Text>
@@ -565,13 +627,18 @@ export default function TransactionHistory({ data, isLoading, isError }) {
                 contentContainerStyle={[
                   styles.modalListContent,
                   isSmallScreen && styles.modalListContentSmall,
-                  isLargeScreen && styles.modalListContentLarge
+                  isLargeScreen && styles.modalListContentLarge,
+                  isShortScreen && styles.modalListContentShort
                 ]}
                 showsVerticalScrollIndicator={true}
+                initialNumToRender={isShortScreen ? 5 : 8}
+                maxToRenderPerBatch={isShortScreen ? 5 : 10}
+                windowSize={isShortScreen ? 5 : 10}
+                removeClippedSubviews={true}
               />
             )}
           </View>
-        </View>
+        </SafeAreaView>
       </Modal>
     </View>
   );
@@ -581,355 +648,440 @@ const { width, height } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: height * 0.02,
+    marginTop: Math.min(height * 0.02, 16),
     width: '100%',
+    flexGrow: 1,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: width * 0.05,
-    marginBottom: height * 0.008,
+    paddingHorizontal: Math.min(width * 0.05, 20),
+    marginBottom: Math.min(height * 0.008, 6),
+  },
+  headerRowShort: {
+    marginBottom: Math.min(height * 0.005, 4),
   },
   header: {
     color: "#fff",
-    fontSize: width * 0.045,
+    fontSize: Math.min(width * 0.045, 18),
     fontWeight: "bold",
   },
   headerSmall: {
-    fontSize: width * 0.042,
+    fontSize: Math.min(width * 0.042, 16),
   },
   headerLarge: {
-    fontSize: width * 0.048,
+    fontSize: Math.min(width * 0.048, 20),
   },
   headerTablet: {
-    fontSize: width * 0.05,
+    fontSize: Math.min(width * 0.05, 22),
+  },
+  headerShort: {
+    fontSize: Math.min(width * 0.04, 15),
   },
   seeMoreButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(254, 185, 20, 0.1)',
-    paddingHorizontal: width * 0.03,
-    paddingVertical: height * 0.006,
-    borderRadius: 15,
+    paddingHorizontal: Math.min(width * 0.03, 12),
+    paddingVertical: Math.min(height * 0.006, 5),
+    borderRadius: Math.min(width * 0.03, 15),
     borderWidth: 1,
     borderColor: '#FEB914',
   },
   seeMoreButtonSmall: {
-    paddingHorizontal: width * 0.025,
-    paddingVertical: height * 0.005,
-    borderRadius: 12,
+    paddingHorizontal: Math.min(width * 0.025, 10),
+    paddingVertical: Math.min(height * 0.005, 4),
+    borderRadius: Math.min(width * 0.025, 12),
   },
   seeMoreButtonLarge: {
-    paddingHorizontal: width * 0.035,
-    paddingVertical: height * 0.007,
-    borderRadius: 18,
+    paddingHorizontal: Math.min(width * 0.035, 14),
+    paddingVertical: Math.min(height * 0.007, 6),
+    borderRadius: Math.min(width * 0.035, 18),
+  },
+  seeMoreButtonShort: {
+    paddingHorizontal: Math.min(width * 0.02, 8),
+    paddingVertical: Math.min(height * 0.004, 3),
+    borderRadius: Math.min(width * 0.02, 10),
   },
   seeMoreText: {
     color: "#FEB914",
-    fontSize: width * 0.034,
+    fontSize: Math.min(width * 0.034, 14),
     fontWeight: "600",
-    marginRight: width * 0.01,
+    marginRight: Math.min(width * 0.01, 4),
   },
   seeMoreTextSmall: {
-    fontSize: width * 0.032,
+    fontSize: Math.min(width * 0.032, 12),
   },
   seeMoreTextLarge: {
-    fontSize: width * 0.036,
+    fontSize: Math.min(width * 0.036, 16),
+  },
+  seeMoreTextShort: {
+    fontSize: Math.min(width * 0.03, 11),
   },
   filterRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: width * 0.05,
-    marginBottom: height * 0.015,
+    paddingHorizontal: Math.min(width * 0.05, 20),
+    marginBottom: Math.min(height * 0.015, 12),
   },
   filterRowSmall: {
-    paddingHorizontal: width * 0.04,
-    marginBottom: height * 0.012,
+    paddingHorizontal: Math.min(width * 0.04, 16),
+    marginBottom: Math.min(height * 0.012, 10),
   },
   filterRowLarge: {
-    paddingHorizontal: width * 0.06,
-    marginBottom: height * 0.018,
+    paddingHorizontal: Math.min(width * 0.06, 24),
+    marginBottom: Math.min(height * 0.018, 14),
+  },
+  filterRowShort: {
+    paddingHorizontal: Math.min(width * 0.04, 16),
+    marginBottom: Math.min(height * 0.008, 6),
   },
   filterButton: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#111",
-    paddingHorizontal: width * 0.03,
-    paddingVertical: height * 0.008,
-    borderRadius: 20,
+    paddingHorizontal: Math.min(width * 0.03, 12),
+    paddingVertical: Math.min(height * 0.008, 6),
+    borderRadius: Math.min(width * 0.04, 20),
     borderWidth: 1,
     borderColor: "#FEB914",
-    minHeight: height * 0.04,
+    minHeight: Math.min(height * 0.04, 32),
   },
   filterButtonSmall: {
-    paddingHorizontal: width * 0.025,
-    paddingVertical: height * 0.006,
-    minHeight: height * 0.035,
+    paddingHorizontal: Math.min(width * 0.025, 10),
+    paddingVertical: Math.min(height * 0.006, 5),
+    minHeight: Math.min(height * 0.035, 28),
   },
   filterButtonLarge: {
-    paddingHorizontal: width * 0.035,
-    paddingVertical: height * 0.01,
-    minHeight: height * 0.045,
+    paddingHorizontal: Math.min(width * 0.035, 14),
+    paddingVertical: Math.min(height * 0.01, 8),
+    minHeight: Math.min(height * 0.045, 36),
   },
   filterButtonTablet: {
-    paddingHorizontal: width * 0.04,
-    paddingVertical: height * 0.012,
-    minHeight: height * 0.05,
+    paddingHorizontal: Math.min(width * 0.04, 16),
+    paddingVertical: Math.min(height * 0.012, 10),
+    minHeight: Math.min(height * 0.05, 40),
+  },
+  filterButtonShort: {
+    paddingHorizontal: Math.min(width * 0.02, 8),
+    paddingVertical: Math.min(height * 0.005, 4),
+    minHeight: Math.min(height * 0.03, 24),
   },
   filterText: {
     color: "#FEB914",
-    fontSize: width * 0.036,
+    fontSize: Math.min(width * 0.036, 15),
     fontWeight: "600",
   },
   filterTextSmall: {
-    fontSize: width * 0.034,
+    fontSize: Math.min(width * 0.034, 14),
   },
   filterTextLarge: {
-    fontSize: width * 0.038,
+    fontSize: Math.min(width * 0.038, 16),
+  },
+  filterTextShort: {
+    fontSize: Math.min(width * 0.032, 13),
   },
   countText: {
     color: "#aaa",
-    fontSize: width * 0.034,
+    fontSize: Math.min(width * 0.034, 14),
     fontWeight: "500",
   },
   countTextSmall: {
-    fontSize: width * 0.032,
+    fontSize: Math.min(width * 0.032, 12),
   },
   countTextLarge: {
-    fontSize: width * 0.036,
+    fontSize: Math.min(width * 0.036, 16),
+  },
+  countTextShort: {
+    fontSize: Math.min(width * 0.03, 11),
   },
   // ScrollView styles
   scrollContainer: {
     width: '100%',
-    maxHeight: height * 0.5,
+    maxHeight: Math.min(height * 0.5, 300),
+  },
+  scrollContainerShort: {
+    maxHeight: Math.min(height * 0.45, 250),
   },
   scrollContent: {
-    paddingBottom: height * 0.02,
+    paddingBottom: Math.min(height * 0.02, 16),
+  },
+  scrollContentShort: {
+    paddingBottom: Math.min(height * 0.015, 12),
   },
   // Card styles
   card: {
     backgroundColor: "#111",
-    marginHorizontal: width * 0.05,
-    borderRadius: width * 0.03,
-    padding: width * 0.04,
+    marginHorizontal: Math.min(width * 0.05, 20),
+    borderRadius: Math.min(width * 0.03, 12),
+    padding: Math.min(width * 0.04, 16),
     borderWidth: 1,
     borderColor: "#FEB914",
     width: width * 0.9,
+    maxWidth: 500,
     alignSelf: 'center',
   },
   cardSmall: {
-    marginHorizontal: width * 0.04,
-    borderRadius: width * 0.025,
-    padding: width * 0.035,
-    width: width * 0.92,
+    marginHorizontal: Math.min(width * 0.04, 16),
+    borderRadius: Math.min(width * 0.025, 10),
+    padding: Math.min(width * 0.035, 14),
   },
   cardLarge: {
-    marginHorizontal: width * 0.06,
-    borderRadius: width * 0.035,
-    padding: width * 0.045,
-    width: width * 0.88,
+    marginHorizontal: Math.min(width * 0.06, 24),
+    borderRadius: Math.min(width * 0.035, 14),
+    padding: Math.min(width * 0.045, 18),
   },
   cardTablet: {
     maxWidth: 500,
     alignSelf: 'center',
   },
+  cardShort: {
+    marginHorizontal: Math.min(width * 0.04, 16),
+    borderRadius: Math.min(width * 0.02, 8),
+    padding: Math.min(width * 0.03, 12),
+  },
   // Loading styles
   loadingContainer: {
     backgroundColor: "#111",
-    marginHorizontal: width * 0.05,
-    borderRadius: width * 0.03,
-    padding: height * 0.05,
+    marginHorizontal: Math.min(width * 0.05, 20),
+    borderRadius: Math.min(width * 0.03, 12),
+    padding: Math.min(height * 0.05, 30),
     borderWidth: 1,
     borderColor: "#FEB914",
     alignItems: "center",
     justifyContent: "center",
-    minHeight: height * 0.15,
+    minHeight: Math.min(height * 0.15, 120),
     width: width * 0.9,
+    maxWidth: 500,
     alignSelf: 'center',
   },
   loadingContainerSmall: {
-    marginHorizontal: width * 0.04,
-    borderRadius: width * 0.025,
-    padding: height * 0.04,
-    minHeight: height * 0.12,
-    width: width * 0.92,
+    marginHorizontal: Math.min(width * 0.04, 16),
+    borderRadius: Math.min(width * 0.025, 10),
+    padding: Math.min(height * 0.04, 24),
+    minHeight: Math.min(height * 0.12, 100),
   },
   loadingContainerLarge: {
-    marginHorizontal: width * 0.06,
-    borderRadius: width * 0.035,
-    padding: height * 0.06,
-    minHeight: height * 0.18,
-    width: width * 0.88,
+    marginHorizontal: Math.min(width * 0.06, 24),
+    borderRadius: Math.min(width * 0.035, 14),
+    padding: Math.min(height * 0.06, 36),
+    minHeight: Math.min(height * 0.18, 140),
+  },
+  loadingContainerShort: {
+    marginHorizontal: Math.min(width * 0.04, 16),
+    borderRadius: Math.min(width * 0.02, 8),
+    padding: Math.min(height * 0.03, 20),
+    minHeight: Math.min(height * 0.1, 80),
   },
   loadingText: {
     color: "#aaa",
-    marginTop: height * 0.01,
-    fontSize: width * 0.036,
+    marginTop: Math.min(height * 0.01, 8),
+    fontSize: Math.min(width * 0.036, 15),
     textAlign: 'center',
   },
   loadingTextSmall: {
-    fontSize: width * 0.034,
-    marginTop: height * 0.008,
+    fontSize: Math.min(width * 0.034, 14),
+    marginTop: Math.min(height * 0.008, 6),
   },
   loadingTextLarge: {
-    fontSize: width * 0.038,
-    marginTop: height * 0.012,
+    fontSize: Math.min(width * 0.038, 16),
+    marginTop: Math.min(height * 0.012, 10),
+  },
+  loadingTextShort: {
+    fontSize: Math.min(width * 0.032, 13),
+    marginTop: Math.min(height * 0.006, 4),
   },
   // Error styles
   errorContainer: {
     backgroundColor: "#111",
-    marginHorizontal: width * 0.05,
-    borderRadius: width * 0.03,
-    padding: height * 0.05,
+    marginHorizontal: Math.min(width * 0.05, 20),
+    borderRadius: Math.min(width * 0.03, 12),
+    padding: Math.min(height * 0.05, 30),
     borderWidth: 1,
     borderColor: "#f44336",
     alignItems: "center",
     justifyContent: "center",
-    minHeight: height * 0.15,
+    minHeight: Math.min(height * 0.15, 120),
     width: width * 0.9,
+    maxWidth: 500,
     alignSelf: 'center',
   },
   errorContainerSmall: {
-    marginHorizontal: width * 0.04,
-    borderRadius: width * 0.025,
-    padding: height * 0.04,
-    minHeight: height * 0.12,
-    width: width * 0.92,
+    marginHorizontal: Math.min(width * 0.04, 16),
+    borderRadius: Math.min(width * 0.025, 10),
+    padding: Math.min(height * 0.04, 24),
+    minHeight: Math.min(height * 0.12, 100),
   },
   errorContainerLarge: {
-    marginHorizontal: width * 0.06,
-    borderRadius: width * 0.035,
-    padding: height * 0.06,
-    minHeight: height * 0.18,
-    width: width * 0.88,
+    marginHorizontal: Math.min(width * 0.06, 24),
+    borderRadius: Math.min(width * 0.035, 14),
+    padding: Math.min(height * 0.06, 36),
+    minHeight: Math.min(height * 0.18, 140),
+  },
+  errorContainerShort: {
+    marginHorizontal: Math.min(width * 0.04, 16),
+    borderRadius: Math.min(width * 0.02, 8),
+    padding: Math.min(height * 0.03, 20),
+    minHeight: Math.min(height * 0.1, 80),
   },
   errorText: {
     color: "#f44336",
-    marginTop: height * 0.01,
-    fontSize: width * 0.036,
+    marginTop: Math.min(height * 0.01, 8),
+    fontSize: Math.min(width * 0.036, 15),
     fontWeight: "600",
     textAlign: 'center',
   },
   errorTextSmall: {
-    fontSize: width * 0.034,
-    marginTop: height * 0.008,
+    fontSize: Math.min(width * 0.034, 14),
+    marginTop: Math.min(height * 0.008, 6),
   },
   errorTextLarge: {
-    fontSize: width * 0.038,
-    marginTop: height * 0.012,
+    fontSize: Math.min(width * 0.038, 16),
+    marginTop: Math.min(height * 0.012, 10),
+  },
+  errorTextShort: {
+    fontSize: Math.min(width * 0.032, 13),
+    marginTop: Math.min(height * 0.006, 4),
   },
   // Empty state styles
   emptyContainer: {
     backgroundColor: "#111",
-    marginHorizontal: width * 0.05,
-    borderRadius: width * 0.03,
-    padding: height * 0.05,
+    marginHorizontal: Math.min(width * 0.05, 20),
+    borderRadius: Math.min(width * 0.03, 12),
+    padding: Math.min(height * 0.05, 30),
     borderWidth: 1,
     borderColor: "#FEB914",
     alignItems: "center",
     justifyContent: "center",
-    minHeight: height * 0.15,
+    minHeight: Math.min(height * 0.15, 120),
     width: width * 0.9,
+    maxWidth: 500,
     alignSelf: 'center',
   },
   emptyContainerSmall: {
-    marginHorizontal: width * 0.04,
-    borderRadius: width * 0.025,
-    padding: height * 0.04,
-    minHeight: height * 0.12,
-    width: width * 0.92,
+    marginHorizontal: Math.min(width * 0.04, 16),
+    borderRadius: Math.min(width * 0.025, 10),
+    padding: Math.min(height * 0.04, 24),
+    minHeight: Math.min(height * 0.12, 100),
   },
   emptyContainerLarge: {
-    marginHorizontal: width * 0.06,
-    borderRadius: width * 0.035,
-    padding: height * 0.06,
-    minHeight: height * 0.18,
-    width: width * 0.88,
+    marginHorizontal: Math.min(width * 0.06, 24),
+    borderRadius: Math.min(width * 0.035, 14),
+    padding: Math.min(height * 0.06, 36),
+    minHeight: Math.min(height * 0.18, 140),
   },
   emptyContainerTablet: {
     maxWidth: 500,
   },
+  emptyContainerShort: {
+    marginHorizontal: Math.min(width * 0.04, 16),
+    borderRadius: Math.min(width * 0.02, 8),
+    padding: Math.min(height * 0.03, 20),
+    minHeight: Math.min(height * 0.1, 80),
+  },
   emptyText: {
     color: "#aaa",
-    marginTop: height * 0.01,
-    fontSize: width * 0.04,
+    marginTop: Math.min(height * 0.01, 8),
+    fontSize: Math.min(width * 0.04, 16),
     fontWeight: "600",
     textAlign: 'center',
   },
   emptyTextSmall: {
-    fontSize: width * 0.038,
-    marginTop: height * 0.008,
+    fontSize: Math.min(width * 0.038, 14),
+    marginTop: Math.min(height * 0.008, 6),
   },
   emptyTextLarge: {
-    fontSize: width * 0.042,
-    marginTop: height * 0.012,
+    fontSize: Math.min(width * 0.042, 18),
+    marginTop: Math.min(height * 0.012, 10),
+  },
+  emptyTextShort: {
+    fontSize: Math.min(width * 0.036, 13),
+    marginTop: Math.min(height * 0.006, 4),
   },
   emptySubtext: {
     color: "#666",
-    marginTop: height * 0.005,
-    fontSize: width * 0.035,
+    marginTop: Math.min(height * 0.005, 4),
+    fontSize: Math.min(width * 0.035, 14),
     textAlign: 'center',
   },
   emptySubtextSmall: {
-    fontSize: width * 0.033,
+    fontSize: Math.min(width * 0.033, 12),
   },
   emptySubtextLarge: {
-    fontSize: width * 0.037,
+    fontSize: Math.min(width * 0.037, 16),
+  },
+  emptySubtextShort: {
+    fontSize: Math.min(width * 0.031, 11),
   },
   // Transaction item styles
   monthContainer: {
     alignSelf: "flex-end",
     backgroundColor: "#000",
-    paddingHorizontal: width * 0.025,
-    paddingVertical: height * 0.005,
+    paddingHorizontal: Math.min(width * 0.025, 10),
+    paddingVertical: Math.min(height * 0.005, 4),
     borderRadius: 8,
-    marginBottom: height * 0.01,
+    marginBottom: Math.min(height * 0.01, 8),
   },
   monthContainerSmall: {
-    paddingHorizontal: width * 0.02,
-    paddingVertical: height * 0.004,
-    marginBottom: height * 0.008,
+    paddingHorizontal: Math.min(width * 0.02, 8),
+    paddingVertical: Math.min(height * 0.004, 3),
+    marginBottom: Math.min(height * 0.008, 6),
   },
   monthContainerLarge: {
-    paddingHorizontal: width * 0.03,
-    paddingVertical: height * 0.006,
-    marginBottom: height * 0.012,
+    paddingHorizontal: Math.min(width * 0.03, 12),
+    paddingVertical: Math.min(height * 0.006, 5),
+    marginBottom: Math.min(height * 0.012, 10),
+  },
+  monthContainerShort: {
+    paddingHorizontal: Math.min(width * 0.018, 6),
+    paddingVertical: Math.min(height * 0.003, 2),
+    marginBottom: Math.min(height * 0.006, 4),
   },
   monthText: {
     color: "#FEB914",
     fontWeight: "600",
-    fontSize: width * 0.032,
+    fontSize: Math.min(width * 0.032, 13),
   },
   monthTextSmall: {
-    fontSize: width * 0.03,
+    fontSize: Math.min(width * 0.03, 12),
   },
   monthTextLarge: {
-    fontSize: width * 0.034,
+    fontSize: Math.min(width * 0.034, 14),
+  },
+  monthTextShort: {
+    fontSize: Math.min(width * 0.028, 11),
   },
   transactionItem: {
-    paddingVertical: height * 0.014,
+    paddingVertical: Math.min(height * 0.014, 12),
     position: "relative",
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    minHeight: Math.min(height * 0.05, 40),
   },
   transactionItemSmall: {
-    paddingVertical: height * 0.012,
+    paddingVertical: Math.min(height * 0.012, 10),
+    minHeight: Math.min(height * 0.045, 36),
   },
   transactionItemLarge: {
-    paddingVertical: height * 0.016,
+    paddingVertical: Math.min(height * 0.016, 14),
+    minHeight: Math.min(height * 0.055, 44),
+  },
+  transactionItemShort: {
+    paddingVertical: Math.min(height * 0.01, 8),
+    minHeight: Math.min(height * 0.04, 32),
   },
   transactionContent: {
     flex: 1,
-    marginRight: width * 0.02,
+    marginRight: Math.min(width * 0.02, 8),
   },
   titleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    marginBottom: height * 0.005,
+    marginBottom: Math.min(height * 0.005, 4),
   },
   borderBottom: {
     borderBottomWidth: 1,
@@ -937,16 +1089,19 @@ const styles = StyleSheet.create({
   },
   title: {
     color: "#fff",
-    fontSize: width * 0.038,
+    fontSize: Math.min(width * 0.038, 15),
     fontWeight: "500",
     flexShrink: 1,
-    marginRight: width * 0.02,
+    marginRight: Math.min(width * 0.02, 8),
   },
   titleSmall: {
-    fontSize: width * 0.036,
+    fontSize: Math.min(width * 0.036, 14),
   },
   titleLarge: {
-    fontSize: width * 0.04,
+    fontSize: Math.min(width * 0.04, 16),
+  },
+  titleShort: {
+    fontSize: Math.min(width * 0.034, 13),
   },
   statusContainer: {
     marginTop: 0,
@@ -954,20 +1109,27 @@ const styles = StyleSheet.create({
   statusContainerSmall: {
     marginTop: -2,
   },
+  statusContainerShort: {
+    marginTop: -1,
+  },
   statusBadge: {
-    fontSize: width * 0.03,
+    fontSize: Math.min(width * 0.03, 12),
     fontWeight: "600",
-    paddingHorizontal: width * 0.02,
-    paddingVertical: height * 0.003,
+    paddingHorizontal: Math.min(width * 0.02, 8),
+    paddingVertical: Math.min(height * 0.003, 2),
     borderRadius: 4,
   },
   statusBadgeSmall: {
-    fontSize: width * 0.028,
-    paddingHorizontal: width * 0.018,
+    fontSize: Math.min(width * 0.028, 11),
+    paddingHorizontal: Math.min(width * 0.018, 6),
   },
   statusBadgeLarge: {
-    fontSize: width * 0.032,
-    paddingHorizontal: width * 0.022,
+    fontSize: Math.min(width * 0.032, 13),
+    paddingHorizontal: Math.min(width * 0.022, 9),
+  },
+  statusBadgeShort: {
+    fontSize: Math.min(width * 0.026, 10),
+    paddingHorizontal: Math.min(width * 0.015, 5),
   },
   statusPending: {
     color: "#FEB914",
@@ -980,40 +1142,50 @@ const styles = StyleSheet.create({
   dateContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: height * 0.002,
+    marginTop: Math.min(height * 0.002, 2),
   },
   dateContainerSmall: {
     marginTop: 0,
   },
+  dateContainerShort: {
+    marginTop: -1,
+  },
   dateText: {
     color: "#aaa",
-    marginLeft: width * 0.015,
-    fontSize: width * 0.034,
+    marginLeft: Math.min(width * 0.015, 6),
+    fontSize: Math.min(width * 0.034, 13),
   },
   dateTextSmall: {
-    fontSize: width * 0.032,
-    marginLeft: width * 0.01,
+    fontSize: Math.min(width * 0.032, 12),
+    marginLeft: Math.min(width * 0.01, 4),
   },
   dateTextLarge: {
-    fontSize: width * 0.036,
+    fontSize: Math.min(width * 0.036, 14),
+  },
+  dateTextShort: {
+    fontSize: Math.min(width * 0.03, 11),
+    marginLeft: Math.min(width * 0.008, 3),
   },
   amount: {
-    fontSize: width * 0.038,
+    fontSize: Math.min(width * 0.038, 15),
     fontWeight: "bold",
     textAlign: "right",
     flexShrink: 0,
   },
   amountSmall: {
-    fontSize: width * 0.036,
+    fontSize: Math.min(width * 0.036, 14),
   },
   amountLarge: {
-    fontSize: width * 0.04,
+    fontSize: Math.min(width * 0.04, 16),
+  },
+  amountShort: {
+    fontSize: Math.min(width * 0.034, 13),
   },
   // Modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.85)",
-    justifyContent: "flex-end",
+    backgroundColor: "rgba(0, 0, 0, 0.9)",
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   modalOverlayTablet: {
     justifyContent: "center",
@@ -1021,51 +1193,65 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: "#000",
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
+    borderTopLeftRadius: Math.min(width * 0.06, 25),
+    borderTopRightRadius: Math.min(width * 0.06, 25),
     height: "85%",
-    padding: width * 0.05,
+    padding: Math.min(width * 0.05, 20),
+    marginTop: Platform.OS === 'ios' ? 40 : 0,
   },
   modalContentSmall: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: Math.min(width * 0.05, 20),
+    borderTopRightRadius: Math.min(width * 0.05, 20),
     height: "90%",
-    padding: width * 0.04,
+    padding: Math.min(width * 0.04, 16),
   },
   modalContentLarge: {
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
+    borderTopLeftRadius: Math.min(width * 0.07, 30),
+    borderTopRightRadius: Math.min(width * 0.07, 30),
     height: "80%",
-    padding: width * 0.06,
+    padding: Math.min(width * 0.06, 24),
   },
   modalContentTablet: {
     width: "90%",
     maxWidth: 600,
     height: "85%",
-    borderRadius: 25,
+    borderRadius: Math.min(width * 0.06, 25),
+    marginTop: 0,
+  },
+  modalContentShort: {
+    borderTopLeftRadius: Math.min(width * 0.04, 18),
+    borderTopRightRadius: Math.min(width * 0.04, 18),
+    height: "92%",
+    padding: Math.min(width * 0.035, 14),
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: height * 0.02,
+    marginBottom: Math.min(height * 0.02, 16),
   },
   modalHeaderSmall: {
-    marginBottom: height * 0.015,
+    marginBottom: Math.min(height * 0.015, 12),
   },
   modalHeaderLarge: {
-    marginBottom: height * 0.025,
+    marginBottom: Math.min(height * 0.025, 20),
+  },
+  modalHeaderShort: {
+    marginBottom: Math.min(height * 0.012, 10),
   },
   modalTitle: {
     color: "#fff",
-    fontSize: width * 0.05,
+    fontSize: Math.min(width * 0.05, 20),
     fontWeight: "bold",
   },
   modalTitleSmall: {
-    fontSize: width * 0.045,
+    fontSize: Math.min(width * 0.045, 18),
   },
   modalTitleLarge: {
-    fontSize: width * 0.055,
+    fontSize: Math.min(width * 0.055, 22),
+  },
+  modalTitleShort: {
+    fontSize: Math.min(width * 0.042, 16),
   },
   closeButton: {
     padding: 5,
@@ -1074,73 +1260,94 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: height * 0.02,
+    marginBottom: Math.min(height * 0.02, 16),
     backgroundColor: "#111",
-    padding: width * 0.03,
-    borderRadius: width * 0.02,
+    padding: Math.min(width * 0.03, 12),
+    borderRadius: Math.min(width * 0.02, 8),
     borderWidth: 1,
     borderColor: "#FEB914",
   },
+  modalFilterRowShort: {
+    marginBottom: Math.min(height * 0.015, 12),
+    padding: Math.min(width * 0.025, 10),
+  },
   modalCountText: {
     color: "#FEB914",
-    fontSize: width * 0.036,
+    fontSize: Math.min(width * 0.036, 15),
     fontWeight: "600",
   },
   modalCountTextSmall: {
-    fontSize: width * 0.034,
+    fontSize: Math.min(width * 0.034, 14),
   },
   modalCountTextLarge: {
-    fontSize: width * 0.038,
+    fontSize: Math.min(width * 0.038, 16),
+  },
+  modalCountTextShort: {
+    fontSize: Math.min(width * 0.032, 13),
   },
   modalEmptyContainer: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    padding: height * 0.05,
+    padding: Math.min(height * 0.05, 30),
   },
   modalEmptyContainerSmall: {
-    padding: height * 0.04,
+    padding: Math.min(height * 0.04, 24),
   },
   modalEmptyContainerLarge: {
-    padding: height * 0.06,
+    padding: Math.min(height * 0.06, 36),
+  },
+  modalEmptyContainerShort: {
+    padding: Math.min(height * 0.03, 20),
   },
   modalEmptyText: {
     color: "#aaa",
-    marginTop: height * 0.015,
-    fontSize: width * 0.045,
+    marginTop: Math.min(height * 0.015, 12),
+    fontSize: Math.min(width * 0.045, 18),
     fontWeight: "600",
     textAlign: 'center',
   },
   modalEmptyTextSmall: {
-    fontSize: width * 0.042,
-    marginTop: height * 0.012,
+    fontSize: Math.min(width * 0.042, 16),
+    marginTop: Math.min(height * 0.012, 10),
   },
   modalEmptyTextLarge: {
-    fontSize: width * 0.048,
-    marginTop: height * 0.018,
+    fontSize: Math.min(width * 0.048, 20),
+    marginTop: Math.min(height * 0.018, 14),
+  },
+  modalEmptyTextShort: {
+    fontSize: Math.min(width * 0.038, 14),
+    marginTop: Math.min(height * 0.01, 8),
   },
   modalEmptySubtext: {
     color: "#666",
-    marginTop: height * 0.008,
-    fontSize: width * 0.038,
+    marginTop: Math.min(height * 0.008, 6),
+    fontSize: Math.min(width * 0.038, 15),
     textAlign: 'center',
   },
   modalEmptySubtextSmall: {
-    fontSize: width * 0.036,
+    fontSize: Math.min(width * 0.036, 14),
   },
   modalEmptySubtextLarge: {
-    fontSize: width * 0.04,
+    fontSize: Math.min(width * 0.04, 16),
+  },
+  modalEmptySubtextShort: {
+    fontSize: Math.min(width * 0.034, 13),
   },
   modalMonthSection: {
-    marginBottom: height * 0.02,
+    marginBottom: Math.min(height * 0.02, 16),
   },
   modalListContent: {
-    paddingBottom: height * 0.05,
+    paddingBottom: Math.min(height * 0.05, 40),
   },
   modalListContentSmall: {
-    paddingBottom: height * 0.04,
+    paddingBottom: Math.min(height * 0.04, 32),
   },
   modalListContentLarge: {
-    paddingBottom: height * 0.06,
+    paddingBottom: Math.min(height * 0.06, 48),
+  },
+  modalListContentShort: {
+    paddingBottom: Math.min(height * 0.03, 24),
   },
 });
+

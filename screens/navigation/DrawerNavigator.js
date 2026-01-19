@@ -89,7 +89,7 @@ function CustomDrawerContent(props) {
         </TouchableOpacity>
 
         {/* Ratings */}
-        <TouchableOpacity
+        {/* <TouchableOpacity
           style={styles.drawerButton}
           onPress={() => {
             props.navigation.navigate('Ratings');
@@ -98,7 +98,7 @@ function CustomDrawerContent(props) {
         >
           <Ionicons name="star-outline" size={20} color="#FFC107" />
           <Text style={styles.drawerLabel}>My Ratings</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
 
         <TouchableOpacity
           style={styles.drawerButton}

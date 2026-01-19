@@ -1,4 +1,19 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, Platform, useWindowDimensions, Dimensions, ScrollView } from 'react-native';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  FlatList, 
+  TouchableOpacity, 
+  ActivityIndicator, 
+  RefreshControl, 
+  Alert, 
+  Platform, 
+  useWindowDimensions, 
+  Dimensions, 
+  ScrollView,
+  StatusBar,
+  SafeAreaView 
+} from 'react-native';
 import { useState, useMemo, useCallback } from 'react';
 import { useRideHistory } from '../../services/rideHistory.service';
 import { Ionicons } from "@expo/vector-icons";
@@ -11,9 +26,12 @@ import * as Sharing from 'expo-sharing';
 
 export default function Bookings() {
   const { width, height } = useWindowDimensions();
-  const isSmallScreen = width < 375;
-  const isLargeScreen = width > 414;
+  const isSmallScreen = width < 375; // iPhone SE, small Android
+  const isMediumScreen = width >= 375 && width <= 414; // iPhone 12-15, most Android
+  const isLargeScreen = width > 414; // iPhone Plus/Pro Max
   const isTablet = width > 768;
+  const screenHeight = Dimensions.get('window').height;
+  const isShortScreen = screenHeight < 700; // Small height devices
 
   const [activeTab, setActiveTab] = useState('all');
   const [filter, setFilter] = useState("all");
@@ -248,7 +266,8 @@ export default function Bookings() {
           styles.card,
           isSmallScreen && styles.cardSmall,
           isLargeScreen && styles.cardLarge,
-          isTablet && styles.cardTablet
+          isTablet && styles.cardTablet,
+          isShortScreen && styles.cardShort
         ]} 
         activeOpacity={0.7}
         onPress={() => openReceiptModal(item)}
@@ -256,37 +275,48 @@ export default function Bookings() {
         <View style={[
           styles.cardHeader,
           isSmallScreen && styles.cardHeaderSmall,
-          isLargeScreen && styles.cardHeaderLarge
+          isLargeScreen && styles.cardHeaderLarge,
+          isShortScreen && styles.cardHeaderShort
         ]}>
           <Text style={[
             styles.dateText,
             isSmallScreen && styles.dateTextSmall,
-            isLargeScreen && styles.dateTextLarge
-          ]}>{formatDate(item.start_time)}</Text>
+            isLargeScreen && styles.dateTextLarge,
+            isShortScreen && styles.dateTextShort
+          ]} numberOfLines={1}>
+            {formatDate(item.start_time)}
+          </Text>
           <View style={[
             styles.statusBadge, 
             item.status === 'cancelled' ? styles.statusCancelled : styles.statusCompleted,
             isSmallScreen && styles.statusBadgeSmall,
-            isLargeScreen && styles.statusBadgeLarge
+            isLargeScreen && styles.statusBadgeLarge,
+            isShortScreen && styles.statusBadgeShort
           ]}>
             <Text style={[
               styles.statusText,
               isSmallScreen && styles.statusTextSmall,
-              isLargeScreen && styles.statusTextLarge
+              isLargeScreen && styles.statusTextLarge,
+              isShortScreen && styles.statusTextShort
             ]}>{item.status}</Text>
           </View>
         </View>
 
-        <View style={styles.locationsContainer}>
+        <View style={[
+          styles.locationsContainer,
+          isShortScreen && styles.locationsContainerShort
+        ]}>
           <View style={[
             styles.locationRow,
-            isSmallScreen && styles.locationRowSmall
+            isSmallScreen && styles.locationRowSmall,
+            isShortScreen && styles.locationRowShort
           ]}>
             <View style={[styles.dot, styles.greenDot]} />
             <Text style={[
               styles.addressText,
               isSmallScreen && styles.addressTextSmall,
-              isLargeScreen && styles.addressTextLarge
+              isLargeScreen && styles.addressTextLarge,
+              isShortScreen && styles.addressTextShort
             ]} numberOfLines={1}>
               {item.pickup_address || "Unknown Pickup"}
             </Text>
@@ -294,18 +324,21 @@ export default function Bookings() {
           
           <View style={[
             styles.verticalLine,
-            isSmallScreen && styles.verticalLineSmall
+            isSmallScreen && styles.verticalLineSmall,
+            isShortScreen && styles.verticalLineShort
           ]} />
 
           <View style={[
             styles.locationRow,
-            isSmallScreen && styles.locationRowSmall
+            isSmallScreen && styles.locationRowSmall,
+            isShortScreen && styles.locationRowShort
           ]}>
             <View style={[styles.dot, styles.redDot]} />
             <Text style={[
               styles.addressText,
               isSmallScreen && styles.addressTextSmall,
-              isLargeScreen && styles.addressTextLarge
+              isLargeScreen && styles.addressTextLarge,
+              isShortScreen && styles.addressTextShort
             ]} numberOfLines={1}>
               {item.dropoff_address || "Unknown Destination"}
             </Text>
@@ -315,17 +348,20 @@ export default function Bookings() {
         <View style={[
           styles.cardFooter,
           isSmallScreen && styles.cardFooterSmall,
-          isLargeScreen && styles.cardFooterLarge
+          isLargeScreen && styles.cardFooterLarge,
+          isShortScreen && styles.cardFooterShort
         ]}>
           <Text style={[
             styles.priceLabel,
             isSmallScreen && styles.priceLabelSmall,
-            isLargeScreen && styles.priceLabelLarge
+            isLargeScreen && styles.priceLabelLarge,
+            isShortScreen && styles.priceLabelShort
           ]}>Total Fare</Text>
           <Text style={[
             styles.priceText,
             isSmallScreen && styles.priceTextSmall,
-            isLargeScreen && styles.priceTextLarge
+            isLargeScreen && styles.priceTextLarge,
+            isShortScreen && styles.priceTextShort
           ]}>{formatCurrency(item.fare)}</Text>
         </View>
       </TouchableOpacity>
@@ -334,228 +370,267 @@ export default function Bookings() {
 
   if (isPending && !refreshing) {
     return (
-      <View style={[styles.centerContainer, { height }]}>
-        <ActivityIndicator 
-          size={isSmallScreen ? "large" : "large"} 
-          color="#FFC107" 
-        />
-        <Text style={[
-          styles.loadingText,
-          isSmallScreen && styles.loadingTextSmall,
-          isLargeScreen && styles.loadingTextLarge
-        ]}>Loading rides...</Text>
-      </View>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: 'black' }]}>
+        <StatusBar barStyle="light-content" backgroundColor="black" />
+        <View style={[styles.centerContainer, { height: height }]}>
+          <ActivityIndicator 
+            size={isSmallScreen ? "large" : "large"} 
+            color="#FFC107" 
+          />
+          <Text style={[
+            styles.loadingText,
+            isSmallScreen && styles.loadingTextSmall,
+            isLargeScreen && styles.loadingTextLarge,
+            isShortScreen && styles.loadingTextShort
+          ]}>Loading rides...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={[
-        styles.header,
-        isSmallScreen && styles.headerSmall,
-        isLargeScreen && styles.headerLarge,
-        isTablet && styles.headerTablet
-      ]}>
-        <Text style={[
-          styles.headerTitle,
-          isSmallScreen && styles.headerTitleSmall,
-          isLargeScreen && styles.headerTitleLarge
-        ]}>Bookings</Text>
-      </View>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="light-content" backgroundColor="black" />
+      <View style={styles.container}>
+        <View style={[
+          styles.header,
+          isSmallScreen && styles.headerSmall,
+          isLargeScreen && styles.headerLarge,
+          isTablet && styles.headerTablet,
+          isShortScreen && styles.headerShort
+        ]}>
+          <Text style={[
+            styles.headerTitle,
+            isSmallScreen && styles.headerTitleSmall,
+            isLargeScreen && styles.headerTitleLarge,
+            isShortScreen && styles.headerTitleShort
+          ]}>Bookings</Text>
+        </View>
 
-      <View style={[
-        styles.tabsContainer,
-        isSmallScreen && styles.tabsContainerSmall,
-        isLargeScreen && styles.tabsContainerLarge,
-        isTablet && styles.tabsContainerTablet
-      ]}>
-        {tabs.map((tab) => (
+        <View style={[
+          styles.tabsContainer,
+          isSmallScreen && styles.tabsContainerSmall,
+          isLargeScreen && styles.tabsContainerLarge,
+          isTablet && styles.tabsContainerTablet,
+          isShortScreen && styles.tabsContainerShort
+        ]}>
+          {tabs.map((tab) => (
+            <TouchableOpacity
+              key={tab.id}
+              style={[
+                styles.tab,
+                isSmallScreen && styles.tabSmall,
+                isLargeScreen && styles.tabLarge,
+                isShortScreen && styles.tabShort,
+                activeTab === tab.id && styles.tabActive
+              ]}
+              onPress={() => setActiveTab(tab.id)}
+            >
+              <Text style={[
+                styles.tabText,
+                isSmallScreen && styles.tabTextSmall,
+                isLargeScreen && styles.tabTextLarge,
+                isShortScreen && styles.tabTextShort,
+                activeTab === tab.id && styles.tabTextActive
+              ]}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        
+        {/* FILTER BUTTON */}
+        <View style={[
+          styles.filterContainer,
+          isSmallScreen && styles.filterContainerSmall,
+          isLargeScreen && styles.filterContainerLarge,
+          isTablet && styles.filterContainerTablet,
+          isShortScreen && styles.filterContainerShort
+        ]}>
           <TouchableOpacity
-            key={tab.id}
             style={[
-              styles.tab,
-              isSmallScreen && styles.tabSmall,
-              isLargeScreen && styles.tabLarge,
-              activeTab === tab.id && styles.tabActive
+              styles.filterButton,
+              isSmallScreen && styles.filterButtonSmall,
+              isLargeScreen && styles.filterButtonLarge,
+              isTablet && styles.filterButtonTablet,
+              isShortScreen && styles.filterButtonShort
             ]}
-            onPress={() => setActiveTab(tab.id)}
+            onPress={() => {
+              const filters = ["all", "today", "week", "month"];
+              const next = (filters.indexOf(filter) + 1) % filters.length;
+              setFilter(filters[next]);
+            }}
+            activeOpacity={0.7}
           >
+            <Ionicons 
+              name="filter" 
+              size={isSmallScreen ? 14 : isShortScreen ? 12 : 16} 
+              color="#FFC107" 
+            />
             <Text style={[
-              styles.tabText,
-              isSmallScreen && styles.tabTextSmall,
-              isLargeScreen && styles.tabTextLarge,
-              activeTab === tab.id && styles.tabTextActive
+              styles.filterText,
+              isSmallScreen && styles.filterTextSmall,
+              isLargeScreen && styles.filterTextLarge,
+              isShortScreen && styles.filterTextShort
             ]}>
-              {tab.label}
+              {filter.charAt(0).toUpperCase() + filter.slice(1)}
             </Text>
           </TouchableOpacity>
-        ))}
-      </View>
-      
-      {/* FILTER BUTTON */}
-      <View style={[
-        styles.filterContainer,
-        isSmallScreen && styles.filterContainerSmall,
-        isLargeScreen && styles.filterContainerLarge,
-        isTablet && styles.filterContainerTablet
-      ]}>
-        <TouchableOpacity
-          style={[
-            styles.filterButton,
-            isSmallScreen && styles.filterButtonSmall,
-            isLargeScreen && styles.filterButtonLarge,
-            isTablet && styles.filterButtonTablet
+        </View>
+
+        <FlatList
+          data={filteredRides}
+          renderItem={renderItem}
+          keyExtractor={(item, index) => item.id ? String(item.id) : String(index)}
+          contentContainerStyle={[
+            styles.ridesContent,
+            isSmallScreen && styles.ridesContentSmall,
+            isLargeScreen && styles.ridesContentLarge,
+            isTablet && styles.ridesContentTablet,
+            isShortScreen && styles.ridesContentShort,
+            filteredRides.length === 0 && styles.emptyRidesContent
           ]}
-          onPress={() => {
-            const filters = ["all", "today", "week", "month"];
-            const next = (filters.indexOf(filter) + 1) % filters.length;
-            setFilter(filters[next]);
-          }}
-          activeOpacity={0.7}
+          ListHeaderComponent={<View style={{ height: isShortScreen ? 2 : 5 }} />}
+          ListFooterComponent={<View style={{ height: isShortScreen ? 10 : 20 }} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#FFC107"
+              colors={['#FFC107']}
+              progressBackgroundColor="#1E1E1E"
+            />
+          }
+          ListEmptyComponent={
+            <View style={[
+              styles.emptyState,
+              isSmallScreen && styles.emptyStateSmall,
+              isLargeScreen && styles.emptyStateLarge,
+              isShortScreen && styles.emptyStateShort
+            ]}>
+              <Ionicons name="car-outline" size={isSmallScreen ? 40 : isShortScreen ? 36 : 48} color="#666" />
+              <Text style={[
+                styles.emptyStateText,
+                isSmallScreen && styles.emptyStateTextSmall,
+                isLargeScreen && styles.emptyStateTextLarge,
+                isShortScreen && styles.emptyStateTextShort
+              ]}>No rides found</Text>
+            </View>
+          }
+          showsVerticalScrollIndicator={false}
+          removeClippedSubviews={true}
+          initialNumToRender={isShortScreen ? 5 : 8}
+          maxToRenderPerBatch={isShortScreen ? 5 : 10}
+          windowSize={isShortScreen ? 5 : 10}
+        />
+
+        {/* --- RECEIPT MODAL --- */}
+        <CentralModal
+          visible={showReceiptModal}
+          onClose={closeReceiptModal}
+          title="Trip Details"
+          icon="document-text-outline"
+          contentMode="custom"
+          confirmText="Download Waybill"
+          closeText="Close"
+          confirmButtonColor="#FFC107"
+          themeColor="#FFC107"
+          onConfirm={() => downloadReceipt(selectedReceipt)}
+          maxHeight={isShortScreen ? '85%' : '90%'}
         >
-           <Ionicons 
-            name="filter" 
-            size={isSmallScreen ? 14 : 16} 
-            color="#FFC107" 
-          />
-          <Text style={[
-            styles.filterText,
-            isSmallScreen && styles.filterTextSmall,
-            isLargeScreen && styles.filterTextLarge
-          ]}>
-             {filter.charAt(0).toUpperCase() + filter.slice(1)}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <FlatList
-        data={filteredRides}
-        renderItem={renderItem}
-        keyExtractor={(item, index) => item.id ? String(item.id) : String(index)}
-        contentContainerStyle={[
-          styles.ridesContent,
-          isSmallScreen && styles.ridesContentSmall,
-          isLargeScreen && styles.ridesContentLarge,
-          isTablet && styles.ridesContentTablet
-        ]}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor="#FFC107"
-          />
-        }
-        ListEmptyComponent={
-           <View style={[
-             styles.emptyState,
-             isSmallScreen && styles.emptyStateSmall,
-             isLargeScreen && styles.emptyStateLarge
-           ]}>
-             <Ionicons name="car-outline" size={isSmallScreen ? 40 : 48} color="#666" />
-             <Text style={[
-               styles.emptyStateText,
-               isSmallScreen && styles.emptyStateTextSmall,
-               isLargeScreen && styles.emptyStateTextLarge
-             ]}>No rides found</Text>
-           </View>
-        }
-      />
-
-      {/* --- RECEIPT MODAL --- */}
-      <CentralModal
-        visible={showReceiptModal}
-        onClose={closeReceiptModal}
-        title="Trip Details"
-        icon="document-text-outline"
-        contentMode="custom"
-        confirmText="Download Waybill"
-        closeText="Close"
-        confirmButtonColor="#FFC107"
-        themeColor="#FFC107"
-        onConfirm={() => downloadReceipt(selectedReceipt)}
-      >
-        {selectedReceipt && (
-          <ScrollView 
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.receiptScrollContent}
-          >
-            {/* Trip ID & Status */}
-            <View style={styles.detailSection}>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Trip ID</Text>
-                <Text style={styles.detailValue}>#{selectedReceipt.id || 'N/A'}</Text>
-              </View>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Status</Text>
-                <View style={[
-                  styles.statusBadge,
-                  selectedReceipt.status === 'completed' ? styles.statusCompleted : 
-                  selectedReceipt.status === 'cancelled' ? styles.statusCancelled :
-                  { backgroundColor: 'rgba(247, 183, 49, 0.2)' }
-                ]}>
-                  <Text style={styles.statusText}>{(selectedReceipt.status || "unknown").toUpperCase()}</Text>
+          {selectedReceipt && (
+            <ScrollView 
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={[
+                styles.receiptScrollContent,
+                isShortScreen && styles.receiptScrollContentShort
+              ]}
+            >
+              {/* Trip ID & Status */}
+              <View style={styles.detailSection}>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Trip ID</Text>
+                  <Text style={styles.detailValue}>#{selectedReceipt.id || 'N/A'}</Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Status</Text>
+                  <View style={[
+                    styles.statusBadge,
+                    selectedReceipt.status === 'completed' ? styles.statusCompleted : 
+                    selectedReceipt.status === 'cancelled' ? styles.statusCancelled :
+                    { backgroundColor: 'rgba(247, 183, 49, 0.2)' }
+                  ]}>
+                    <Text style={styles.statusText}>{(selectedReceipt.status || "unknown").toUpperCase()}</Text>
+                  </View>
                 </View>
               </View>
-            </View>
 
-            {/* Date */}
-            <View style={styles.detailSection}>
-              <Text style={styles.detailLabel}>Date</Text>
-              <Text style={styles.detailValue}>{formatDate(selectedReceipt.start_time)}</Text>
-            </View>
-
-            {/* Pickup Location */}
-            <View style={styles.detailSection}>
-              <View style={styles.locationHeader}>
-                <Ionicons name="ellipse" size={10} color="#4CAF50" />
-                <Text style={styles.detailLabel}>Pickup Location</Text>
+              {/* Date */}
+              <View style={styles.detailSection}>
+                <Text style={styles.detailLabel}>Date</Text>
+                <Text style={styles.detailValue}>{formatDate(selectedReceipt.start_time)}</Text>
               </View>
-              <Text style={styles.detailValue}>{selectedReceipt.pickup_address || 'N/A'}</Text>
-            </View>
 
-            {/* Dropoff Location */}
-            <View style={styles.detailSection}>
-              <View style={styles.locationHeader}>
-                <Ionicons name="location" size={10} color="#FF5252" />
-                <Text style={styles.detailLabel}>Drop-off Location</Text>
+              {/* Pickup Location */}
+              <View style={styles.detailSection}>
+                <View style={styles.locationHeader}>
+                  <Ionicons name="ellipse" size={10} color="#4CAF50" />
+                  <Text style={styles.detailLabel}>Pickup Location</Text>
+                </View>
+                <Text style={styles.detailValue}>{selectedReceipt.pickup_address || 'N/A'}</Text>
               </View>
-              <Text style={styles.detailValue}>{selectedReceipt.dropoff_address || 'N/A'}</Text>
-            </View>
 
-            {/* Rider */}
-            <View style={styles.detailSection}>
-              <Text style={styles.detailLabel}>Rider</Text>
-              <Text style={styles.detailValue}>{selectedReceipt.rider_name || 'Rider'}</Text>
-            </View>
+              {/* Dropoff Location */}
+              <View style={styles.detailSection}>
+                <View style={styles.locationHeader}>
+                  <Ionicons name="location" size={10} color="#FF5252" />
+                  <Text style={styles.detailLabel}>Drop-off Location</Text>
+                </View>
+                <Text style={styles.detailValue}>{selectedReceipt.dropoff_address || 'N/A'}</Text>
+              </View>
 
-            {/* Total Earnings */}
-            <View style={[styles.detailSection, styles.totalSection]}>
-              <Text style={styles.totalLabel}>Total Earnings</Text>
-              <Text style={styles.totalValue}>{formatCurrency(selectedReceipt.fare)}</Text>
-            </View>
-          </ScrollView>
-        )}
-      </CentralModal>
-    </View>
+              {/* Rider */}
+              <View style={styles.detailSection}>
+                <Text style={styles.detailLabel}>Rider</Text>
+                <Text style={styles.detailValue}>{selectedReceipt.rider_name || 'Rider'}</Text>
+              </View>
+
+              {/* Total Earnings */}
+              <View style={[styles.detailSection, styles.totalSection]}>
+                <Text style={styles.totalLabel}>Total Earnings</Text>
+                <Text style={styles.totalValue}>{formatCurrency(selectedReceipt.fare)}</Text>
+              </View>
+            </ScrollView>
+          )}
+        </CentralModal>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const { width, height } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: 'black',
+  },
   container: {
     flex: 1,
     backgroundColor: 'black',
-    paddingTop: Platform.OS === 'ios' ? 50 : 40,
   },
+  // Header
   header: {
     paddingHorizontal: width * 0.05,
+    paddingTop: Platform.OS === 'ios' ? 10 : 20,
     paddingBottom: height * 0.02,
+    borderBottomWidth: 1,
     borderBottomColor: '#333',
   },
   headerSmall: {
     paddingHorizontal: width * 0.04,
     paddingBottom: height * 0.015,
+    paddingTop: Platform.OS === 'ios' ? 8 : 15,
   },
   headerLarge: {
     paddingHorizontal: width * 0.06,
@@ -565,20 +640,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: width * 0.08,
     paddingBottom: height * 0.03,
   },
+  headerShort: {
+    paddingBottom: height * 0.012,
+    paddingTop: Platform.OS === 'ios' ? 5 : 12,
+  },
   headerTitle: {
     color: 'white',
-    fontSize: width * 0.06,
+    fontSize: Math.min(width * 0.07, 28),
     fontWeight: '700',
   },
   headerTitleSmall: {
-    fontSize: width * 0.055,
+    fontSize: Math.min(width * 0.065, 24),
   },
   headerTitleLarge: {
-    fontSize: width * 0.065,
+    fontSize: Math.min(width * 0.075, 32),
   },
+  headerTitleShort: {
+    fontSize: Math.min(width * 0.06, 22),
+  },
+  // Tabs
   tabsContainer: {
     flexDirection: 'row',
     marginHorizontal: width * 0.05,
+    marginTop: height * 0.01,
     marginBottom: height * 0.02,
     borderWidth: 1,
     borderColor: '#333',
@@ -589,6 +673,7 @@ const styles = StyleSheet.create({
   },
   tabsContainerSmall: {
     marginHorizontal: width * 0.04,
+    marginTop: height * 0.008,
     marginBottom: height * 0.015,
     borderRadius: 20,
     padding: 3,
@@ -596,6 +681,7 @@ const styles = StyleSheet.create({
   },
   tabsContainerLarge: {
     marginHorizontal: width * 0.06,
+    marginTop: height * 0.012,
     marginBottom: height * 0.025,
     borderRadius: 30,
     padding: 5,
@@ -605,6 +691,11 @@ const styles = StyleSheet.create({
     maxWidth: 500,
     alignSelf: 'center',
     width: width * 0.9,
+  },
+  tabsContainerShort: {
+    marginTop: height * 0.005,
+    marginBottom: height * 0.012,
+    padding: 3,
   },
   tab: {
     flex: 1,
@@ -620,24 +711,32 @@ const styles = StyleSheet.create({
     paddingVertical: height * 0.014,
     borderRadius: 22,
   },
+  tabShort: {
+    paddingVertical: height * 0.008,
+    borderRadius: 18,
+  },
   tabActive: {
     backgroundColor: '#333',
   },
   tabText: {
     color: '#888',
-    fontSize: width * 0.037,
+    fontSize: Math.min(width * 0.037, 16),
     fontWeight: '600',
   },
   tabTextSmall: {
-    fontSize: width * 0.035,
+    fontSize: Math.min(width * 0.035, 14),
   },
   tabTextLarge: {
-    fontSize: width * 0.039,
+    fontSize: Math.min(width * 0.039, 18),
+  },
+  tabTextShort: {
+    fontSize: Math.min(width * 0.034, 13),
   },
   tabTextActive: {
     color: 'white',
     fontWeight: '700',
   },
+  // Filter
   filterContainer: {
     paddingHorizontal: width * 0.05,
     marginBottom: height * 0.015,
@@ -655,232 +754,9 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     width: '100%',
   },
-  ridesContent: {
-    paddingHorizontal: width * 0.05,
-    paddingBottom: height * 0.04,
+  filterContainerShort: {
+    marginBottom: height * 0.008,
   },
-  ridesContentSmall: {
-    paddingHorizontal: width * 0.04,
-    paddingBottom: height * 0.03,
-  },
-  ridesContentLarge: {
-    paddingHorizontal: width * 0.06,
-    paddingBottom: height * 0.05,
-  },
-  ridesContentTablet: {
-    maxWidth: 500,
-    alignSelf: 'center',
-    width: '100%',
-  },
-  centerContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loadingText: {
-    color: '#888',
-    fontSize: width * 0.04,
-    marginTop: height * 0.01,
-  },
-  loadingTextSmall: {
-    fontSize: width * 0.038,
-    marginTop: height * 0.008,
-  },
-  loadingTextLarge: {
-    fontSize: width * 0.042,
-    marginTop: height * 0.012,
-  },
-  emptyState: {
-    alignItems: 'center',
-    padding: height * 0.05,
-    marginTop: height * 0.05,
-  },
-  emptyStateSmall: {
-    padding: height * 0.04,
-    marginTop: height * 0.03,
-  },
-  emptyStateLarge: {
-    padding: height * 0.06,
-    marginTop: height * 0.07,
-  },
-  emptyStateText: {
-    color: '#666',
-    fontSize: width * 0.04,
-    marginTop: height * 0.01,
-  },
-  emptyStateTextSmall: {
-    fontSize: width * 0.038,
-    marginTop: height * 0.008,
-  },
-  emptyStateTextLarge: {
-    fontSize: width * 0.042,
-    marginTop: height * 0.012,
-  },
-  // --- CARD STYLES ---
-  card: {
-    backgroundColor: '#1E1E1E',
-    borderRadius: width * 0.03,
-    padding: width * 0.04,
-    marginBottom: height * 0.016,
-    borderWidth: 1,
-    borderColor: '#333',
-    width: '100%',
-  },
-  cardSmall: {
-    borderRadius: width * 0.025,
-    padding: width * 0.035,
-    marginBottom: height * 0.012,
-  },
-  cardLarge: {
-    borderRadius: width * 0.035,
-    padding: width * 0.045,
-    marginBottom: height * 0.02,
-  },
-  cardTablet: {
-    maxWidth: 500,
-    alignSelf: 'center',
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: height * 0.012,
-    paddingBottom: height * 0.012,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
-  cardHeaderSmall: {
-    marginBottom: height * 0.01,
-    paddingBottom: height * 0.01,
-  },
-  cardHeaderLarge: {
-    marginBottom: height * 0.015,
-    paddingBottom: height * 0.015,
-  },
-  dateText: {
-    color: '#888',
-    fontSize: width * 0.035,
-  },
-  dateTextSmall: {
-    fontSize: width * 0.033,
-  },
-  dateTextLarge: {
-    fontSize: width * 0.037,
-  },
-  statusBadge: {
-    paddingHorizontal: width * 0.02,
-    paddingVertical: height * 0.005,
-    borderRadius: 4,
-  },
-  statusBadgeSmall: {
-    paddingHorizontal: width * 0.018,
-    paddingVertical: height * 0.004,
-  },
-  statusBadgeLarge: {
-    paddingHorizontal: width * 0.022,
-    paddingVertical: height * 0.006,
-  },
-  statusCompleted: {
-    backgroundColor: 'rgba(76, 175, 80, 0.15)',
-  },
-  statusCancelled: {
-    backgroundColor: 'rgba(244, 67, 54, 0.15)',
-  },
-  statusText: {
-    color: '#fff',
-    fontSize: width * 0.03,
-    fontWeight: 'bold',
-    textTransform: 'capitalize',
-  },
-  statusTextSmall: {
-    fontSize: width * 0.028,
-  },
-  statusTextLarge: {
-    fontSize: width * 0.032,
-  },
-  locationsContainer: {
-    marginBottom: height * 0.012,
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: height * 0.004,
-  },
-  locationRowSmall: {
-    marginBottom: height * 0.003,
-  },
-  dot: {
-    width: width * 0.018,
-    height: width * 0.018,
-    borderRadius: width * 0.009,
-    marginRight: width * 0.025,
-  },
-  greenDot: {
-    backgroundColor: '#4CAF50',
-  },
-  redDot: {
-    backgroundColor: '#FF5252',
-  },
-  verticalLine: {
-    height: height * 0.015,
-    width: 1,
-    backgroundColor: '#444',
-    marginLeft: width * 0.008,
-    marginVertical: height * 0.002,
-  },
-  verticalLineSmall: {
-    height: height * 0.012,
-  },
-  addressText: {
-    color: 'white',
-    fontSize: width * 0.038,
-    flex: 1,
-  },
-  addressTextSmall: {
-    fontSize: width * 0.036,
-  },
-  addressTextLarge: {
-    fontSize: width * 0.04,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: height * 0.008,
-    paddingTop: height * 0.012,
-    borderTopWidth: 1,
-    borderTopColor: '#333',
-  },
-  cardFooterSmall: {
-    marginTop: height * 0.006,
-    paddingTop: height * 0.01,
-  },
-  cardFooterLarge: {
-    marginTop: height * 0.01,
-    paddingTop: height * 0.015,
-  },
-  priceLabel: {
-    color: '#888',
-    fontSize: width * 0.035,
-  },
-  priceLabelSmall: {
-    fontSize: width * 0.033,
-  },
-  priceLabelLarge: {
-    fontSize: width * 0.037,
-  },
-  priceText: {
-    color: '#FFC107',
-    fontSize: width * 0.045,
-    fontWeight: 'bold',
-  },
-  priceTextSmall: {
-    fontSize: width * 0.042,
-  },
-  priceTextLarge: {
-    fontSize: width * 0.048,
-  },
-  // --- FILTER STYLES ---
   filterButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -911,285 +787,330 @@ const styles = StyleSheet.create({
     minHeight: height * 0.05,
     borderRadius: 25,
   },
+  filterButtonShort: {
+    paddingVertical: height * 0.005,
+    minHeight: height * 0.035,
+  },
   filterText: {
     color: "#FFC107",
     marginLeft: width * 0.015,
-    fontSize: width * 0.036,
+    fontSize: Math.min(width * 0.036, 15),
     fontWeight: "600",
   },
   filterTextSmall: {
-    fontSize: width * 0.034,
+    fontSize: Math.min(width * 0.034, 14),
     marginLeft: width * 0.01,
   },
   filterTextLarge: {
-    fontSize: width * 0.038,
+    fontSize: Math.min(width * 0.038, 16),
     marginLeft: width * 0.02,
   },
-  // --- MODAL STYLES ---
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: width * 0.05,
+  filterTextShort: {
+    fontSize: Math.min(width * 0.033, 13),
+    marginLeft: width * 0.008,
   },
-  modalOverlayTablet: {
-    justifyContent: "center",
-    alignItems: "center",
+  // Rides List
+  ridesContent: {
+    paddingHorizontal: width * 0.05,
+    paddingBottom: Platform.OS === 'ios' ? height * 0.04 : height * 0.02,
+    flexGrow: 1,
   },
-  modalContent: {
+  ridesContentSmall: {
+    paddingHorizontal: width * 0.04,
+    paddingBottom: Platform.OS === 'ios' ? height * 0.03 : height * 0.015,
+  },
+  ridesContentLarge: {
+    paddingHorizontal: width * 0.06,
+    paddingBottom: Platform.OS === 'ios' ? height * 0.05 : height * 0.025,
+  },
+  ridesContentTablet: {
+    maxWidth: 500,
+    alignSelf: 'center',
     width: '100%',
-    maxHeight: '90%',
+  },
+  ridesContentShort: {
+    paddingHorizontal: width * 0.04,
+    paddingBottom: Platform.OS === 'ios' ? height * 0.02 : height * 0.01,
+  },
+  emptyRidesContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
+  // Loading & Empty States
+  centerContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'black',
+  },
+  loadingText: {
+    color: '#888',
+    fontSize: Math.min(width * 0.04, 16),
+    marginTop: height * 0.01,
+  },
+  loadingTextSmall: {
+    fontSize: Math.min(width * 0.038, 15),
+    marginTop: height * 0.008,
+  },
+  loadingTextLarge: {
+    fontSize: Math.min(width * 0.042, 18),
+    marginTop: height * 0.012,
+  },
+  loadingTextShort: {
+    fontSize: Math.min(width * 0.036, 14),
+    marginTop: height * 0.006,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: height * 0.05,
+    flex: 1,
+  },
+  emptyStateSmall: {
+    padding: height * 0.04,
+  },
+  emptyStateLarge: {
+    padding: height * 0.06,
+  },
+  emptyStateShort: {
+    padding: height * 0.03,
+  },
+  emptyStateText: {
+    color: '#666',
+    fontSize: Math.min(width * 0.04, 16),
+    marginTop: height * 0.01,
+    textAlign: 'center',
+  },
+  emptyStateTextSmall: {
+    fontSize: Math.min(width * 0.038, 15),
+    marginTop: height * 0.008,
+  },
+  emptyStateTextLarge: {
+    fontSize: Math.min(width * 0.042, 18),
+    marginTop: height * 0.012,
+  },
+  emptyStateTextShort: {
+    fontSize: Math.min(width * 0.036, 14),
+    marginTop: height * 0.006,
+  },
+  // Card Styles
+  card: {
     backgroundColor: '#1E1E1E',
-    borderRadius: width * 0.05,
-    overflow: 'hidden',
+    borderRadius: Math.min(width * 0.03, 12),
+    padding: width * 0.04,
+    marginBottom: height * 0.016,
     borderWidth: 1,
     borderColor: '#333',
-    elevation: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
+    width: '100%',
+    minHeight: height * 0.15,
   },
-  modalContentSmall: {
-    borderRadius: width * 0.04,
-    maxHeight: '95%',
-  },
-  modalContentLarge: {
-    borderRadius: width * 0.06,
-    maxHeight: '85%',
-  },
-  modalContentTablet: {
-    width: "90%",
-    maxWidth: 500,
-    maxHeight: "85%",
-    borderRadius: 25,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: width * 0.05,
-    backgroundColor: '#111',
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
-  modalHeaderSmall: {
-    padding: width * 0.04,
-  },
-  modalHeaderLarge: {
-    padding: width * 0.06,
-  },
-  modalTitle: {
-    fontSize: width * 0.05,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  modalTitleSmall: {
-    fontSize: width * 0.045,
-  },
-  modalTitleLarge: {
-    fontSize: width * 0.055,
-  },
-  receiptScroll: {
-    flex: 1,
-  },
-  receiptScrollContent: {
-    paddingBottom: height * 0.02,
-  },
-  receiptScrollContentSmall: {
-    paddingBottom: height * 0.015,
-  },
-  receiptDetail: {
-    padding: width * 0.05,
-  },
-  receiptDetailSmall: {
-    padding: width * 0.04,
-  },
-  receiptDetailLarge: {
-    padding: width * 0.06,
-  },
-  receiptHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: height * 0.02,
-    paddingBottom: height * 0.016,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
-  receiptHeaderSmall: {
-    marginBottom: height * 0.015,
-    paddingBottom: height * 0.012,
-  },
-  receiptHeaderLarge: {
-    marginBottom: height * 0.025,
-    paddingBottom: height * 0.02,
-  },
-  receiptId: {
-    color: '#888',
-    fontSize: width * 0.035,
-    fontWeight: '600',
-  },
-  receiptIdSmall: {
-    fontSize: width * 0.033,
-  },
-  receiptIdLarge: {
-    fontSize: width * 0.037,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: height * 0.016,
-    paddingBottom: height * 0.016,
-    borderBottomWidth: 1,
-    borderBottomColor: '#222',
-  },
-  detailRowSmall: {
-    marginBottom: height * 0.012,
-    paddingBottom: height * 0.012,
-  },
-  detailRowLarge: {
-    marginBottom: height * 0.02,
-    paddingBottom: height * 0.02,
-  },
-  detailLabel: {
-    color: '#888',
-    fontSize: width * 0.035,
-    flex: 1,
-  },
-  detailLabelSmall: {
-    fontSize: width * 0.033,
-  },
-  detailLabelLarge: {
-    fontSize: width * 0.037,
-  },
-  detailValue: {
-    color: '#fff',
-    fontSize: width * 0.038,
-    fontWeight: '600',
-    textAlign: 'right',
-    flex: 2,
-    marginLeft: width * 0.02,
-  },
-  detailValueSmall: {
-    fontSize: width * 0.036,
-  },
-  detailValueLarge: {
-    fontSize: width * 0.04,
-  },
-  totalSection: {
-    backgroundColor: '#FFC107',
-    borderRadius: width * 0.03,
-    padding: width * 0.05,
-    marginTop: height * 0.02,
-    marginBottom: height * 0.02,
-  },
-  totalSectionSmall: {
-    borderRadius: width * 0.025,
-    padding: width * 0.04,
-    marginTop: height * 0.015,
-    marginBottom: height * 0.015,
-  },
-  totalSectionLarge: {
-    borderRadius: width * 0.035,
-    padding: width * 0.06,
-    marginTop: height * 0.025,
-    marginBottom: height * 0.025,
-  },
-  totalLabel: {
-    color: '#000',
-    fontSize: width * 0.035,
-    fontWeight: '700',
-    marginBottom: height * 0.005,
-  },
-  totalLabelSmall: {
-    fontSize: width * 0.033,
-  },
-  totalLabelLarge: {
-    fontSize: width * 0.037,
-  },
-  totalValue: {
-    color: '#000',
-    fontSize: width * 0.065,
-    fontWeight: '800',
-  },
-  totalValueSmall: {
-    fontSize: width * 0.06,
-  },
-  totalValueLarge: {
-    fontSize: width * 0.07,
-  },
-  noteSection: {
-    backgroundColor: 'rgba(255, 193, 7, 0.1)',
-    borderRadius: width * 0.02,
-    padding: width * 0.03,
-    marginTop: height * 0.01,
-    marginBottom: height * 0.01,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 193, 7, 0.2)',
-  },
-  noteSectionSmall: {
-    borderRadius: width * 0.015,
-    padding: width * 0.025,
-  },
-  noteSectionLarge: {
-    borderRadius: width * 0.025,
+  cardSmall: {
+    borderRadius: Math.min(width * 0.025, 10),
     padding: width * 0.035,
+    marginBottom: height * 0.012,
+    minHeight: height * 0.14,
   },
-  noteText: {
-    color: '#FFC107',
-    fontSize: width * 0.032,
-    textAlign: 'center',
-    fontStyle: 'italic',
+  cardLarge: {
+    borderRadius: Math.min(width * 0.035, 14),
+    padding: width * 0.045,
+    marginBottom: height * 0.02,
+    minHeight: height * 0.16,
   },
-  noteTextSmall: {
-    fontSize: width * 0.03,
-  },
-  noteTextLarge: {
-    fontSize: width * 0.034,
-  },
-  downloadButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFC107',
-    padding: height * 0.016,
-    margin: width * 0.05,
-    borderRadius: width * 0.04,
-    gap: width * 0.02,
-    minHeight: height * 0.06,
-  },
-  downloadButtonSmall: {
-    padding: height * 0.014,
-    margin: width * 0.04,
-    borderRadius: width * 0.035,
-    minHeight: height * 0.055,
-  },
-  downloadButtonLarge: {
-    padding: height * 0.018,
-    margin: width * 0.06,
-    borderRadius: width * 0.045,
-    minHeight: height * 0.065,
-  },
-  downloadButtonTablet: {
-    maxWidth: 400,
+  cardTablet: {
+    maxWidth: 500,
     alignSelf: 'center',
   },
-  downloadButtonText: {
-    color: '#000',
-    fontWeight: '700',
-    fontSize: width * 0.04,
+  cardShort: {
+    marginBottom: height * 0.01,
+    padding: width * 0.03,
+    minHeight: height * 0.14,
   },
-  downloadButtonTextSmall: {
-    fontSize: width * 0.038,
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: height * 0.012,
+    paddingBottom: height * 0.012,
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
   },
-  downloadButtonTextLarge: {
-    fontSize: width * 0.042,
+  cardHeaderSmall: {
+    marginBottom: height * 0.01,
+    paddingBottom: height * 0.01,
   },
-  // --- NEW MODAL STYLES FOR CENTRALMODAL ---
+  cardHeaderLarge: {
+    marginBottom: height * 0.015,
+    paddingBottom: height * 0.015,
+  },
+  cardHeaderShort: {
+    marginBottom: height * 0.008,
+    paddingBottom: height * 0.008,
+  },
+  dateText: {
+    color: '#888',
+    fontSize: Math.min(width * 0.035, 14),
+    flex: 1,
+  },
+  dateTextSmall: {
+    fontSize: Math.min(width * 0.033, 13),
+  },
+  dateTextLarge: {
+    fontSize: Math.min(width * 0.037, 15),
+  },
+  dateTextShort: {
+    fontSize: Math.min(width * 0.032, 12),
+  },
+  statusBadge: {
+    paddingHorizontal: width * 0.02,
+    paddingVertical: height * 0.005,
+    borderRadius: 4,
+  },
+  statusBadgeSmall: {
+    paddingHorizontal: width * 0.018,
+    paddingVertical: height * 0.004,
+  },
+  statusBadgeLarge: {
+    paddingHorizontal: width * 0.022,
+    paddingVertical: height * 0.006,
+  },
+  statusBadgeShort: {
+    paddingHorizontal: width * 0.015,
+    paddingVertical: height * 0.003,
+  },
+  statusCompleted: {
+    backgroundColor: 'rgba(76, 175, 80, 0.15)',
+  },
+  statusCancelled: {
+    backgroundColor: 'rgba(244, 67, 54, 0.15)',
+  },
+  statusText: {
+    color: '#fff',
+    fontSize: Math.min(width * 0.03, 12),
+    fontWeight: 'bold',
+    textTransform: 'capitalize',
+  },
+  statusTextSmall: {
+    fontSize: Math.min(width * 0.028, 11),
+  },
+  statusTextLarge: {
+    fontSize: Math.min(width * 0.032, 13),
+  },
+  statusTextShort: {
+    fontSize: Math.min(width * 0.027, 10),
+  },
+  locationsContainer: {
+    marginBottom: height * 0.012,
+  },
+  locationsContainerShort: {
+    marginBottom: height * 0.008,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: height * 0.004,
+    minHeight: height * 0.02,
+  },
+  locationRowSmall: {
+    marginBottom: height * 0.003,
+    minHeight: height * 0.018,
+  },
+  locationRowShort: {
+    marginBottom: height * 0.002,
+    minHeight: height * 0.016,
+  },
+  dot: {
+    width: Math.min(width * 0.018, 8),
+    height: Math.min(width * 0.018, 8),
+    borderRadius: Math.min(width * 0.009, 4),
+    marginRight: width * 0.025,
+  },
+  greenDot: {
+    backgroundColor: '#4CAF50',
+  },
+  redDot: {
+    backgroundColor: '#FF5252',
+  },
+  verticalLine: {
+    height: height * 0.015,
+    width: 1,
+    backgroundColor: '#444',
+    marginLeft: width * 0.008,
+    marginVertical: height * 0.002,
+  },
+  verticalLineSmall: {
+    height: height * 0.012,
+  },
+  verticalLineShort: {
+    height: height * 0.01,
+  },
+  addressText: {
+    color: 'white',
+    fontSize: Math.min(width * 0.038, 15),
+    flex: 1,
+  },
+  addressTextSmall: {
+    fontSize: Math.min(width * 0.036, 14),
+  },
+  addressTextLarge: {
+    fontSize: Math.min(width * 0.04, 16),
+  },
+  addressTextShort: {
+    fontSize: Math.min(width * 0.034, 13),
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: height * 0.008,
+    paddingTop: height * 0.012,
+    borderTopWidth: 1,
+    borderTopColor: '#333',
+  },
+  cardFooterSmall: {
+    marginTop: height * 0.006,
+    paddingTop: height * 0.01,
+  },
+  cardFooterLarge: {
+    marginTop: height * 0.01,
+    paddingTop: height * 0.015,
+  },
+  cardFooterShort: {
+    marginTop: height * 0.004,
+    paddingTop: height * 0.008,
+  },
+  priceLabel: {
+    color: '#888',
+    fontSize: Math.min(width * 0.035, 14),
+  },
+  priceLabelSmall: {
+    fontSize: Math.min(width * 0.033, 13),
+  },
+  priceLabelLarge: {
+    fontSize: Math.min(width * 0.037, 15),
+  },
+  priceLabelShort: {
+    fontSize: Math.min(width * 0.032, 12),
+  },
+  priceText: {
+    color: '#FFC107',
+    fontSize: Math.min(width * 0.045, 18),
+    fontWeight: 'bold',
+  },
+  priceTextSmall: {
+    fontSize: Math.min(width * 0.042, 17),
+  },
+  priceTextLarge: {
+    fontSize: Math.min(width * 0.048, 20),
+  },
+  priceTextShort: {
+    fontSize: Math.min(width * 0.04, 16),
+  },
+  // Modal Styles
   receiptScrollContent: {
     paddingBottom: 20,
+  },
+  receiptScrollContentShort: {
+    paddingBottom: 10,
   },
   detailSection: {
     marginBottom: 16,
