@@ -212,14 +212,18 @@ const styles = StyleSheet.create({
   footer: {
     width: "100%",
     alignItems: "center",
+    borderColor: "blue",
+    borderWidth: 0,
   },
   confirmButton: {
-    width: "100%",
+    width: "90%",
     paddingVertical: 16,
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 12,
+    borderColor: "white",
+    // borderWidth: 1,
   },
   confirmButtonText: {
     color: "#000",

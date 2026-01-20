@@ -74,6 +74,7 @@ export default function Home() {
   const [declinedOffer, setDeclinedOffer] = useState(null);
   const [optimisticOnlineStatus, setOptimisticOnlineStatus] = useState(null);
   const [lowBalanceWarningVisible, setLowBalanceWarningVisible] = useState(false);
+  const [showLowBalanceBanner, setShowLowBalanceBanner] = useState(true);
 
   const {
     handleWsEvent,
@@ -109,7 +110,7 @@ export default function Home() {
   } = useProfile();
 
   const { data: kycData, isLoading } = useDriverKycStatus();
-  const { data: balanceData } = useGetMyBalance();
+  const { data: balanceData, refetch: refetchBalance } = useGetMyBalance();
 
   const startRideMutation = useStartRide();
   const finishRideMutation = useFinishRide();
@@ -118,7 +119,7 @@ export default function Home() {
 
   // Responsive scaling functions
   const scaleFont = (size) => {
-    const scaleFactor = width / 375; // 375 is standard iPhone width
+    const scaleFactor = width / 375;
     return Math.round(size * Math.min(scaleFactor, 1.3));
   };
 
@@ -127,9 +128,34 @@ export default function Home() {
     return Math.round(size * Math.min(scaleFactor, 1.2));
   };
 
-  // Check if driver has sufficient balance
+  // Check if driver has sufficient balance (minimum ₦1,001)
   const hasSufficientBalance = () => {
-    return balanceData?.balance > 1000;
+    return balanceData?.balance >= 1001;
+  };
+
+  // Get balance warning status
+  const getBalanceWarningStatus = () => {
+    const balance = balanceData?.balance || 0;
+    
+    if (balance <= 1000) {
+      return {
+        type: 'critical',
+        message: `Balance: ₦${balance.toLocaleString()}. You need ₦1,001+ to accept rides.`,
+        buttonText: 'Add Funds Now',
+        icon: 'alert-circle-outline',
+        color: '#ff9800'
+      };
+    } else if (balance <= 2000) {
+      return {
+        type: 'warning',
+        message: `Balance: ₦${balance.toLocaleString()}. Consider adding more funds soon.`,
+        buttonText: 'Add Funds',
+        icon: 'warning-outline',
+        color: '#ffb74d'
+      };
+    }
+    
+    return null;
   };
 
   // -- Helper: Fetch Ride Details --
@@ -335,6 +361,7 @@ export default function Home() {
     if (rideId) {
       await fetchRideDetails(rideId);
     }
+    await refetchBalance();
     setRefreshing(false);
   };
 
@@ -568,6 +595,9 @@ export default function Home() {
     );
   }
 
+  // Get balance warning
+  const balanceWarning = getBalanceWarningStatus();
+
   // -- Render Main --
 
   return (
@@ -596,21 +626,10 @@ export default function Home() {
             onMenuPress={handleOpenDrawer}
           />
 
-          {/* <View style={styles.toggleContainer}>
-            <Text style={styles.toggleLabel}>
-              {(optimisticOnlineStatus !== null ? optimisticOnlineStatus : profile?.is_online) ? "Online" : "Offline"}
-            </Text>
-            <Switch
-              value={optimisticOnlineStatus !== null ? optimisticOnlineStatus : (profile?.is_online || false)}
-              onValueChange={handleToggleOnline}
-              trackColor={{ false: "#555", true: "#4CAF50" }}
-              thumbColor={(optimisticOnlineStatus !== null ? optimisticOnlineStatus : profile?.is_online) ? "#fff" : "#ccc"}
-              disabled={activeStatusMutation.isPending}
-            />
-          </View> */}
-
+          {/* Status Badge */}
           <StatusBadge />
 
+          {/* Active Ride Section */}
           <ActiveRideSection
             status={status}
             rideId={rideId}
@@ -625,28 +644,56 @@ export default function Home() {
             isLoadingDetails={loadingRideDetails}
           />
 
+          {/* Chart Section */}
           <View style={styles.chartContainer}>
             <DonutChart />
           </View>
 
-          <UpgradeNotificationCard />
+          {/* KYC Restrictions */}
+          {kycData?.kyc_status !== "APPROVED" && kycData?.kyc_status !== "IN_REVIEW" && (
+            <UpgradeNotificationCard />
+          )}
 
           {/* Low Balance Warning Banner */}
-          {status === 'not_busy' && balanceData?.balance <= 1000 && (
-            <View style={[styles.sectionContainer, styles.lowBalanceWarning]}>
-              <View style={styles.sectionHeader}>
-                <Text style={[styles.sectionTitle, { color: '#ff9800' }]}>Low Balance</Text>
-                <Ionicons name="alert-circle-outline" size={scaleSize(20)} color="#ff9800" />
+          {status === 'not_busy' && balanceWarning && showLowBalanceBanner && (
+            <View style={[
+              styles.sectionContainer, 
+              styles.lowBalanceWarning,
+              { borderLeftColor: balanceWarning.color }
+            ]}>
+              <View style={styles.balanceBannerHeader}>
+                <View style={styles.balanceTitleRow}>
+                  <Ionicons name={balanceWarning.icon} size={scaleSize(20)} color={balanceWarning.color} />
+                  <Text style={[styles.balanceBannerTitle, { color: balanceWarning.color }]}>
+                    {balanceWarning.type === 'critical' ? 'Low Balance' : 'Balance Warning'}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => setShowLowBalanceBanner(false)}>
+                  <Ionicons name="close" size={scaleSize(18)} color="#666" />
+                </TouchableOpacity>
               </View>
-              <Text style={[styles.emptySubtext, styles.lowBalanceText]}>
-                Your balance is ₦{balanceData?.balance?.toLocaleString()}. You need ₦1,000+ to accept rides.
+              
+              <Text style={styles.balanceWarningText}>
+                {balanceWarning.message}
               </Text>
-              <TouchableOpacity
-                style={[styles.viewButton, { backgroundColor: "#ff9800" }]}
-                onPress={() => navigation.navigate("Wallet")}
-              >
-                <Text style={styles.viewButtonText}>Add Funds</Text>
-              </TouchableOpacity>
+              
+              <View style={styles.balanceBannerActions}>
+                <TouchableOpacity
+                  style={[styles.viewButton, { backgroundColor: balanceWarning.color }]}
+                  onPress={() => navigation.navigate("Wallet")}
+                >
+                  <Text style={styles.viewButtonText}>{balanceWarning.buttonText}</Text>
+                </TouchableOpacity>
+                
+                {balanceWarning.type === 'critical' && (
+                  <TouchableOpacity
+                    style={styles.viewButtonOutline}
+                    onPress={() => navigation.navigate("Earnings")}
+                  >
+                    <Text style={styles.viewButtonOutlineText}>View Earnings</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
           )}
 
@@ -685,7 +732,15 @@ export default function Home() {
                     <View style={[styles.ordersContainer, { backgroundColor: 'transparent', padding: 0 }]}>
                       
                       <View style={styles.ordersHeader}>
-                        <Text style={styles.sectionTitle}>Available Orders</Text>
+                        <View style={styles.ordersTitleRow}>
+                          <Text style={styles.sectionTitle}>Available Orders</Text>
+                          {!hasSufficientBalance() && (
+                            <View style={styles.viewOnlyBadge}>
+                              <Ionicons name="eye-outline" size={scaleSize(10)} color="#666" />
+                              <Text style={styles.viewOnlyText}>View Only</Text>
+                            </View>
+                          )}
+                        </View>
                         <Text style={styles.ordersCount}>{rideNotifications.length} Active</Text>
                       </View>
 
@@ -698,6 +753,7 @@ export default function Home() {
                           onDecline={handleDecline}
                           disabled={!hasSufficientBalance()}
                           disabledMessage="Add funds to accept rides"
+                          showViewOnly={!hasSufficientBalance()}
                         />
                       ))}
 
@@ -736,11 +792,28 @@ export default function Home() {
                   <Ionicons name="trash-outline" size={scaleSize(20)} color="#f44336" />
                 </TouchableOpacity>
               </View>
+              
+              {!hasSufficientBalance() && (
+                <View style={styles.updatesWarning}>
+                  <Ionicons name="alert-circle-outline" size={scaleSize(16)} color="#ff9800" />
+                  <Text style={styles.updatesWarningText}>
+                    Add funds to respond to offers
+                  </Text>
+                </View>
+              )}
+              
               <TouchableOpacity
-                style={[styles.viewButton, { backgroundColor: "#4CAF50" }]}
+                style={[
+                  styles.viewButton, 
+                  { backgroundColor: "#4CAF50" },
+                  !hasSufficientBalance() && styles.disabledViewButton
+                ]}
                 onPress={() => setUpdatesModalVisible(true)}
+                disabled={!hasSufficientBalance()}
               >
-                <Text style={styles.viewButtonText}>View Updates</Text>
+                <Text style={styles.viewButtonText}>
+                  {hasSufficientBalance() ? 'View Updates' : 'Add Funds to View'}
+                </Text>
               </TouchableOpacity>
             </View>
           )}
@@ -853,12 +926,12 @@ export default function Home() {
             {/* Low Balance Warning in Modal */}
             {!hasSufficientBalance() && (
               <View style={[styles.sectionContainer, styles.modalLowBalanceWarning]}>
-                <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 5}}>
-                  <Ionicons name="alert-circle-outline" size={scaleSize(18)} color="#ff9800" style={{marginRight: 8}} />
-                  <Text style={{color: '#ff9800', fontWeight: 'bold', fontSize: scaleFont(14)}}>Low Balance</Text>
+                <View style={styles.modalWarningHeader}>
+                  <Ionicons name="eye-outline" size={scaleSize(18)} color="#ff9800" style={{marginRight: 8}} />
+                  <Text style={{color: '#ff9800', fontWeight: 'bold', fontSize: scaleFont(14)}}>View Only Mode</Text>
                 </View>
                 <Text style={{color: '#ffcc80', fontSize: scaleFont(12), marginBottom: 8}}>
-                  Balance: ₦{balanceData?.balance?.toLocaleString()}. Add funds to accept rides.
+                  Balance: ₦{balanceData?.balance?.toLocaleString()}. Add ₦{1001 - (balanceData?.balance || 0)} to accept rides.
                 </Text>
                 <TouchableOpacity
                   style={{backgroundColor: '#ff9800', padding: scaleSize(8), borderRadius: 6, alignSelf: 'flex-start'}}
@@ -883,6 +956,7 @@ export default function Home() {
                   onDecline={handleDecline}
                   disabled={!hasSufficientBalance()}
                   disabledMessage="Add funds to accept rides"
+                  showViewOnly={!hasSufficientBalance()}
                 />
               )}
               contentContainerStyle={styles.listContent}
@@ -918,6 +992,18 @@ export default function Home() {
               <View style={{ width: scaleSize(24) }} />
             </View>
 
+            {!hasSufficientBalance() && (
+              <View style={[styles.sectionContainer, styles.modalLowBalanceWarning]}>
+                <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 5}}>
+                  <Ionicons name="alert-circle-outline" size={scaleSize(18)} color="#ff9800" style={{marginRight: 8}} />
+                  <Text style={{color: '#ff9800', fontWeight: 'bold', fontSize: scaleFont(14)}}>Funds Required</Text>
+                </View>
+                <Text style={{color: '#ffcc80', fontSize: scaleFont(12), marginBottom: 8}}>
+                  Add funds to respond to counter offers.
+                </Text>
+              </View>
+            )}
+
             <FlatList
               data={negotiationArray}
               keyExtractor={(item) => item.ride_request_view_id}
@@ -930,6 +1016,7 @@ export default function Home() {
                   onCounterSubmit={handleCounterSubmit}
                   disabled={!hasSufficientBalance()}
                   disabledMessage="Add funds to accept offers"
+                  showViewOnly={!hasSufficientBalance()}
                 />
               )}
               contentContainerStyle={styles.listContent}
@@ -1046,11 +1133,11 @@ export default function Home() {
             {!hasSufficientBalance() && (
               <View style={styles.viewOfferWarning}>
                 <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 8}}>
-                  <Ionicons name="alert-circle-outline" size={scaleSize(20)} color="#ff9800" style={{marginRight: 10}} />
-                  <Text style={{color: '#ff9800', fontWeight: 'bold', fontSize: scaleFont(16)}}>Cannot Accept Ride</Text>
+                  <Ionicons name="eye-outline" size={scaleSize(20)} color="#ff9800" style={{marginRight: 10}} />
+                  <Text style={{color: '#ff9800', fontWeight: 'bold', fontSize: scaleFont(16)}}>View Only</Text>
                 </View>
                 <Text style={{color: '#ffcc80', fontSize: scaleFont(14), marginBottom: 10}}>
-                  Your balance is ₦{balanceData?.balance?.toLocaleString()}. You need at least ₦1,001 to accept rides.
+                  Your balance is ₦{balanceData?.balance?.toLocaleString()}. Add ₦{1001 - (balanceData?.balance || 0)} to accept or counter.
                 </Text>
                 <TouchableOpacity
                   style={{backgroundColor: '#ff9800', padding: scaleSize(12), borderRadius: 8, alignSelf: 'flex-start'}}
@@ -1368,12 +1455,45 @@ const styles = StyleSheet.create({
   lowBalanceWarning: {
     backgroundColor: '#332211',
     borderLeftWidth: 4,
-    borderLeftColor: '#ff9800'
   },
-  lowBalanceText: {
+  balanceBannerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  balanceTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  balanceBannerTitle: {
+    fontSize: Math.max(16, width * 0.042),
+    fontWeight: "bold",
+    marginLeft: 8,
+  },
+  balanceWarningText: {
     marginBottom: 10,
     textAlign: 'left',
     color: '#ffcc80',
+    fontSize: Math.max(12, width * 0.032),
+  },
+  balanceBannerActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  viewButtonOutline: {
+    backgroundColor: 'transparent',
+    paddingVertical: Math.max(10, height * 0.012),
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: '#facc15',
+    flex: 1,
+  },
+  viewButtonOutlineText: {
+    color: "#facc15",
+    fontWeight: "bold",
     fontSize: Math.max(12, width * 0.032),
   },
   sectionHeader: {
@@ -1396,6 +1516,25 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 10,
     paddingHorizontal: 5
+  },
+  ordersTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  viewOnlyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#333',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+    gap: 4,
+  },
+  viewOnlyText: {
+    color: '#666',
+    fontSize: Math.max(9, width * 0.024),
+    fontWeight: '600',
   },
   ordersCount: {
     color: '#666',
@@ -1425,6 +1564,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 10,
   },
+  disabledViewButton: {
+    backgroundColor: '#666',
+    opacity: 0.7,
+  },
+  updatesWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#332211',
+    padding: 8,
+    borderRadius: 6,
+    marginBottom: 10,
+    gap: 6,
+  },
+  updatesWarningText: {
+    color: '#ffcc80',
+    fontSize: Math.max(11, width * 0.029),
+  },
   toggleContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1438,7 +1594,7 @@ const styles = StyleSheet.create({
   toggleLabel: {
     color: "white",
     fontSize: Math.max(14, width * 0.037),
-    fontWeight: "600",
+    fontWeight: '600',
   },
   viewButtonText: {
     color: "black",
@@ -1556,6 +1712,11 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: '#ff9800',
     padding: Math.max(12, width * 0.04),
+  },
+  modalWarningHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
   },
   listContent: {
     paddingBottom: Math.max(20, height * 0.025),

@@ -1,4 +1,3 @@
-
 import { 
   View, 
   StyleSheet, 
@@ -44,6 +43,9 @@ export default function Wallet() {
     refetch: refetchTransactions 
   } = useGetMyTransactions();
 
+  // Get the actual balance value
+  const userBalance = balanceData?.balance ?? 0;
+
   // 2. Create the refresh handler
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -85,12 +87,15 @@ export default function Wallet() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* 4. Pass data and state down as props */}
+        {/* Pass the actual balance to BalanceCard */}
         <BalanceCard 
           balanceData={balanceData}
           isLoading={isBalanceLoading}
           isError={isBalanceError}
+          userBalance={userBalance} // Pass the actual balance value
         />
+
+        {/* Rest of the component remains the same... */}
 
         {balanceData?.balance < 1000 && (
           <View style={[

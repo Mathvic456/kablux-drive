@@ -183,7 +183,7 @@ export default function Account() {
                 isSmallScreen && styles.ratingTextSmall,
                 isLargeScreen && styles.ratingTextLarge
               ]}>
-                4.99 
+                {profile.rating}
               </Text>
               <FontAwesome5 
                 name="star" 
@@ -391,10 +391,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   profileSection: {
-    marginBottom: height * 0.03,
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf:'center',
+    // marginBottom: height * 0.03,
+    // flexDirection: 'row',
+    // alignItems: 'center',
+    // alignSelf:'center',
+    // borderWidth: 1,
+    // borderColor: 'white',
+    padding: 10,
+    borderRadius: 12,
   },
   profileSectionSmall: {
     marginBottom: height * 0.025,
@@ -408,19 +412,14 @@ const styles = StyleSheet.create({
     borderRadius: width * 0.1,
     marginRight: width * 0.04,
     alignSelf:'center',
-  },
-  profileImageSmall: {
-    width: width * 0.18,
-    height: width * 0.18,
-    borderRadius: width * 0.09,
-  },
-  profileImageLarge: {
-    width: width * 0.22,
-    height: width * 0.22,
-    borderRadius: width * 0.11,
+    // borderWidth: 1,
+    // borderColor: 'white',
+    padding: 10,
+    borderRadius: 12,
   },
   profileInfo: {
     flex: 1,
+    alignSelf:'center',
   },
   profileInfoSmall: {
     marginLeft: width * 0.03,

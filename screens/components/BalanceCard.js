@@ -25,7 +25,7 @@ const formatCurrency = (amount) => {
 };
 
 // Accept props now
-export default function BalanceCard({ balanceData, isLoading, isError }) {
+export default function BalanceCard({ balanceData, isLoading, isError, userBalance = 0 }) {
   const navigation = useNavigation();
   const [balanceVisible, setBalanceVisible] = useState(false);
   
@@ -37,13 +37,12 @@ export default function BalanceCard({ balanceData, isLoading, isError }) {
   const screenHeight = Dimensions.get('window').height;
   const isShortScreen = screenHeight < 700; // Small height devices
   
-  // No hook call here anymore!
-  const balance = balanceData?.balance ?? 0;
-  
+  // Use actualBalance prop or fallback to balanceData
+  const balance = userBalance;
   const handleWithdraw = () => {
-    navigation.navigate('Withdraw'); 
+    // Pass the user's actual balance to Withdraw screen
+    navigation.navigate('Withdraw', { userBalance: balance }); 
   };
-
   const toggleBalanceVisibility = () => {
     setBalanceVisible(!balanceVisible);
   };
@@ -401,8 +400,3 @@ const styles = StyleSheet.create({
     color: '#999',
   },
 });
-
-
-
-
-

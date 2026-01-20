@@ -533,10 +533,11 @@ export default function Bookings() {
           contentMode="custom"
           confirmText="Download Waybill"
           closeText="Close"
+          containerStyle={styles.bookingDetailsContainer}
           confirmButtonColor="#FFC107"
           themeColor="#FFC107"
           onConfirm={() => downloadReceipt(selectedReceipt)}
-          maxHeight={isShortScreen ? '85%' : '90%'}
+          maxHeight={isShortScreen ? '65%' : '70%'}
         >
           {selectedReceipt && (
             <ScrollView 
@@ -626,6 +627,12 @@ const styles = StyleSheet.create({
     paddingBottom: height * 0.02,
     borderBottomWidth: 1,
     borderBottomColor: '#333',
+  },
+  bookingDetailsContainer:{
+    borderWidth:1,
+    borderColor:'#444',
+    height:'fit-content',
+    padding: 5
   },
   headerSmall: {
     paddingHorizontal: width * 0.04,
@@ -1113,10 +1120,12 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   detailSection: {
-    marginBottom: 16,
-    paddingBottom: 16,
+    marginBottom: 10,
+    paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#333',
+    borderWidth: 2,
+    // borderColor: '',
   },
   detailRow: {
     flexDirection: 'row',
@@ -1160,10 +1169,13 @@ const styles = StyleSheet.create({
   },
   totalSection: {
     backgroundColor: '#FFC107',
+    alignItems: 'center',
     borderRadius: 8,
-    padding: 16,
-    marginTop: 8,
-    marginBottom: 0,
+    // borderRadius: 8,
+    // padding: 8,
+    // alignItems: 'center',
+    // marginTop: 5,
+    // marginBottom: 0,
   },
   totalLabel: {
     color: '#000',

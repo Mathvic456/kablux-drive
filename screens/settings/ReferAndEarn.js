@@ -40,7 +40,7 @@ export default function ReferAndEarn() {
     const [copyModalVisible, setCopyModalVisible] = useState(false);
 
     const referralCode = "B219XN23LA22";
-    const referralLink = "https://kabluxe.com/referral/B219XN23LA22";
+    const referralLink = "https://kabluxe.com";
     const shareMessage = `Join me on KabLux! Use my referral code ${referralCode} to get started and we both earn rewards. Sign up here: ${referralLink}`;
 
     const copyToClipboard = async (text) => {
