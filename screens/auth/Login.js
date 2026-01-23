@@ -18,6 +18,7 @@ import { FontAwesome, MaterialIcons, Feather } from "@expo/vector-icons";
 import Logo from "../../assets/Logo.png";
 import { useLoginEndPoint } from "../../services/auth.service";
 import { useAuth } from "../../context/AuthContext";
+import { usePushNotifications } from "../../hooks/usePushNotifications";
 
 const { width, height } = Dimensions.get('window');
 
@@ -45,6 +46,7 @@ const Login = ({ navigation }) => {
 
   // Get setTokens from AuthContext
   const { setTokens } = useAuth();
+  const { token: pushToken, getPushToken } = usePushNotifications();
 
   // Pass setTokens to the login hook
   const { mutate: login, isPending } = useLoginEndPoint(
@@ -84,11 +86,26 @@ const Login = ({ navigation }) => {
     setAuthError("");
 
     if (validateForm()) {
+      let fcmToken = pushToken;
+      if (!fcmToken) {
+        try {
+          fcmToken = await getPushToken();
+        } catch (error) {
+          console.warn("Failed to get push token, proceeding without it:", error);
+        }
+      }
+
       login(
-        { email, password },
+        {
+          email,
+          password,
+          role: 'driver',
+          fcm_token: fcmToken,
+          type: "android"
+        },
         {
           onSuccess: () => {
-            // Handle success if needed
+            setActiveStatus({ is_online: true });
           },
           onError: (error) => {
             if (error?.response?.status === 401) {
@@ -98,7 +115,7 @@ const Login = ({ navigation }) => {
             }
           },
         }
-      )
+      );
     }
   };
 
@@ -113,15 +130,15 @@ const Login = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.mainContainer}>
       <StatusBar barStyle="light-content" backgroundColor="#0B2633" />
-      
+
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       >
         {/* Top Banner */}
-        <View style={[styles.banner, { 
-          height: Math.max(200, height * 0.25) 
+        <View style={[styles.banner, {
+          height: Math.max(200, height * 0.25)
         }]} />
 
         {/* Scrollable Card */}
@@ -133,36 +150,36 @@ const Login = ({ navigation }) => {
         >
           <View style={[
             styles.card,
-            { 
+            {
               paddingHorizontal: Math.max(20, width * 0.05),
               paddingTop: Math.max(20, height * 0.02),
               paddingBottom: Math.max(30, height * 0.03)
             }
           ]}>
             <View style={styles.logoContainer}>
-              <Image 
-                source={Logo} 
+              <Image
+                source={Logo}
                 style={[
-                  styles.logoIcon, 
-                  { 
+                  styles.logoIcon,
+                  {
                     width: scaleSize(130),
                     height: scaleSize(100)
                   }
-                ]} 
+                ]}
                 resizeMode="contain"
               />
             </View>
-            
+
             <Text style={[
-              styles.title, 
+              styles.title,
               { fontSize: scaleFont(24) }
             ]}>
               Sign In
             </Text>
-            
+
             <Text style={[
-              styles.subtitle, 
-              { 
+              styles.subtitle,
+              {
                 fontSize: scaleFont(14),
                 lineHeight: scaleFont(20)
               }
@@ -174,8 +191,8 @@ const Login = ({ navigation }) => {
 
             {/* Email Input */}
             <View style={[
-              styles.inputContainer, 
-              { 
+              styles.inputContainer,
+              {
                 height: scaleSize(50),
                 marginTop: scaleSize(10)
               }
@@ -212,8 +229,8 @@ const Login = ({ navigation }) => {
 
             {/* Password Input */}
             <View style={[
-              styles.inputContainer, 
-              { 
+              styles.inputContainer,
+              {
                 height: scaleSize(50),
                 marginTop: scaleSize(10)
               }
@@ -237,7 +254,7 @@ const Login = ({ navigation }) => {
                 editable={!isPending}
                 returnKeyType="done"
               />
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={() => setShowPassword(!showPassword)}
                 style={styles.eyeButton}
                 disabled={isPending}
@@ -261,7 +278,7 @@ const Login = ({ navigation }) => {
             {/* Remember & Forgot */}
             <View style={[
               styles.row,
-              { 
+              {
                 marginTop: scaleSize(10),
                 marginBottom: scaleSize(20)
               }
@@ -273,18 +290,18 @@ const Login = ({ navigation }) => {
                 activeOpacity={0.7}
               >
                 <View style={[
-                  styles.checkbox, 
+                  styles.checkbox,
                   !remember && styles.checkboxUnchecked,
-                  { 
+                  {
                     width: scaleSize(20),
                     height: scaleSize(20)
                   }
                 ]}>
                   {remember && (
-                    <MaterialIcons 
-                      name="check" 
-                      size={scaleSize(16)} 
-                      color="#000" 
+                    <MaterialIcons
+                      name="check"
+                      size={scaleSize(16)}
+                      color="#000"
                     />
                   )}
                 </View>
@@ -296,8 +313,8 @@ const Login = ({ navigation }) => {
                 </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity 
-                onPress={handleForgotPassword} 
+              <TouchableOpacity
+                onPress={handleForgotPassword}
                 disabled={isPending}
                 activeOpacity={0.7}
               >
@@ -309,11 +326,11 @@ const Login = ({ navigation }) => {
                 </Text>
               </TouchableOpacity>
             </View>
-            
+
             {authError ? (
               <Text style={[
                 styles.authError,
-                { 
+                {
                   fontSize: scaleFont(13),
                   marginBottom: scaleSize(10)
                 }
@@ -325,9 +342,9 @@ const Login = ({ navigation }) => {
             {/* Proceed Button */}
             <TouchableOpacity
               style={[
-                styles.proceedBtn, 
+                styles.proceedBtn,
                 isPending && styles.proceedBtnDisabled,
-                { 
+                {
                   paddingVertical: scaleSize(14),
                   marginTop: scaleSize(10),
                   minHeight: scaleSize(50)
@@ -342,7 +359,7 @@ const Login = ({ navigation }) => {
                   <ActivityIndicator size="small" color="#000" />
                   <Text style={[
                     styles.proceedText,
-                    { 
+                    {
                       fontSize: scaleFont(16),
                       marginLeft: scaleSize(8)
                     }
@@ -368,7 +385,7 @@ const Login = ({ navigation }) => {
               <View style={styles.divider} />
               <Text style={[
                 styles.dividerText,
-                { 
+                {
                   fontSize: scaleFont(12),
                   marginHorizontal: scaleSize(10)
                 }
@@ -379,8 +396,8 @@ const Login = ({ navigation }) => {
             </View>
 
             {/* Sign Up Link */}
-            <TouchableOpacity 
-              onPress={handleSignUpPress} 
+            <TouchableOpacity
+              onPress={handleSignUpPress}
               disabled={isPending}
               style={styles.signupLink}
               activeOpacity={0.7}
@@ -405,7 +422,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#000",
   },
-  container: { 
+  container: {
     flex: 1, 
     backgroundColor: "#000" 
   },
