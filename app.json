@@ -37,10 +37,13 @@
       "edgeToEdgeEnabled": true,
 
       "permissions": [
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE"
       ],
 
-      "package": "com.crashingout.kabluxdrive"
+      "package": "com.crashingout.kabluxdrive",
+      "googleServicesFile": "./google-services.json"
     },
 
     "web": {
