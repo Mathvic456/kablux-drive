@@ -78,6 +78,7 @@ const Login = ({ navigation }) => {
         try {
           fcmToken = await getPushToken();
         } catch (error) {
+          fcmToken = ""
           console.warn("Failed to get push token, proceeding without it:", error);
         }
       }
