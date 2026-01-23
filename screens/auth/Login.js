@@ -17,6 +17,7 @@ import Logo from "../../assets/Logo.png";
 import { useLoginEndPoint } from "../../services/auth.service";
 import { useActiveStatusEndPoint } from "../../services/auth.service";
 import { useAuth } from "../../context/AuthContext";
+import { usePushNotifications } from "../../hooks/usePushNotifications";
 
 const Login = ({ navigation }) => {
   const [email, setEmail] = useState("");
@@ -32,6 +33,7 @@ const Login = ({ navigation }) => {
 
   // Get setTokens from AuthContext
   const { setTokens } = useAuth();
+  const { token: pushToken, getPushToken } = usePushNotifications();
 
   // Pass setTokens to the login hook
   const { mutate: login, isPending } = useLoginEndPoint(
@@ -71,21 +73,36 @@ const Login = ({ navigation }) => {
     setAuthError("");
 
     if (validateForm()) {
-login(
-  { email, password },
-  {
-    onSuccess: () => {
-      setActiveStatus({ is_online: true });
-    },
-    onError: (error) => {
-      if (error?.response?.status === 401) {
-        setAuthError("Invalid email or password");
-      } else {
-        setAuthError("Something went wrong. Please try again.");
+      let fcmToken = pushToken;
+      if (!fcmToken) {
+        try {
+          fcmToken = await getPushToken();
+        } catch (error) {
+          console.warn("Failed to get push token, proceeding without it:", error);
+        }
       }
-    },
-  }
-)
+
+      login(
+        {
+          email,
+          password,
+          role: 'driver',
+          fcm_token: fcmToken,
+          type: "android"
+        },
+        {
+          onSuccess: () => {
+            setActiveStatus({ is_online: true });
+          },
+          onError: (error) => {
+            if (error?.response?.status === 401) {
+              setAuthError("Invalid email or password");
+            } else {
+              setAuthError("Something went wrong. Please try again.");
+            }
+          },
+        }
+      );
     }
   };
 

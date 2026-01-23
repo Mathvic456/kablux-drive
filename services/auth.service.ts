@@ -23,6 +23,7 @@ export const useRegisterEndPoint = () => {
 type LoginPayload = {
   email: string;
   password: string;
+  fcm_token?: string;
 };
 
 export const useLoginEndPoint = (
