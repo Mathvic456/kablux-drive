@@ -13,6 +13,7 @@ import PhotoUpload from '../kyc/PhotoUpload';
 import DocumentUploads from '../kyc/DocumentUploads';
 import PaymentInformation from '../kyc/PaymentInformation';
 import SetPaymentInfo from '../kyc/SetPaymentInfo';
+import TransferForm from '../components/TransferForm';
 import PasskeySetup from '../auth/PasskeySetup';
 import { TransitionPresets } from '@react-navigation/stack';
 import TabNavigator from './TabNavigator';
@@ -176,7 +177,7 @@ const AppNavigator = () => {
 
       <Stack.Screen 
         name="Withdraw" 
-        component={Withdraw}
+        component={TransferForm}
       />
 
       <Stack.Screen 

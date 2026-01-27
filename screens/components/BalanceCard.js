@@ -1,22 +1,19 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TouchableOpacity, 
-  StyleSheet, 
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
   ActivityIndicator,
-  useWindowDimensions,
   Dimensions,
-  SafeAreaView,
-  StatusBar,
-  Platform
 } from 'react-native';
-import { MaterialIcons, Entypo, Ionicons, FontAwesome } from '@expo/vector-icons';
+import { MaterialIcons, Entypo, Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useGetMyBalance } from '../../services/funding.service';
 
-// Helper function to format the balance
+// Helper
 const formatCurrency = (amount) => {
-  if (typeof amount !== 'number') return '0.00';
+  if (typeof amount !== 'number') return '₦0.00';
   return amount.toLocaleString('en-NG', {
     style: 'currency',
     currency: 'NGN',
@@ -24,169 +21,82 @@ const formatCurrency = (amount) => {
   });
 };
 
-// Accept props now
-export default function BalanceCard({ balanceData, isLoading, isError, userBalance = 0 }) {
+export default function BalanceCard() {
   const navigation = useNavigation();
   const [balanceVisible, setBalanceVisible] = useState(false);
-  
-  const { width, height } = useWindowDimensions();
-  const isSmallScreen = width < 375; // iPhone SE, small Android
-  const isMediumScreen = width >= 375 && width <= 414; // iPhone 12-15, most Android
-  const isLargeScreen = width > 414; // iPhone Plus/Pro Max
-  const isTablet = width > 768;
-  const screenHeight = Dimensions.get('window').height;
-  const isShortScreen = screenHeight < 700; // Small height devices
-  
-  // Use actualBalance prop or fallback to balanceData
-  const balance = userBalance;
+
+  // ✅ CORRECT HOOK USAGE
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+  } = useGetMyBalance();
+
+  const balance = data?.balance ?? 0;
+
   const handleWithdraw = () => {
-    // Pass the user's actual balance to Withdraw screen
-    navigation.navigate('Withdraw', { userBalance: balance }); 
-  };
-  const toggleBalanceVisibility = () => {
-    setBalanceVisible(!balanceVisible);
+    navigation.navigate('Withdraw', {
+      userBalance: balance,
+    });
   };
 
-  const renderBalanceContent = () => {
+  const renderBalance = () => {
     if (isLoading) {
       return (
-        <View style={styles.amountRow}>
-          <ActivityIndicator 
-            size={isSmallScreen ? "small" : isShortScreen ? "small" : "large"} 
-            color="white" 
-          />
-          <Text style={[
-            styles.loadingText,
-            isSmallScreen && styles.loadingTextSmall,
-            isLargeScreen && styles.loadingTextLarge,
-            isShortScreen && styles.loadingTextShort
-          ]}>Fetching Balance...</Text>
+        <View style={styles.row}>
+          <ActivityIndicator color="#fff" />
+          <Text style={styles.infoText}>Fetching balance…</Text>
         </View>
       );
     }
 
     if (isError) {
       return (
-        <View style={styles.amountRow}>
-          <Text style={[
-            styles.errorText,
-            isSmallScreen && styles.errorTextSmall,
-            isLargeScreen && styles.errorTextLarge,
-            isShortScreen && styles.errorTextShort
-          ]}>Error loading balance</Text>
-          <Entypo 
-            name="warning" 
-            size={isSmallScreen ? 16 : isShortScreen ? 14 : 22} 
-            color="red" 
-          />
+        <View style={styles.row}>
+          <Text style={styles.errorText}>Failed to load balance</Text>
+          <TouchableOpacity onPress={refetch}>
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
         </View>
       );
     }
-    
+
     return (
-      <View style={styles.amountRow}>
-        <View style={styles.balanceContainer}>
-          {balanceVisible ? (
-            <Text style={[
-              styles.amount,
-              isSmallScreen && styles.amountSmall,
-              isLargeScreen && styles.amountLarge,
-              isShortScreen && styles.amountShort
-            ]}>
-              {formatCurrency(balance)}
-            </Text>
-          ) : (
-            <View style={styles.hiddenBalance}>
-              <Text style={[
-                styles.hiddenText,
-                isSmallScreen && styles.hiddenTextSmall,
-                isLargeScreen && styles.hiddenTextLarge,
-                isShortScreen && styles.hiddenTextShort
-              ]}>
-                ●●●●●●●●●●
-              </Text>
-            </View>
-          )}
-        </View>
-        <View style={styles.balanceActions}>
-          <TouchableOpacity 
-            onPress={toggleBalanceVisibility}
-            style={styles.visibilityButton}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons 
-              name={balanceVisible ? "eye-off-outline" : "eye-outline"} 
-              size={isSmallScreen ? 18 : isShortScreen ? 16 : 24} 
-              color="white" 
-            />
-          </TouchableOpacity>
-        </View>
+      <View style={styles.row}>
+        <Text style={styles.amount}>
+          {balanceVisible ? formatCurrency(balance) : '●●●●●●●'}
+        </Text>
+
+        <TouchableOpacity onPress={() => setBalanceVisible(!balanceVisible)}>
+          <Ionicons
+            name={balanceVisible ? 'eye-off-outline' : 'eye-outline'}
+            size={22}
+            color="white"
+          />
+        </TouchableOpacity>
       </View>
     );
   };
 
   return (
-    <View style={[
-      styles.card,
-      isSmallScreen && styles.cardSmall,
-      isLargeScreen && styles.cardLarge,
-      isTablet && styles.cardTablet,
-      isShortScreen && styles.cardShort
-    ]}>
-      {/* Header */}
-      <View style={[
-        styles.header,
-        isShortScreen && styles.headerShort
-      ]}>
-        <View style={[
-          styles.balanceRow,
-          isShortScreen && styles.balanceRowShort
-        ]}>
-          <MaterialIcons 
-            name="monetization-on" 
-            size={isSmallScreen ? 16 : isShortScreen ? 14 : 20} 
-            color="#FFC107" 
-          />
-          <Text style={[
-            styles.balanceLabel,
-            isSmallScreen && styles.balanceLabelSmall,
-            isLargeScreen && styles.balanceLabelLarge,
-            isShortScreen && styles.balanceLabelShort
-          ]}>
-            Available Balance
-          </Text>
+    <View style={styles.card}>
+      <View style={styles.header}>
+        <View style={styles.labelRow}>
+          <MaterialIcons name="monetization-on" size={20} color="#FFC107" />
+          <Text style={styles.label}>Available Balance</Text>
         </View>
-        <Entypo 
-          name="help-with-circle" 
-          size={isSmallScreen ? 14 : isShortScreen ? 12 : 18} 
-          color="#FFC107" 
-        />
+        <Entypo name="help-with-circle" size={18} color="#FFC107" />
       </View>
 
-      {renderBalanceContent()}
+      {renderBalance()}
 
-      {/* Withdraw Button */}
-      <TouchableOpacity 
-        style={[
-          styles.button,
-          (isLoading || isError) && styles.buttonDisabled,
-          isSmallScreen && styles.buttonSmall,
-          isLargeScreen && styles.buttonLarge,
-          isTablet && styles.buttonTablet,
-          isShortScreen && styles.buttonShort
-        ]}
+      <TouchableOpacity
+        style={[styles.button, (isLoading || isError) && styles.disabled]}
         onPress={handleWithdraw}
-        disabled={isLoading || isError} 
+        disabled={isLoading || isError}
       >
-        <Text style={[
-          styles.buttonText,
-          isSmallScreen && styles.buttonTextSmall,
-          isLargeScreen && styles.buttonTextLarge,
-          isShortScreen && styles.buttonTextShort,
-          (isLoading || isError) && styles.buttonTextDisabled
-        ]}>
-          Withdraw
-        </Text>
+        <Text style={styles.buttonText}>Withdraw</Text>
       </TouchableOpacity>
     </View>
   );

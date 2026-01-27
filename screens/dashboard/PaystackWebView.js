@@ -39,7 +39,7 @@ const DynamicPayStackWebViewScreen = () => {
       {
         amount: num,
         email: defaultEmail, 
-        channel: "card"
+        channel: "bank_transfer"
       },
       {
         onSuccess: (res) => {

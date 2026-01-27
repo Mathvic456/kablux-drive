@@ -1,460 +1,508 @@
-import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
   Modal,
   FlatList,
-  ScrollView 
 } from 'react-native';
-import { MaterialIcons, FontAwesome, Entypo } from '@expo/vector-icons';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
+import {
+  useResolveAccount,
+  useCreateTransferRecipient,
+  useWithdrawFunds,
+  useGetMyBalance
+} from '../../services/funding.service';
 
-export default function TransferForm() {
+// --- Supported Banks ---
+const BANKS = [
+  { name: 'GTBank', code: '058' },
+  { name: 'Zenith Bank', code: '057' },
+  { name: 'Access Bank', code: '044' },
+  { name: 'UBA', code: '033' },
+  { name: 'First Bank', code: '011' },
+  { name: 'Fidelity Bank', code: '070' },
+  { name: 'Sterling Bank', code: '232' },
+  { name: 'Union Bank', code: '032' },
+  { name: 'Stanbic IBTC Bank', code: '221' },
+  { name: 'Ecobank Nigeria', code: '050' },
+  { name: 'FCMB', code: '214' },
+  { name: 'Heritage Bank', code: '030' },
+  { name: 'Keystone Bank', code: '082' },
+  { name: 'Polaris Bank', code: '076' },
+  { name: 'Standard Chartered', code: '068' },
+  { name: 'Unity Bank', code: '215' },
+  { name: 'Wema Bank', code: '035' },
+  { name: 'Providus Bank', code: '101' },
+];
+
+const TransferForm = () => {
+
+  const { data } = useGetMyBalance();
+  const initialBalance = data?.balance ?? 0;
+  const resolveAccountMutation = useResolveAccount();
+  const createRecipientMutation = useCreateTransferRecipient();
+  const withdrawMutation = useWithdrawFunds();
+
+  // --- States ---
+  const [balance, setBalance] = useState(initialBalance);
+  const [amount, setAmount] = useState('');
+  const [selectedBank, setSelectedBank] = useState(BANKS[0]);
   const [accountNumber, setAccountNumber] = useState('');
-  const [selectedBank, setSelectedBank] = useState(null);
   const [accountName, setAccountName] = useState('');
-  const [amount, setAmount] = useState('NGN30,000');
-  const [showBankDropdown, setShowBankDropdown] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState({ amount: '', accountNumber: '' });
+  const [touched, setTouched] = useState({ amount: false, accountNumber: false });
+  const [isFormValid, setIsFormValid] = useState(false);
+  const [isAccountResolved, setIsAccountResolved] = useState(false);
+  const [showBankModal, setShowBankModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filteredBanks, setFilteredBanks] = useState(BANKS);
 
-  // Sample bank data
-  const banks = [
-    { id: '1', name: 'Access Bank', code: '044' },
-    { id: '2', name: 'First Bank', code: '011' },
-    { id: '3', name: 'Guaranty Trust Bank', code: '058' },
-    { id: '4', name: 'Zenith Bank', code: '057' },
-    { id: '5', name: 'United Bank for Africa', code: '033' },
-    { id: '6', name: 'Ecobank Nigeria', code: '050' },
-    { id: '7', name: 'Fidelity Bank', code: '070' },
-    { id: '8', name: 'Stanbic IBTC Bank', code: '039' },
-    { id: '9', name: 'Sterling Bank', code: '232' },
-    { id: '10', name: 'Union Bank', code: '032' },
-  ];
+  // --- Error Modal ---
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
+  const handleError = (msg) => {
+    setErrorMessage(msg);
+    setShowErrorModal(true);
+  };
+
+  // --- Filter banks ---
+  useEffect(() => {
+    if (searchQuery.trim() === '') setFilteredBanks(BANKS);
+    else {
+      setFilteredBanks(BANKS.filter(bank =>
+        bank.name.toLowerCase().includes(searchQuery.toLowerCase())
+      ));
+    }
+  }, [searchQuery]);
+
+  // --- Validation ---
+  const validateAmount = (value) => {
+    const num = parseFloat(value) || 0;
+    if (!value.trim()) return 'Amount is required';
+    if (num <= 0) return 'Amount must be greater than 0';
+    if (num > balance) return `Amount exceeds balance of ₦${balance.toLocaleString()}`;
+    if (num < 100) return 'Minimum withdrawal amount is ₦100';
+    return '';
+  };
+  const validateAccountNumber = (value) => {
+    if (!value.trim()) return 'Account number is required';
+    if (value.length !== 10) return 'Account number must be 10 digits';
+    if (!/^\d+$/.test(value)) return 'Account number must contain only numbers';
+    return '';
+  };
+  const validateForm = () => {
+    const newErrors = {
+      amount: validateAmount(amount),
+      accountNumber: validateAccountNumber(accountNumber),
+    };
+    setErrors(newErrors);
+    setIsFormValid(Object.values(newErrors).every(e => e === '') && isAccountResolved);
+  };
+  useEffect(() => validateForm(), [amount, accountNumber, selectedBank, balance, isAccountResolved]);
+
+  // --- Handlers ---
+  const handleAmountChange = (text) => {
+    let cleaned = text.replace(/[^0-9.]/g, '');
+    const parts = cleaned.split('.');
+    if (parts.length > 2) cleaned = parts[0] + '.' + parts.slice(1).join('');
+    if (parts[1] && parts[1].length > 2) cleaned = parts[0] + '.' + parts[1].slice(0, 2);
+    if (parts[0] && parts[0].length > 10) cleaned = parts[0].slice(0, 10) + (parts[1] ? '.' + parts[1] : '');
+    setAmount(cleaned);
+  };
   const handleAccountNumberChange = (text) => {
-    // Remove non-numeric characters
-    const numericText = text.replace(/[^0-9]/g, '');
-    setAccountNumber(numericText);
-    
-    // Simulate account name lookup when account number is complete (10 digits)
-    if (numericText.length === 10 && selectedBank) {
-      // In a real app, you would call an API here to validate account number
-      simulateAccountNameLookup(numericText, selectedBank);
-    } else {
-      setAccountName('');
-    }
+    setAccountNumber(text.replace(/[^0-9]/g, '').slice(0, 10));
+    setIsAccountResolved(false);
+  };
+  const handleBlur = (field) => setTouched(prev => ({ ...prev, [field]: true }));
+
+  const resetForm = () => {
+    setAmount('');
+    setSelectedBank(BANKS[0]);
+    setAccountNumber('');
+    setAccountName('');
+    setErrors({ amount: '', accountNumber: '' });
+    setTouched({ amount: false, accountNumber: false });
+    setIsAccountResolved(false);
   };
 
-  const simulateAccountNameLookup = (accNumber, bank) => {
-    // Simulate API call delay
-    setTimeout(() => {
-      // Mock account name based on bank and account number
-      const mockNames = {
-        'Access Bank': 'John Adebayo',
-        'First Bank': 'Chioma Nwosu', 
-        'Guaranty Trust Bank': 'Michael Okoro',
-        'Zenith Bank': 'Funke Adeleke',
-        'United Bank for Africa': 'David Chukwu',
-        'Ecobank Nigeria': 'Grace Okafor',
-        'Fidelity Bank': 'Samuel Ibrahim',
-        'Stanbic IBTC Bank': 'Temitope Lawal',
-        'Sterling Bank': 'Aisha Mohammed',
-        'Union Bank': 'Peter Eze',
-      };
-      
-      setAccountName(mockNames[bank.name] || 'Account Name Not Found');
-    }, 1000);
-  };
+  // --- Resolve Account ---
+  const resolveAccount = async () => {
+  if (!accountNumber || accountNumber.length !== 10) {
+    handleError("Please enter a valid 10-digit account number.");
+    return;
+  }
 
-  const handleBankSelect = (bank) => {
-    setSelectedBank(bank);
-    setShowBankDropdown(false);
-    
-    // If account number is already entered, trigger account name lookup
-    if (accountNumber.length === 10) {
-      simulateAccountNameLookup(accountNumber, bank);
-    }
-  };
-
-  const handleProceed = () => {
-    // Validate form before proceeding
-    if (!accountNumber || !selectedBank || !accountName || !amount) {
-      alert('Please fill in all required fields');
-      return;
-    }
-    
-    if (accountNumber.length !== 10) {
-      alert('Please enter a valid 10-digit account number');
-      return;
-    }
-    
-    // Proceed with transfer logic
-    console.log('Transfer details:', {
-      accountNumber,
-      bank: selectedBank.name,
-      accountName,
-      amount
+  setIsLoading(true);
+  try {
+    const res = await resolveAccountMutation.mutateAsync({
+      account_number: accountNumber,
+      bank_code: selectedBank.code
     });
+
+    console.log("🔍 Raw response:", JSON.stringify(res, null, 2));
     
-    alert('Transfer initiated successfully!');
+    // Try different response structures
+    let resolvedName;
+    
+    // Check all possible structures
+    if (res?.data?.account_name) {
+      resolvedName = res.data.account_name;  // {data: {account_name: "NAME"}}
+    } else if (res?.account_name) {
+      resolvedName = res.account_name;       // {account_name: "NAME"}
+    } else if (res?.data?.data?.account_name) {
+      resolvedName = res.data.data.account_name; // {data: {data: {account_name: "NAME"}}}
+    } else if (res?.data?.accountName) {
+      resolvedName = res.data.accountName;   // camelCase
+    } else if (typeof res === 'string') {
+      // If response is a string, try to parse it
+      try {
+        const parsed = JSON.parse(res);
+        resolvedName = parsed.data?.account_name || parsed.account_name;
+      } catch (e) {
+        console.log("Could not parse string response");
+      }
+    }
+
+    console.log("Extracted account name:", resolvedName);
+
+    if (!resolvedName) {
+      console.log("Failed to extract account name. Full response:", res);
+      throw new Error(`Account name not returned. Response structure: ${JSON.stringify(res)}`);
+    }
+
+    setAccountName(resolvedName);
+    setIsAccountResolved(true);
+    console.log("✅ Account resolved successfully:", resolvedName);
+  } catch (err) {
+    console.log("❌ Resolve Error:", err.message, "Full error:", err);
+    handleError(err?.response?.data?.message || err.message || "Unable to resolve account");
+    setIsAccountResolved(false);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+  // --- Withdraw Funds ---
+  const processWithdrawal = async () => {
+    const amt = parseFloat(amount);
+    setIsLoading(true);
+    try {
+      const recipientRes = await createRecipientMutation.mutateAsync({
+        account_number: accountNumber,
+        bank_code: selectedBank.code,
+        account_name: accountName.trim()
+      });
+
+      const recipientCode = recipientRes.recipient_code;
+
+      console.log("✅ Recipient code:", recipientCode);
+      console.log("💰 Amount to withdraw:", amt);
+
+       // Debug: Check what's being sent
+    const withdrawPayload = {
+      amount: amt,
+      recipient_code: recipientCode
+    };
+    
+    console.log("📦 Withdraw payload:", withdrawPayload);
+
+
+
+      await withdrawMutation.mutateAsync({
+        amount: amt,
+        recipient_code: recipientCode
+      });
+
+      setBalance(prev => prev - amt);
+
+      handleError(`₦${amt.toLocaleString()} has been withdrawn to ${accountName.trim()}`);
+      resetForm();
+    } catch (error) {
+      const msg = error?.response?.data?.message || "Something went wrong";
+      handleError(msg);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Get display values for beneficiary section
-  const getBeneficiaryName = () => {
-    return accountName || 'Not available';
+  const handleSubmit = async () => {
+    setTouched({ amount: true, accountNumber: true });
+    validateForm();
+    if (!isFormValid) {
+      handleError('Please fix all errors before submitting.');
+      return;
+    }
+    await processWithdrawal();
   };
 
-  const getBeneficiaryNumber = () => {
-    return accountNumber || 'Not available';
-  };
+  // --- Helpers ---
+  const formatCurrency = (amt) => (amt || 0).toLocaleString('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 2 });
+  const getInputStyle = (field) => [styles.input, touched[field] && errors[field] && styles.inputError, !errors[field] && touched[field] && styles.inputSuccess];
 
-  const getBankName = () => {
-    return selectedBank ? selectedBank.name : 'Not selected';
-  };
-
-  return (
-    <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Account Number Input */}
-        <View style={styles.inputContainer}>
-          <View style={styles.iconLabel}>
-            <MaterialIcons name="credit-card" size={20} color="#FFC107" />
-            <Text style={styles.labelText}>Account Number</Text>
+  // --- Bank Modal Component ---
+  const BankModal = () => (
+    <Modal
+      visible={showBankModal}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={() => setShowBankModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Select Bank</Text>
+            <TouchableOpacity onPress={() => setShowBankModal(false)} style={styles.modalCloseButton}>
+              <Ionicons name="close" size={24} color="white" />
+            </TouchableOpacity>
           </View>
-          <TextInput
-            style={styles.textInput}
-            placeholder="Enter 10-digit account number"
-            placeholderTextColor="#888"
-            value={accountNumber}
-            onChangeText={handleAccountNumberChange}
-            keyboardType="numeric"
-            maxLength={10}
-            selectionColor="#FFC107"
+
+          {/* Search Bar */}
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search banks..."
+              placeholderTextColor="#666"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Ionicons name="close-circle" size={20} color="#666" />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Bank List */}
+          <FlatList
+            data={filteredBanks}
+            keyExtractor={(item) => item.code}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[styles.bankItem, selectedBank.code === item.code && styles.selectedBankItem]}
+                onPress={() => {
+                  setSelectedBank(item);
+                  setShowBankModal(false);
+                  setSearchQuery('');
+                }}
+              >
+                <View style={styles.bankInfo}>
+                  <View style={styles.bankIcon}><Text style={styles.bankIconText}>{item.name.charAt(0)}</Text></View>
+                  <View style={styles.bankDetails}>
+                    <Text style={styles.bankName}>{item.name}</Text>
+                    <Text style={styles.bankCode}>Code: {item.code}</Text>
+                  </View>
+                </View>
+                {selectedBank.code === item.code && <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />}
+              </TouchableOpacity>
+            )}
           />
         </View>
+      </View>
+    </Modal>
+  );
 
-        {/* Bank Dropdown */}
-        <TouchableOpacity 
-          style={styles.inputButton}
-          onPress={() => setShowBankDropdown(true)}
-        >
-          <View style={styles.iconLabel}>
-            <FontAwesome name="bank" size={18} color="#FFC107" />
-            <Text style={styles.labelText}>
-              {selectedBank ? selectedBank.name : 'Select Bank'}
-            </Text>
-          </View>
-          <Entypo 
-            name={showBankDropdown ? "chevron-up" : "chevron-right"} 
-            size={18} 
-            color="white" 
-          />
-        </TouchableOpacity>
-
-        {/* Account Name Display */}
-        {accountName ? (
-          <View style={styles.accountNameContainer}>
-            <View style={styles.iconLabel}>
-              <FontAwesome name="user" size={16} color="#FFC107" />
-              <Text style={styles.labelText}>Account Name</Text>
-            </View>
-            <Text style={styles.accountNameText}>{accountName}</Text>
-          </View>
-        ) : null}
+  return (
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        {/* Balance */}
+        <View style={styles.balanceContainer}>
+          <Text style={styles.balanceLabel}>Available Balance</Text>
+          <Text style={styles.balanceAmount}>{formatCurrency(balance)}</Text>
+          <Text style={styles.balanceSubtext}>Minimum withdrawal: ₦100</Text>
+        </View>
 
         {/* Amount Input */}
-        <Text style={styles.subLabel}>Enter Amount</Text>
-        <TextInput
-          style={styles.amountInput}
-          placeholder="NGN0.00"
-          placeholderTextColor="#888"
-          value={amount}
-          onChangeText={setAmount}
-          keyboardType="numeric"
-          selectionColor="#FFC107"
-        />
-
-        {/* Beneficiary Info - ALWAYS SHOWING */}
-        <Text style={styles.subLabel}>Beneficiary</Text>
-        <View style={styles.beneficiaryRow}>
-          <View style={styles.beneficiaryInfo}>
-            <View style={styles.icon}>
-              <FontAwesome name="bank" size={18} color="#FFC107" />
-            </View>
-            <View>
-              <Text style={[
-                styles.beneficiaryName,
-                !accountName && styles.placeholderText
-              ]}>
-                {getBeneficiaryName()}
-              </Text>
-              <Text style={[
-                styles.beneficiaryNumber,
-                (!accountNumber || !selectedBank) && styles.placeholderText
-              ]}>
-                {getBeneficiaryNumber()} • {getBankName()}
-              </Text>
-            </View>
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Amount <Text style={styles.required}>*</Text></Text>
+          <View style={[styles.amountInputWrapper, touched.amount && errors.amount ? styles.amountInputWrapperError : touched.amount ? styles.amountInputWrapperSuccess : null]}>
+            <View style={styles.currencyPrefix}><Text style={styles.currencySymbol}>₦</Text></View>
+            <TextInput
+              style={styles.amountInput}
+              placeholder="0.00"
+              placeholderTextColor="#666"
+              value={amount}
+              onChangeText={handleAmountChange}
+              onBlur={() => handleBlur('amount')}
+              keyboardType="decimal-pad"
+              editable={!isLoading}
+            />
           </View>
-          <TouchableOpacity 
-            style={[
-              styles.payButton,
-              (!accountNumber || !selectedBank || !accountName) && styles.payButtonDisabled
-            ]}
-            disabled={!accountNumber || !selectedBank || !accountName}
-          >
-            <Text style={styles.payText}>Pay</Text>
+          {touched.amount && errors.amount && (
+            <View style={styles.fieldErrorContainer}>
+              <MaterialIcons name="error-outline" size={16} color="#ff4444" />
+              <Text style={styles.fieldErrorText}>{errors.amount}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Bank Selection */}
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Select Bank <Text style={styles.required}>*</Text></Text>
+          <TouchableOpacity style={styles.bankSelector} onPress={() => setShowBankModal(true)} disabled={isLoading}>
+            <View style={styles.bankSelectorContent}>
+              <View style={styles.selectedBankInfo}>
+                <View style={styles.selectedBankIcon}><Text style={styles.selectedBankIconText}>{selectedBank.name.charAt(0)}</Text></View>
+                <View style={styles.selectedBankDetails}>
+                  <Text style={styles.selectedBankName}>{selectedBank.name}</Text>
+                  <Text style={styles.selectedBankCode}>Code: {selectedBank.code}</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-down" size={24} color="#666" />
+            </View>
           </TouchableOpacity>
         </View>
 
-        {/* Proceed Button */}
-        <TouchableOpacity 
-          style={[
-            styles.proceedButton,
-            (!accountNumber || !selectedBank || !accountName) && styles.proceedButtonDisabled
-          ]}
-          onPress={handleProceed}
-          disabled={!accountNumber || !selectedBank || !accountName}
+        {/* Account Number & Resolve */}
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Account Number <Text style={styles.required}>*</Text></Text>
+          <TextInput
+            style={getInputStyle('accountNumber')}
+            placeholder="Enter 10-digit account number"
+            placeholderTextColor="#666"
+            value={accountNumber}
+            onChangeText={handleAccountNumberChange}
+            onBlur={() => handleBlur('accountNumber')}
+            keyboardType="number-pad"
+            maxLength={10}
+            editable={!isLoading}
+          />
+          {touched.accountNumber && errors.accountNumber && (
+            <View style={styles.fieldErrorContainer}>
+              <MaterialIcons name="error-outline" size={16} color="#ff4444" />
+              <Text style={styles.fieldErrorText}>{errors.accountNumber}</Text>
+            </View>
+          )}
+          <TouchableOpacity
+            style={[styles.resolveButton, (isLoading || errors.accountNumber !== '') && styles.resolveButtonDisabled]}
+            onPress={resolveAccount}
+            disabled={isLoading || errors.accountNumber !== ''}
+          >
+            {isLoading ? <ActivityIndicator color="white" /> : <><MaterialIcons name="account-balance" size={18} color="white" style={styles.resolveButtonIcon} /><Text style={styles.resolveButtonText}>Resolve Account</Text></>}
+          </TouchableOpacity>
+        </View>
+
+        {/* Account Name (read-only) */}
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Account Name <Text style={styles.required}>*</Text></Text>
+          <View style={styles.accountNameContainer}>
+            <TextInput
+              style={[getInputStyle('accountNumber'), styles.accountNameInput]}
+              placeholder="Account name will appear here"
+              placeholderTextColor="#666"
+              value={accountName}
+              editable={false}
+            />
+            {isAccountResolved && <View style={styles.verifiedBadge}><Ionicons name="checkmark-circle" size={20} color="#4CAF50" /></View>}
+          </View>
+        </View>
+
+        {/* Withdraw Button */}
+        <TouchableOpacity
+          style={[styles.submitButton, (!isFormValid || isLoading) && styles.submitButtonDisabled]}
+          onPress={handleSubmit}
+          disabled={!isFormValid || isLoading}
         >
-          <Text style={styles.proceedText}>
-            {accountNumber && !accountName ? 'Validating...' : 'Proceed'}
-          </Text>
+          {isLoading ? <ActivityIndicator color="#04223A" /> : <><MaterialIcons name="send" size={20} color="#04223A" style={styles.submitButtonIcon} /><Text style={styles.submitButtonText}>Withdraw Funds</Text></>}
         </TouchableOpacity>
 
-        {/* Bank Selection Modal */}
-        <Modal
-          visible={showBankDropdown}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setShowBankDropdown(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Select Bank</Text>
-                <TouchableOpacity 
-                  onPress={() => setShowBankDropdown(false)}
-                  style={styles.closeButton}
-                >
-                  <Entypo name="cross" size={24} color="#FFC107" />
-                </TouchableOpacity>
-              </View>
-              
-              <FlatList
-                data={banks}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={styles.bankItem}
-                    onPress={() => handleBankSelect(item)}
-                  >
-                    <Text style={styles.bankName}>{item.name}</Text>
-                    <Text style={styles.bankCode}>{item.code}</Text>
-                  </TouchableOpacity>
-                )}
-                showsVerticalScrollIndicator={false}
-              />
-            </View>
-          </View>
-        </Modal>
       </ScrollView>
-    </View>
-  );
-}
 
+      {/* Bank Modal */}
+      <BankModal />
+
+      {/* Error Modal */}
+      <Modal
+        visible={showErrorModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowErrorModal(false)}
+      >
+        <View style={{ flex:1, justifyContent:'center', alignItems:'center', backgroundColor:'rgba(0,0,0,0.6)' }}>
+          <View style={{ backgroundColor:'#111', padding:24, borderRadius:12, width:'80%' }}>
+            <Text style={{ color:'white', fontSize:16, marginBottom:16 }}>{errorMessage}</Text>
+            <TouchableOpacity
+              onPress={() => setShowErrorModal(false)}
+              style={{ backgroundColor:'#FFC107', padding:12, borderRadius:8, alignItems:'center' }}
+            >
+              <Text style={{ fontWeight:'700', color:'#04223A' }}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+    </KeyboardAvoidingView>
+  );
+};
+
+// --- Styles (same as your previous ones) ---
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: 'black',
-    padding: 20,
-  },
-  inputContainer: {
-    backgroundColor: '#121212',
-    borderWidth: 1,
-    borderColor: '#FFC107',
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginBottom: 12,
-  },
-  inputButton: {
-    backgroundColor: '#121212',
-    borderWidth: 1,
-    borderColor: '#FFC107',
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  textInput: {
-    color: 'white',
-    fontSize: 16,
-    marginTop: 8,
-    padding: 0,
-  },
-  iconLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  labelText: {
-    color: 'white',
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  accountNameContainer: {
-    backgroundColor: '#04223A',
-    borderWidth: 1,
-    borderColor: '#FFC107',
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginBottom: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  accountNameText: {
-    color: '#FFC107',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  subLabel: {
-    color: 'white',
-    marginVertical: 10,
-    fontSize: 14,
-    fontWeight: '400',
-  },
-  amountInput: {
-    backgroundColor: '#121212',
-    borderWidth: 1,
-    borderColor: '#FFC107',
-    borderRadius: 10,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    color: 'white',
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 20,
-  },
-  beneficiaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderColor: '#FFC107',
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 20,
-  },
-  beneficiaryInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  icon: {
-    borderWidth: 1,
-    borderColor: '#FFC107',
-    padding: 6,
-    borderRadius: 8,
-    backgroundColor: '#04223A',
-  },
-  beneficiaryName: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: 15,
-  },
-  beneficiaryNumber: {
-    color: '#aaa',
-    fontSize: 13,
-  },
-  placeholderText: {
-    color: '#666',
-    fontStyle: 'italic',
-  },
-  payButton: {
-    backgroundColor: '#04223A',
-    borderRadius: 50,
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-    borderWidth: 1,
-    borderColor: '#FFC107',
-  },
-  payButtonDisabled: {
-    backgroundColor: '#333',
-    borderColor: '#666',
-    opacity: 0.6,
-  },
-  payText: {
-    color: 'white',
-    fontWeight: '600',
-  },
-  proceedButton: {
-    backgroundColor: '#FFC107',
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  proceedButtonDisabled: {
-    backgroundColor: '#666',
-    opacity: 0.6,
-  },
-  proceedText: {
-    color: '#04223A',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#121212',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    maxHeight: '70%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
-  modalTitle: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  closeButton: {
-    padding: 4,
-  },
-  bankItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 15,
-    paddingHorizontal: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
-  bankName: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  bankCode: {
-    color: '#FFC107',
-    fontSize: 14,
-  },
+  container: { flex: 1, backgroundColor: 'black' },
+  scrollContent: { padding: 16, paddingBottom: 40 },
+  balanceContainer: { backgroundColor: '#04223A', padding: 20, borderRadius: 12, marginBottom: 24, alignItems: 'center', borderWidth: 1, borderColor: '#0a3a5a' },
+  balanceLabel: { color: '#FFC107', fontSize: 16, fontWeight: '500', marginBottom: 8 },
+  balanceAmount: { color: 'white', fontSize: 32, fontWeight: '700', marginBottom: 4 },
+  balanceSubtext: { color: '#aaa', fontSize: 12, fontStyle: 'italic' },
+  inputContainer: { marginBottom: 20 },
+  label: { color: 'white', fontSize: 16, fontWeight: '600', marginBottom: 8 },
+  required: { color: '#ff4444' },
+  input: { backgroundColor: '#111', borderRadius: 10, borderWidth: 2, borderColor: '#333', color: 'white', fontSize: 16, paddingHorizontal: 16, paddingVertical: 16 },
+  inputError: { borderColor: '#ff4444', backgroundColor: '#1a0000' },
+  inputSuccess: { borderColor: '#4CAF50' },
+  fieldErrorContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+  fieldErrorText: { color: '#ff4444', marginLeft: 4 },
+  amountInputWrapper: { flexDirection: 'row', alignItems: 'center', borderRadius: 10, borderWidth: 2, borderColor: '#333', backgroundColor: '#111' },
+  amountInputWrapperError: { borderColor: '#ff4444', backgroundColor: '#1a0000' },
+  amountInputWrapperSuccess: { borderColor: '#4CAF50' },
+  currencyPrefix: { paddingHorizontal: 12 },
+  currencySymbol: { color: 'white', fontSize: 18 },
+  amountInput: { flex: 1, color: 'white', fontSize: 16, paddingVertical: 16 },
+  bankSelector: { backgroundColor: '#111', padding: 12, borderRadius: 10, borderWidth: 2, borderColor: '#333' },
+  bankSelectorContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  selectedBankInfo: { flexDirection: 'row', alignItems: 'center' },
+  selectedBankIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#FFC107', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  selectedBankIconText: { fontWeight: '700', color: '#04223A' },
+  selectedBankDetails: {},
+  selectedBankName: { color: 'white', fontWeight: '600' },
+  selectedBankCode: { color: '#aaa', fontSize: 12 },
+  resolveButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, backgroundColor: '#FFC107', borderRadius: 10, marginTop: 12 },
+  resolveButtonDisabled: { opacity: 0.6 },
+  resolveButtonIcon: { marginRight: 8 },
+  resolveButtonText: { fontWeight: '700', color: '#04223A' },
+  accountNameContainer: { flexDirection: 'row', alignItems: 'center' },
+  accountNameInput: { flex: 1, paddingVertical: 16 },
+  verifiedBadge: { marginLeft: 8 },
+  submitButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFC107', padding: 16, borderRadius: 10 },
+  submitButtonDisabled: { opacity: 0.6 },
+  submitButtonIcon: { marginRight: 8 },
+  submitButtonText: { fontWeight: '700', color: '#04223A', fontSize: 16 },
+  modalOverlay: { flex:1, backgroundColor:'rgba(0,0,0,0.6)', justifyContent:'center', alignItems:'center' },
+  modalContainer: { width:'90%', backgroundColor:'#04223A', borderRadius:12, maxHeight:'80%' },
+  modalHeader: { flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:16, borderBottomWidth:1, borderBottomColor:'#333' },
+  modalTitle: { color:'white', fontSize:18, fontWeight:'700' },
+  modalCloseButton: { padding:4 },
+  searchContainer: { flexDirection:'row', alignItems:'center', backgroundColor:'#111', margin:16, borderRadius:10, paddingHorizontal:12 },
+  searchIcon: { marginRight:8 },
+  searchInput: { flex:1, color:'white', height:40 },
+  bankItem: { flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:12, borderBottomWidth:1, borderBottomColor:'#333' },
+  bankInfo: { flexDirection:'row', alignItems:'center' },
+  bankIcon: { width:40, height:40, borderRadius:20, backgroundColor:'#FFC107', justifyContent:'center', alignItems:'center', marginRight:12 },
+  bankIconText: { color:'#04223A', fontWeight:'700' },
+  bankDetails: {},
+  bankName: { color:'white', fontWeight:'600' },
+  bankCode: { color:'#aaa', fontSize:12 },
+  selectedBankItem: { backgroundColor:'#1a1a1a' },
 });
+
+export default TransferForm;
