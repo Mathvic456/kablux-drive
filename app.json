@@ -8,7 +8,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "owner": "hunchoexpo",
+    "owner": "crashingout",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -19,7 +19,9 @@
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "This app needs access to your location to share it with emergency contacts.",
         "NSMicrophoneUsageDescription": "This app needs access to your microphone to record audio for safety purposes.",
-        "UIBackgroundModes": ["audio"]
+        "UIBackgroundModes": [
+          "audio"
+        ]
       },
       "config": {
         "googleMapsApiKey": "AIzaSyD8sdkbIi1FZnlJss8U4byBQ8hFbyMG7ro"
@@ -48,7 +50,7 @@
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE"
       ],
-      "package": "com.hunchoexpo.kabluxdrive",
+      "package": "com.crashingout.kabluxdrive",
       "googleServicesFile": "./google-services.json"
     },
     "web": {
@@ -81,7 +83,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "ebe4b567-890d-4f8a-b8f5-51bef0ef742f"
+        "projectId": "ba89ec3d-c46f-433a-9e79-3198aab91f8c"
       }
     }
   }

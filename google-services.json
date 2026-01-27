@@ -1,13 +1,32 @@
 {
   "project_info": {
-    "project_number": "528064477145",
-    "project_id": "kablux-drive",
-    "storage_bucket": "kablux-drive.firebasestorage.app"
+    "project_number": "8804750263",
+    "project_id": "kablux-1dbbe",
+    "storage_bucket": "kablux-1dbbe.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:528064477145:android:ea0f3da8422c10bc628bc8",
+        "mobilesdk_app_id": "1:8804750263:android:a0d903c4fbb23721b90e32",
+        "android_client_info": {
+          "package_name": "com.crashingout.kablux"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBKQMWO_FDysqUEG8BDAM23GyheIgXGPEA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:8804750263:android:8f474d31229d6b78b90e32",
         "android_client_info": {
           "package_name": "com.crashingout.kabluxdrive"
         }
@@ -15,7 +34,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyC5QwcQd0Cn4kLcqjd_PIM7gf9RhOxWX_w"
+          "current_key": "AIzaSyBKQMWO_FDysqUEG8BDAM23GyheIgXGPEA"
         }
       ],
       "services": {
