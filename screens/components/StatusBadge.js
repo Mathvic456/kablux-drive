@@ -1,31 +1,30 @@
-import React, { useContext, useState } from "react";
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
+import React, { useContext, useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
   TouchableOpacity,
   Switch,
-  ActivityIndicator 
+  ActivityIndicator
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SocketContext } from "../../context/WebSocketProvider";
+import { useDriverRide } from "../../context/DriverRideContext";
 
 const StatusBadge = () => {
-  const { isConnected, currentLocation, locationPermission, goOnline, goOffline } = useContext(SocketContext);
+  const { isConnected, currentLocation, locationPermission, toggleOnlineStatus } = useContext(SocketContext);
   const [isLoading, setIsLoading] = useState(false);
+  const { toggleOnline } = useDriverRide();
 
   const handleToggle = async () => {
-    if (!isConnected) {
-      setIsLoading(true);
-      try {
-        await goOnline();
-      } catch (error) {
-        console.error("Failed to go online:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    } else {
-      goOffline();
+    setIsLoading(true);
+    try {
+      await toggleOnlineStatus();
+      await toggleOnline();
+    } catch (error) {
+      console.error("Failed to toggle online status:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -39,15 +38,15 @@ const StatusBadge = () => {
             <Ionicons name="information-circle-outline" size={18} color="#888" />
           </TouchableOpacity>
         </View>
-        
+
         <View style={styles.permissionContainer}>
           <Ionicons name="location-outline" size={24} color="#FFC107" />
           <Text style={styles.permissionText}>
             Location permission required to go online
           </Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.permissionButton}
-            onPress={goOnline}
+            onPress={handleToggle}
             activeOpacity={0.7}
           >
             <Text style={styles.permissionButtonText}>Enable Location</Text>
@@ -67,14 +66,14 @@ const StatusBadge = () => {
             <Ionicons name="information-circle-outline" size={18} color="#888" />
           </TouchableOpacity>
         </View>
-        
+
         <View style={styles.switchContainer}>
           <View style={styles.switchInfo}>
             <Ionicons name="location-outline" size={20} color="#888" />
             <Text style={styles.switchLabel}>Tap to start receiving rides</Text>
           </View>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={styles.offlineSwitch}
             onPress={handleToggle}
             activeOpacity={0.7}
@@ -96,13 +95,13 @@ const StatusBadge = () => {
             <Ionicons name="information-circle-outline" size={18} color="#888" />
           </TouchableOpacity>
         </View>
-        
+
         <View style={styles.switchContainer}>
           <View style={styles.switchInfo}>
             <ActivityIndicator size="small" color="#FFC107" />
             <Text style={styles.switchLabel}>Connecting to server...</Text>
           </View>
-          
+
           <View style={styles.disabledSwitch}>
             <Text style={styles.disabledSwitchText}>Connecting</Text>
           </View>
@@ -120,7 +119,7 @@ const StatusBadge = () => {
           <Ionicons name="information-circle-outline" size={18} color="#888" />
         </TouchableOpacity>
       </View> */}
-      
+
       <View style={styles.switchContainer}>
         <View style={styles.switchInfo}>
           <View style={styles.locationInfo}>
@@ -133,8 +132,8 @@ const StatusBadge = () => {
             </Text>
           )} */}
         </View>
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={styles.switchToggle}
           onPress={handleToggle}
           activeOpacity={0.7}
@@ -207,6 +206,7 @@ const styles = StyleSheet.create({
   },
   switchInfo: {
     flex: 1,
+    flexDirection: "row",
   },
   switchLabel: {
     color: "#888",

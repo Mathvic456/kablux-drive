@@ -1,11 +1,13 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import * as Location from "expo-location";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { navigationRef } from "../screens/context/NavigationContext";
 import { useDriverRide } from "./DriverRideContext";
 import { useAuth } from "./AuthContext";
 
 
 const WSS_URL = process.env.EXPO_PUBLIC_WSS_URL;
+const ONLINE_PREF_KEY = 'user_requested_online';
 
 // --- Types ---
 interface RideNotification {
@@ -78,16 +80,16 @@ interface SocketContextValue {
   saveSentOffer: (rideId: string, offer: RideNotification) => void;
   getSentOffer: (rideId: string) => RideNotification | undefined;
   locationPermission: string | null; // 'granted', 'denied', 'undetermined'
-  goOnline: () => Promise<void>;
   chatMessages: Record<string, any[]>;
   sendChatMessage: (rideId: string, text: string) => Promise<void>;
+  toggleOnlineStatus: () => Promise<void>;
 }
 
 export const SocketContext = createContext<SocketContextValue | undefined>(undefined);
 
 export const WebSocketProvider = ({ children }: { children: React.ReactNode }) => {
   console.log('🏗️ WebSocketProvider rendering...');
-  
+
   // Refs
   const ws = useRef<WebSocket | null>(null);
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
@@ -113,10 +115,10 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
   console.log("🔍 [WSP] useDriverRide returned rideId:", rideId);
   const [chatMessages, setChatMessages] = useState<Record<string, any[]>>({});
 
-useEffect(() => {
-  console.log("🔄 [WSP] rideId changed in WebSocketProvider:", rideId);
-  currentRideIdRef.current = rideId;
-}, [rideId]);
+  useEffect(() => {
+    console.log("🔄 [WSP] rideId changed in WebSocketProvider:", rideId);
+    currentRideIdRef.current = rideId;
+  }, [rideId]);
 
   // --- LOGOUT LOGIC ---
   const handleLogout = async () => {
@@ -146,24 +148,50 @@ useEffect(() => {
     }, 100);
   };
 
-const goOnline = async () => {
-  console.log("👆 [USER ACTION] goOnline clicked");
-  
-  const { status } = await Location.requestForegroundPermissionsAsync();
-  setLocationPermission(status);
+  const toggleOnlineStatus = async () => {
+    if (isConnected) {
+      // GO OFFLINE
+      console.log("[USER ACTION] goOffline clicked");
 
-  if (status !== 'granted') {
-    console.warn("🚫 [PERMISSION] User denied location");
-    return;
-  }
+      setHasInitialized(false);
+      stopLocationTracking();
 
-  if (!hasInitialized) {
-    setHasInitialized(true);
-    await startLocationTracking();
-    const validToken = await getValidToken();
-    if (validToken) connectWebSocket(validToken);
-  }
-};
+      if (ws.current) {
+        console.log("🔌 [OFFLINE] Closing WebSocket connection");
+        ws.current.close();
+        ws.current = null;
+      }
+
+      shouldReconnect.current = false;
+
+      if (retryTimeout.current) {
+        clearTimeout(retryTimeout.current);
+        retryTimeout.current = null;
+      }
+
+      setIsConnected(false);
+      setRideNotifications([]);
+    } else {
+      // GO ONLINE
+      console.log("[USER ACTION] goOnline clicked");
+
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      setLocationPermission(status);
+
+      if (status !== 'granted') {
+        console.warn("🚫 [PERMISSION] User denied location");
+        return;
+      }
+
+      if (!hasInitialized) {
+        setHasInitialized(true);
+        shouldReconnect.current = true;
+        await startLocationTracking();
+        const validToken = await getValidToken();
+        if (validToken) connectWebSocket(validToken);
+      }
+    }
+  };
 
   const parseRideNotification = (data: any): RideNotification | null => {
     try {
@@ -233,7 +261,7 @@ const goOnline = async () => {
 
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const coords = { lat: loc.coords.latitude, long: loc.coords.longitude };
-      
+
       setCurrentLocation(coords);
       currentLocationRef.current = coords;
 
@@ -248,7 +276,7 @@ const goOnline = async () => {
           console.log("📍 [LOCATION] Watch update:", newCoords);
           setCurrentLocation(newCoords);
           currentLocationRef.current = newCoords;
-          
+
           if (ws.current?.readyState === WebSocket.OPEN) {
             sendLocationUpdate(ws.current, newCoords);
           }
@@ -272,37 +300,37 @@ const goOnline = async () => {
   };
 
   const sendChatMessage = async (rideId: string, text: string) => {
-  const payload = {
-    type: "send_message",
-    data: { ride_id: rideId, message: text }
-  };
-
-  const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  const newMessage = { 
-    id: tempId,
-    text, 
-    sender: 'driver', 
-    timestamp: new Date() 
-  };
-  
-    setChatMessages(prev => {
-    const existing = prev[rideId] || [];  // ✅ Use rideId parameter
-    
-    // Check if message already exists
-    if (existing.some(m => m.id === tempId)) {  // ✅ Check tempId, not undefined 'id'
-      console.log("⚠️ [CHAT] Duplicate message detected, skipping:", tempId);
-      return prev;
-    }
-    
-    return {
-      ...prev,
-      [rideId]: [...existing, newMessage]  // ✅ Use rideId parameter
+    const payload = {
+      type: "send_message",
+      data: { ride_id: rideId, message: text }
     };
-  });
-  if (ws.current?.readyState === WebSocket.OPEN) {
-    ws.current.send(JSON.stringify(payload));
-  }
-};
+
+    const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const newMessage = {
+      id: tempId,
+      text,
+      sender: 'driver',
+      timestamp: new Date()
+    };
+
+    setChatMessages(prev => {
+      const existing = prev[rideId] || [];  // ✅ Use rideId parameter
+
+      // Check if message already exists
+      if (existing.some(m => m.id === tempId)) {  // ✅ Check tempId, not undefined 'id'
+        console.log("⚠️ [CHAT] Duplicate message detected, skipping:", tempId);
+        return prev;
+      }
+
+      return {
+        ...prev,
+        [rideId]: [...existing, newMessage]  // ✅ Use rideId parameter
+      };
+    });
+    if (ws.current?.readyState === WebSocket.OPEN) {
+      ws.current.send(JSON.stringify(payload));
+    }
+  };
 
   // --- WEBSOCKET LIFECYCLE ---
   const connectWebSocket = async (accessToken: string) => {
@@ -336,7 +364,7 @@ const goOnline = async () => {
         if (msg.type === "notify" && msg.data?.type === "RIDE_REQUESTED") {
           console.log("🚗 [WS] New ride request detected!");
           const notification = parseRideNotification(msg.data);
-          
+
           if (notification) {
             setRideNotifications(prev => {
               if (prev.some(n => n.ride_request_id === notification.ride_request_id)) {
@@ -349,50 +377,50 @@ const goOnline = async () => {
         } else if (msg.type === "error" && msg.message?.includes("expired")) {
           console.error("🔑 [WS] Auth error detected in message stream");
           handleLogout();
-        } 
-      else if (msg.type === "chat_message" && msg.message) {
-      const { id, content, sender_role, created_at } = msg.message;
-      const activeRideId = currentRideIdRef.current;
-
-      if (activeRideId) {
-        const newMessage = {
-          id: String(id),
-          text: content,
-          sender: sender_role === 'rider' ? 'rider' : 'driver',
-          timestamp: new Date(created_at),
-        };
-
-        setChatMessages(prev => {
-          const existing = prev[activeRideId] || [];
-
-          // 1. STRICT DUPLICATE CHECK: 
-          // If we already have this exact Server ID, do nothing.
-          if (existing.some(m => m.id === String(id))) {
-            return prev;
-          }
-
-          // 2. OPTIMISTIC CLEANUP (The Fix):
-          // Filter out any "temp" message that has the exact same text.
-          // We assume this incoming server message is the confirmation for that temp message.
-          const cleanExisting = existing.filter(m => {
-            const isTemp = m.id.startsWith('temp_');
-            const isSameContent = m.text === content;
-            
-            // If it is a temp message AND the text is the same, 
-            // return FALSE to remove it from the list.
-            return !(isTemp && isSameContent); 
-          });
-
-          return {
-            ...prev,
-            [activeRideId]: [...cleanExisting, newMessage]
-          };
-        });
-      
-        } else {
-          console.error("❌ [CHAT] No activeRideId! Both hook and ref are null.");
         }
-      }
+        else if (msg.type === "chat_message" && msg.message) {
+          const { id, content, sender_role, created_at } = msg.message;
+          const activeRideId = currentRideIdRef.current;
+
+          if (activeRideId) {
+            const newMessage = {
+              id: String(id),
+              text: content,
+              sender: sender_role === 'rider' ? 'rider' : 'driver',
+              timestamp: new Date(created_at),
+            };
+
+            setChatMessages(prev => {
+              const existing = prev[activeRideId] || [];
+
+              // 1. STRICT DUPLICATE CHECK: 
+              // If we already have this exact Server ID, do nothing.
+              if (existing.some(m => m.id === String(id))) {
+                return prev;
+              }
+
+              // 2. OPTIMISTIC CLEANUP (The Fix):
+              // Filter out any "temp" message that has the exact same text.
+              // We assume this incoming server message is the confirmation for that temp message.
+              const cleanExisting = existing.filter(m => {
+                const isTemp = m.id.startsWith('temp_');
+                const isSameContent = m.text === content;
+
+                // If it is a temp message AND the text is the same, 
+                // return FALSE to remove it from the list.
+                return !(isTemp && isSameContent);
+              });
+
+              return {
+                ...prev,
+                [activeRideId]: [...cleanExisting, newMessage]
+              };
+            });
+
+          } else {
+            console.error("❌ [CHAT] No activeRideId! Both hook and ref are null.");
+          }
+        }
       } catch (err) {
         console.error("❌ [WS] Message parse error:", err);
       }
@@ -412,9 +440,9 @@ const goOnline = async () => {
 
   const scheduleRetry = () => {
     if (!shouldReconnect.current) return;
-    
+
     if (retryTimeout.current) clearTimeout(retryTimeout.current);
-    
+
     const delay = Math.min(1000 * Math.pow(2, retryAttempts.current), maxRetryDelay);
     console.log(`⏰ [RETRY] Attempt ${retryAttempts.current + 1} scheduled in ${delay}ms`);
     retryAttempts.current++;
@@ -432,48 +460,48 @@ const goOnline = async () => {
   };
 
   // --- EFFECTS ---
-useEffect(() => {
-  console.log("🎬 [LIFECYCLE] Provider Mounted");
-  shouldReconnect.current = true;
-  
-  // Initialize with permission check
-  (async () => {
-    const { status } = await Location.getForegroundPermissionsAsync();
-    setLocationPermission(status);
-    
-    // Only auto-connect if permission was previously granted
-    if (status === 'granted') {
-      console.log("✅ [INIT] Permission already granted, auto-connecting...");
-      setHasInitialized(true);
-      await startLocationTracking();
-      const validToken = await getValidToken();
-      if (validToken) {
-        connectWebSocket(validToken);
+  useEffect(() => {
+    console.log("🎬 [LIFECYCLE] Provider Mounted");
+    shouldReconnect.current = true;
+
+    // Initialize with permission check
+    (async () => {
+      const { status } = await Location.getForegroundPermissionsAsync();
+      setLocationPermission(status);
+
+      // Only auto-connect if permission was previously granted
+      if (status === 'granted') {
+        console.log("✅ [INIT] Permission already granted, auto-connecting...");
+        setHasInitialized(true);
+        await startLocationTracking();
+        const validToken = await getValidToken();
+        if (validToken) {
+          connectWebSocket(validToken);
+        }
+      } else {
+        console.log("⏸️ [INIT] No permission yet, waiting for user action");
       }
-    } else {
-      console.log("⏸️ [INIT] No permission yet, waiting for user action");
-    }
-  })();
+    })();
 
-  return () => {
-    console.log("🧹 [LIFECYCLE] Provider Unmounting - cleaning up...");
-    shouldReconnect.current = false;
-    ws.current?.close();
-    stopLocationTracking();
-    if (retryTimeout.current) clearTimeout(retryTimeout.current);
-  };
-}, []); // Single mount effect
+    return () => {
+      console.log("🧹 [LIFECYCLE] Provider Unmounting - cleaning up...");
+      shouldReconnect.current = false;
+      ws.current?.close();
+      stopLocationTracking();
+      if (retryTimeout.current) clearTimeout(retryTimeout.current);
+    };
+  }, []); // Single mount effect
 
-// Keep this effect for tracking rideId changes
-useEffect(() => {
-  console.log("🔄 [RIDEID] rideId changed:", rideId);
-  currentRideIdRef.current = rideId;
-}, [rideId]);
+  // Keep this effect for tracking rideId changes
+  useEffect(() => {
+    console.log("🔄 [RIDEID] rideId changed:", rideId);
+    currentRideIdRef.current = rideId;
+  }, [rideId]);
   return (
-    <SocketContext.Provider 
-      value={{ 
-        socket: ws.current, 
-        isConnected, 
+    <SocketContext.Provider
+      value={{
+        socket: ws.current,
+        isConnected,
         rideNotifications,
         setRideNotifications,
         currentLocation,
@@ -484,8 +512,8 @@ useEffect(() => {
         sentOffers: sentOffersRef.current,
         saveSentOffer,
         getSentOffer,
-        locationPermission, 
-        goOnline,
+        locationPermission,
+        toggleOnlineStatus,
         chatMessages,
         sendChatMessage,
       }}

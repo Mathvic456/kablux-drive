@@ -41,12 +41,15 @@ import { useDriverRide } from "../../context/DriverRideContext";
 import { useArriveRide } from "../../services/rides.service";
 import { useActiveStatusEndPoint } from "../../services/auth.service";
 import { api } from "../../services/api";
+import { navigationRef } from '../context/NavigationContext'; // adjust path
+import { DrawerActions } from "@react-navigation/native";
+
 
 const { width, height } = Dimensions.get('window');
 
 export default function Home() {
   const navigation = useNavigation();
-  
+
   const [tierOverlayVisible, setTierOverlayVisible] = useState(false);
   const [rideModalVisible, setRideModalVisible] = useState(false);
   const [updatesModalVisible, setUpdatesModalVisible] = useState(false);
@@ -136,7 +139,7 @@ export default function Home() {
   // Get balance warning status
   const getBalanceWarningStatus = () => {
     const balance = balanceData?.balance || 0;
-    
+
     if (balance <= 1000) {
       return {
         type: 'critical',
@@ -154,7 +157,7 @@ export default function Home() {
         color: '#ffb74d'
       };
     }
-    
+
     return null;
   };
 
@@ -164,46 +167,46 @@ export default function Home() {
       console.warn("⚠️ fetchRideDetails: No ride ID provided");
       return null;
     }
-    
+
     try {
       console.log(`🔍 Fetching ride details for ID: ${id}`);
       setLoadingRideDetails(true);
-      
+
       const response = await api.get(`rides/${id}/details/`);
-      
+
       console.log("✅ Ride details fetched successfully");
-      
+
       const rideData = response.data?.data || response.data;
-      
+
       const mappedDetails = {
         id: rideData.id,
         pickup_address: rideData.pickup_address || rideData.ride_info?.start_address || "Pickup Location",
         dropoff_address: rideData.dropoff_address || rideData.ride_info?.end_address || "Dropoff Location",
         fare: rideData.fare ? parseFloat(rideData.fare) : 0,
-        rider: rideData.rider || {}, 
+        rider: rideData.rider || {},
         driver: rideData.driver || {},
         status: rideData.status,
-        raw: rideData, 
+        raw: rideData,
       };
-      
+
       setRideDetails(mappedDetails);
       return mappedDetails;
-      
+
     } catch (error) {
       console.error("❌ Fetch ride details error:", error);
-      
+
       if (error.response?.status === 401) {
         setAlertData({ title: "Authentication Error", message: "Please log in again.", isError: true });
       } else if (error.response?.status === 404) {
         setAlertData({ title: "Error", message: "Ride not found.", isError: true });
       } else {
-        const errorMessage = error.response?.data?.detail || 
-                             error.response?.data?.message || 
-                             "Failed to fetch ride details";
+        const errorMessage = error.response?.data?.detail ||
+          error.response?.data?.message ||
+          "Failed to fetch ride details";
         setAlertData({ title: "Error", message: errorMessage, isError: true });
       }
       setAlertModalVisible(true);
-      
+
       return null;
     } finally {
       setLoadingRideDetails(false);
@@ -212,12 +215,12 @@ export default function Home() {
 
   const handleToggleOnline = async (isOnline) => {
     setOptimisticOnlineStatus(isOnline);
-    
+
     try {
       await activeStatusMutation.mutateAsync({ is_online: isOnline });
     } catch (error) {
       setOptimisticOnlineStatus(null);
-      
+
       const message = error.response?.data?.message || "Unable to go online. Please try again.";
       setOnlineErrorMessage(message);
       setOnlineErrorModalVisible(true);
@@ -227,17 +230,17 @@ export default function Home() {
   const handleForceSetState = async ({ status, rideId, riderId }) => {
     try {
       console.log("🔧 [DEBUG] Force setting state:", { status, rideId, riderId });
-      
+
       const stateData = {
         status,
         rideId,
         riderId,
       };
-      
+
       await AsyncStorage.setItem("driverRideState", JSON.stringify(stateData));
-      
+
       await loadPersisted();
-      
+
       setAlertData({ title: "Success", message: `State set to: ${status}`, isError: false });
       setAlertModalVisible(true);
     } catch (error) {
@@ -259,7 +262,7 @@ export default function Home() {
       setRideDetails(null);
       return;
     }
-    
+
     console.log("🔄 rideId changed, fetching details:", rideId);
     fetchRideDetails(rideId);
   }, [rideId]);
@@ -312,10 +315,10 @@ export default function Home() {
 
         if (msg.type === "notify" && msg.data?.type === "DRIVER_OFFER_DECLINED") {
           console.log("❌ Driver offer declined:", msg.data);
-          
+
           const rideId = msg.data.ride_request_id;
           const savedOffer = getSentOffer(rideId);
-          
+
           if (savedOffer) {
             setDeclinedOffer({
               ...savedOffer,
@@ -325,12 +328,12 @@ export default function Home() {
             setDeclineModalVisible(true);
           }
         }
-        
+
         if (msg.event === "ride_cancelled" && msg.payload) {
           console.log("❌ Ride cancelled:", msg.payload);
-          
+
           const { ride_id, reason, timestamp } = msg.payload;
-          
+
           if (ride_id === rideId) {
             setCancelledRideInfo({
               reason: reason || "No reason provided",
@@ -353,7 +356,7 @@ export default function Home() {
   // -- Handlers --
 
   const handleOpenDrawer = () => {
-    navigation.getParent()?.getParent("DrawerNavigator")?.openDrawer();
+    navigation.dispatch(DrawerActions.openDrawer());
   };
 
   const onRefresh = async () => {
@@ -417,7 +420,7 @@ export default function Home() {
         alert("WebSocket not connected");
         return;
       }
-      
+
       const data = {
         type: "accept_ride",
         data: {
@@ -487,7 +490,7 @@ export default function Home() {
       setRideDetails(null);
       setCancelledRideInfo(null);
       setRideCancelledModalVisible(false);
-      
+
     } catch (error) {
       console.error("❌ Error resetting state:", error);
     }
@@ -508,13 +511,13 @@ export default function Home() {
 
     } catch (error) {
       console.error("❌ Error in handleArrived:", error);
-      
+
       if (error.response?.status === 403 && error.response?.data?.message) {
         const distanceMeters = error.response?.data?.distance_meters;
-        const message = distanceMeters 
+        const message = distanceMeters
           ? `You are ${Math.round(distanceMeters)}m away from the pickup location. Please move closer to mark arrival.`
           : error.response.data.message;
-        
+
         setArrivalErrorMessage(message);
         setArrivalErrorModalVisible(true);
       }
@@ -535,7 +538,7 @@ export default function Home() {
       delete updated[ride_request_view_id];
       return updated;
     });
-    
+
     const remainingUpdates = Object.keys(negotiationUpdates).length - 1;
     if (remainingUpdates === 0) {
       setUpdatesModalVisible(false);
@@ -603,7 +606,7 @@ export default function Home() {
   return (
     <SafeAreaView style={styles.mainContainer}>
       <StatusBar barStyle="light-content" backgroundColor="#000" />
-      
+
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContentContainer}
@@ -657,7 +660,7 @@ export default function Home() {
           {/* Low Balance Warning Banner */}
           {status === 'not_busy' && balanceWarning && showLowBalanceBanner && (
             <View style={[
-              styles.sectionContainer, 
+              styles.sectionContainer,
               styles.lowBalanceWarning,
               { borderLeftColor: balanceWarning.color }
             ]}>
@@ -672,11 +675,11 @@ export default function Home() {
                   <Ionicons name="close" size={scaleSize(18)} color="#666" />
                 </TouchableOpacity>
               </View>
-              
+
               <Text style={styles.balanceWarningText}>
                 {balanceWarning.message}
               </Text>
-              
+
               <View style={styles.balanceBannerActions}>
                 <TouchableOpacity
                   style={[styles.viewButton, { backgroundColor: balanceWarning.color }]}
@@ -684,7 +687,7 @@ export default function Home() {
                 >
                   <Text style={styles.viewButtonText}>{balanceWarning.buttonText}</Text>
                 </TouchableOpacity>
-                
+
                 {balanceWarning.type === 'critical' && (
                   <TouchableOpacity
                     style={styles.viewButtonOutline}
@@ -730,7 +733,7 @@ export default function Home() {
                 <>
                   {rideNotifications.length > 0 ? (
                     <View style={[styles.ordersContainer, { backgroundColor: 'transparent', padding: 0 }]}>
-                      
+
                       <View style={styles.ordersHeader}>
                         <View style={styles.ordersTitleRow}>
                           <Text style={styles.sectionTitle}>Available Orders</Text>
@@ -792,7 +795,7 @@ export default function Home() {
                   <Ionicons name="trash-outline" size={scaleSize(20)} color="#f44336" />
                 </TouchableOpacity>
               </View>
-              
+
               {!hasSufficientBalance() && (
                 <View style={styles.updatesWarning}>
                   <Ionicons name="alert-circle-outline" size={scaleSize(16)} color="#ff9800" />
@@ -801,10 +804,10 @@ export default function Home() {
                   </Text>
                 </View>
               )}
-              
+
               <TouchableOpacity
                 style={[
-                  styles.viewButton, 
+                  styles.viewButton,
                   { backgroundColor: "#4CAF50" },
                   !hasSufficientBalance() && styles.disabledViewButton
                 ]}
@@ -927,20 +930,20 @@ export default function Home() {
             {!hasSufficientBalance() && (
               <View style={[styles.sectionContainer, styles.modalLowBalanceWarning]}>
                 <View style={styles.modalWarningHeader}>
-                  <Ionicons name="eye-outline" size={scaleSize(18)} color="#ff9800" style={{marginRight: 8}} />
-                  <Text style={{color: '#ff9800', fontWeight: 'bold', fontSize: scaleFont(14)}}>View Only Mode</Text>
+                  <Ionicons name="eye-outline" size={scaleSize(18)} color="#ff9800" style={{ marginRight: 8 }} />
+                  <Text style={{ color: '#ff9800', fontWeight: 'bold', fontSize: scaleFont(14) }}>View Only Mode</Text>
                 </View>
-                <Text style={{color: '#ffcc80', fontSize: scaleFont(12), marginBottom: 8}}>
+                <Text style={{ color: '#ffcc80', fontSize: scaleFont(12), marginBottom: 8 }}>
                   Balance: ₦{balanceData?.balance?.toLocaleString()}. Add ₦{1001 - (balanceData?.balance || 0)} to accept rides.
                 </Text>
                 <TouchableOpacity
-                  style={{backgroundColor: '#ff9800', padding: scaleSize(8), borderRadius: 6, alignSelf: 'flex-start'}}
+                  style={{ backgroundColor: '#ff9800', padding: scaleSize(8), borderRadius: 6, alignSelf: 'flex-start' }}
                   onPress={() => {
                     setRideModalVisible(false);
                     navigation.navigate("Wallet");
                   }}
                 >
-                  <Text style={{color: 'white', fontWeight: 'bold', fontSize: scaleFont(12)}}>Add Funds</Text>
+                  <Text style={{ color: 'white', fontWeight: 'bold', fontSize: scaleFont(12) }}>Add Funds</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -994,11 +997,11 @@ export default function Home() {
 
             {!hasSufficientBalance() && (
               <View style={[styles.sectionContainer, styles.modalLowBalanceWarning]}>
-                <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 5}}>
-                  <Ionicons name="alert-circle-outline" size={scaleSize(18)} color="#ff9800" style={{marginRight: 8}} />
-                  <Text style={{color: '#ff9800', fontWeight: 'bold', fontSize: scaleFont(14)}}>Funds Required</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
+                  <Ionicons name="alert-circle-outline" size={scaleSize(18)} color="#ff9800" style={{ marginRight: 8 }} />
+                  <Text style={{ color: '#ff9800', fontWeight: 'bold', fontSize: scaleFont(14) }}>Funds Required</Text>
                 </View>
-                <Text style={{color: '#ffcc80', fontSize: scaleFont(12), marginBottom: 8}}>
+                <Text style={{ color: '#ffcc80', fontSize: scaleFont(12), marginBottom: 8 }}>
                   Add funds to respond to counter offers.
                 </Text>
               </View>
@@ -1080,7 +1083,7 @@ export default function Home() {
               {declinedOffer?.riderName || "Rider"} has declined your offer.
               {"\n"}Would you like to make another offer?
             </Text>
-            
+
             <TouchableOpacity
               style={[styles.primaryButton, { marginBottom: 10 }]}
               onPress={() => {
@@ -1095,7 +1098,7 @@ export default function Home() {
             >
               <Text style={styles.primaryButtonText}>Make Another Offer</Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               style={styles.secondaryButton}
               onPress={() => {
@@ -1119,40 +1122,40 @@ export default function Home() {
         <SafeAreaView style={styles.fullScreenModal}>
           <StatusBar barStyle="light-content" backgroundColor="rgba(0,0,0,0.9)" />
           <View style={[styles.fullScreenContent, { paddingTop: Platform.OS === 'ios' ? 0 : 20 }]}>
-            
+
             {/* Modal Header */}
             <View style={styles.viewOfferHeader}>
-              <TouchableOpacity onPress={() => setViewOfferModalVisible(false)} style={{padding: scaleSize(5)}}>
+              <TouchableOpacity onPress={() => setViewOfferModalVisible(false)} style={{ padding: scaleSize(5) }}>
                 <Ionicons name="chevron-down" size={scaleSize(28)} color="#666" />
               </TouchableOpacity>
               <Text style={styles.viewOfferTitle}>Ride Request</Text>
-              <View style={{width: scaleSize(38)}} /> 
+              <View style={{ width: scaleSize(38) }} />
             </View>
 
             {/* Low Balance Warning in View Offer Modal */}
             {!hasSufficientBalance() && (
               <View style={styles.viewOfferWarning}>
-                <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 8}}>
-                  <Ionicons name="eye-outline" size={scaleSize(20)} color="#ff9800" style={{marginRight: 10}} />
-                  <Text style={{color: '#ff9800', fontWeight: 'bold', fontSize: scaleFont(16)}}>View Only</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                  <Ionicons name="eye-outline" size={scaleSize(20)} color="#ff9800" style={{ marginRight: 10 }} />
+                  <Text style={{ color: '#ff9800', fontWeight: 'bold', fontSize: scaleFont(16) }}>View Only</Text>
                 </View>
-                <Text style={{color: '#ffcc80', fontSize: scaleFont(14), marginBottom: 10}}>
+                <Text style={{ color: '#ffcc80', fontSize: scaleFont(14), marginBottom: 10 }}>
                   Your balance is ₦{balanceData?.balance?.toLocaleString()}. Add ₦{1001 - (balanceData?.balance || 0)} to accept or counter.
                 </Text>
                 <TouchableOpacity
-                  style={{backgroundColor: '#ff9800', padding: scaleSize(12), borderRadius: 8, alignSelf: 'flex-start'}}
+                  style={{ backgroundColor: '#ff9800', padding: scaleSize(12), borderRadius: 8, alignSelf: 'flex-start' }}
                   onPress={() => {
                     setViewOfferModalVisible(false);
                     navigation.navigate("Wallet");
                   }}
                 >
-                  <Text style={{color: 'white', fontWeight: 'bold', fontSize: scaleFont(14)}}>Add Funds Now</Text>
+                  <Text style={{ color: 'white', fontWeight: 'bold', fontSize: scaleFont(14) }}>Add Funds Now</Text>
                 </TouchableOpacity>
               </View>
             )}
 
-            <ScrollView 
-              showsVerticalScrollIndicator={false} 
+            <ScrollView
+              showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.viewOfferContent}
             >
               {selectedOffer && (
@@ -1186,8 +1189,8 @@ export default function Home() {
                         <View style={[styles.routeLine, { height: scaleSize(40) }]} />
                         <View style={[styles.dropoffDot, { width: scaleSize(12), height: scaleSize(12) }]} />
                       </View>
-                      <View style={{flex: 1}}>
-                        <View style={{marginBottom: 20}}>
+                      <View style={{ flex: 1 }}>
+                        <View style={{ marginBottom: 20 }}>
                           <Text style={styles.locationLabel}>PICKUP</Text>
                           <Text style={[styles.locationText, { fontSize: scaleFont(16), lineHeight: scaleFont(22) }]}>{selectedOffer.address || "Pickup location"}</Text>
                           <Text style={styles.timeToPickup}>
@@ -1196,7 +1199,7 @@ export default function Home() {
                         </View>
                       </View>
                     </View>
-                    
+
                     <View style={styles.routeStats}>
                       <View style={styles.statItem}>
                         <Ionicons name="navigate-outline" size={scaleSize(20)} color="#888" />
@@ -1221,7 +1224,7 @@ export default function Home() {
 
             {/* Footer Buttons */}
             <View style={styles.viewOfferFooter}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[
                   styles.acceptButton,
                   !hasSufficientBalance() && styles.disabledButton
@@ -1244,7 +1247,7 @@ export default function Home() {
                   {hasSufficientBalance() ? 'Accept Offer' : 'Add Funds to Accept'}
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[
                   styles.counterButton,
                   !hasSufficientBalance() && styles.disabledCounterButton
@@ -1315,14 +1318,14 @@ export default function Home() {
           <View style={styles.alertBox}>
             <Ionicons name="checkmark-circle" size={scaleSize(60)} color="#4CAF50" />
             <Text style={styles.alertTitle}>Ride Completed! 🎉</Text>
-            
+
             {completedRideInfo && (
               <View style={styles.rideDetailsContainer}>
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Passenger:</Text>
                   <Text style={styles.detailValue}>{completedRideInfo.rider?.name || 'N/A'}</Text>
                 </View>
-                
+
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Fare:</Text>
                   <Text style={[styles.detailValue, { color: '#4CAF50', fontWeight: 'bold' }]}>
@@ -1333,14 +1336,14 @@ export default function Home() {
                     }).format(completedRideInfo.fare || 0)}
                   </Text>
                 </View>
-                
+
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>From:</Text>
                   <Text style={[styles.detailValue, { flex: 1 }]} numberOfLines={2}>
                     {completedRideInfo.pickup_address || 'N/A'}
                   </Text>
                 </View>
-                
+
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>To:</Text>
                   <Text style={[styles.detailValue, { flex: 1 }]} numberOfLines={2}>
@@ -1349,7 +1352,7 @@ export default function Home() {
                 </View>
               </View>
             )}
-            
+
             <TouchableOpacity
               style={styles.primaryButton}
               onPress={() => {

@@ -106,7 +106,8 @@ const Login = ({ navigation }) => {
         },
         {
           onSuccess: () => {
-            setActiveStatus({ is_online: true });
+            // setActiveStatus({ is_online: true });
+            console.log(" Login successful");
           },
           onError: (error) => {
             if (error?.response?.status === 401) {
@@ -424,8 +425,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
   },
   container: {
-    flex: 1, 
-    backgroundColor: "#000" 
+    flex: 1,
+    backgroundColor: "#000"
   },
   banner: {
     backgroundColor: "#0B2633",
@@ -477,11 +478,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#222',
   },
-  inputIcon: { 
+  inputIcon: {
     marginRight: Math.max(8, width * 0.02),
   },
-  input: { 
-    flex: 1, 
+  input: {
+    flex: 1,
     color: "#fff",
     paddingHorizontal: Math.max(8, width * 0.02),
   },
@@ -506,8 +507,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexWrap: 'wrap',
   },
-  checkboxRow: { 
-    flexDirection: "row", 
+  checkboxRow: {
+    flexDirection: "row",
     alignItems: "center",
     flexShrink: 1,
   },
@@ -520,15 +521,15 @@ const styles = StyleSheet.create({
     marginRight: Math.max(8, width * 0.02),
     backgroundColor: "#fcbf24",
   },
-  checkboxUnchecked: { 
-    backgroundColor: "transparent" 
+  checkboxUnchecked: {
+    backgroundColor: "transparent"
   },
-  checkboxLabel: { 
+  checkboxLabel: {
     color: "#fff",
     flexShrink: 1,
     fontWeight: '500',
   },
-  forgot: { 
+  forgot: {
     color: "#fcbf24",
     flexShrink: 1,
     textAlign: 'right',
@@ -549,8 +550,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  proceedText: { 
-    color: "#000", 
+  proceedText: {
+    color: "#000",
     fontWeight: "bold",
   },
   dividerRow: {
@@ -558,12 +559,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     width: '100%',
   },
-  divider: { 
-    flex: 1, 
-    height: 1, 
-    backgroundColor: "#444" 
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#444"
   },
-  dividerText: { 
+  dividerText: {
     color: "#aaa",
     fontWeight: '500',
   },
@@ -572,12 +573,12 @@ const styles = StyleSheet.create({
     marginTop: Math.max(10, height * 0.01),
     marginBottom: Math.max(20, height * 0.02),
   },
-  footerText: { 
+  footerText: {
     color: "#888",
   },
-  signup: { 
-    color: "#fcbf24", 
-    fontWeight: "bold" 
+  signup: {
+    color: "#fcbf24",
+    fontWeight: "bold"
   },
 });
 

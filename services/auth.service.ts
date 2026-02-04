@@ -59,7 +59,8 @@ export const useLoginEndPoint = (
         console.log("✅ User ID saved");
       }
 
-      navigation.replace("Tabs");
+      // Navigate to Mainapp
+      navigation.replace("Mainapp");
     },
 
     onError: (error: any) => {
@@ -71,7 +72,6 @@ export const useLoginEndPoint = (
     },
   });
 };
-
 
 
 type ActiveStatusPayload = {
@@ -100,7 +100,7 @@ export const useLogoutEndPoint = (
   return useMutation<boolean, any, void>({
     mutationFn: async () => {
       await clearTokens();
-      await AsyncStorage.multiRemove(["userId", "pendingEmail"]);
+      await AsyncStorage.multiRemove(["userId", "pendingEmail", "driverRideState"]);
 
       console.log("🗑️ Cleared all user data");
       return true;
@@ -108,6 +108,7 @@ export const useLogoutEndPoint = (
 
     onSuccess: () => {
       console.log("✅ User logged out successfully");
+      // Logout navigation is handled in DrawerNavigator's handleLogout
     },
 
     onError: (error: any) => {
@@ -115,3 +116,4 @@ export const useLogoutEndPoint = (
     },
   });
 };
+

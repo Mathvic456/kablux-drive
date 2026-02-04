@@ -1,14 +1,14 @@
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
-  ScrollView,
-  SafeAreaView,
-  StatusBar,
-  Platform,
-  useWindowDimensions,
-  Dimensions 
+import {
+    View,
+    Text,
+    StyleSheet,
+    TouchableOpacity,
+    ScrollView,
+    SafeAreaView,
+    StatusBar,
+    Platform,
+    useWindowDimensions,
+    Dimensions
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
@@ -17,7 +17,7 @@ import { useState } from 'react';
 export default function Legal() {
     const navigation = useNavigation();
     const [activeSection, setActiveSection] = useState('terms');
-    
+
     const { width, height } = useWindowDimensions();
     const isSmallScreen = width < 375; // iPhone SE, small Android
     const isMediumScreen = width >= 375 && width <= 414; // iPhone 12-15, most Android
@@ -32,8 +32,8 @@ export default function Legal() {
 
     const legalSections = {
         terms: {
-            title: 'Terms of Service',
-            content: `Last Updated: December 15, 2024
+            title: 'of Service',
+            content: `Last Updated: February 03, 2026
 
 1. ACCEPTANCE OF TERMS
 By accessing or using the KabLux Driver application ("the App"), you agree to be bound by these Terms of Service and our Privacy Policy. If you do not agree to these terms, please do not use our services.
@@ -65,7 +65,7 @@ Either party may terminate this agreement at any time with written notice. KabLu
         },
         privacy: {
             title: 'Privacy Policy',
-            content: `Last Updated: December 15, 2024
+            content: `Last Updated: February 03, 2026
 
 1. INFORMATION WE COLLECT
 1.1. Personal Information: Name, email, phone number, driver's license, vehicle information.
@@ -92,7 +92,7 @@ We retain your personal information for as long as necessary to provide our serv
         },
         community: {
             title: 'Community Guidelines',
-            content: `Last Updated: December 15, 2024
+            content: `Last Updated: February 03, 2026
 
 1. RESPECT AND PROFESSIONALISM
 1.1. Treat all riders and fellow drivers with respect.
@@ -124,7 +124,7 @@ We retain your personal information for as long as necessary to provide our serv
         },
         insurance: {
             title: 'Insurance Policy',
-            content: `Last Updated: December 15, 2024
+            content: `Last Updated: February 03, 2026
 
 1. INSURANCE COVERAGE
 1.1. Commercial Auto Insurance: Provided by KabLux during active trips.
@@ -154,7 +154,7 @@ The deductible for comprehensive and collision coverage is $2,500, which may be 
         },
         payment: {
             title: 'Payment Terms',
-            content: `Last Updated: December 15, 2024
+            content: `Last Updated: February 03, 2026
 
 1. EARNING STRUCTURE
 1.1. Base Fare: Fixed amount per trip.
@@ -201,14 +201,14 @@ The deductible for comprehensive and collision coverage is $2,500, which may be 
                     isTablet && styles.headerTablet,
                     isShortScreen && styles.headerShort
                 ]}>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         onPress={goBack}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                        <Ionicons 
-                            name="arrow-back-circle" 
-                            size={isSmallScreen ? 28 : isShortScreen ? 26 : 32} 
-                            color="white" 
+                        <Ionicons
+                            name="arrow-back-circle"
+                            size={isSmallScreen ? 28 : isShortScreen ? 26 : 32}
+                            color="white"
                         />
                     </TouchableOpacity>
                     <Text style={[
@@ -229,8 +229,8 @@ The deductible for comprehensive and collision coverage is $2,500, which may be 
                     isTablet && styles.tabsContainerTablet,
                     isShortScreen && styles.tabsContainerShort
                 ]}>
-                    <ScrollView 
-                        horizontal 
+                    <ScrollView
+                        horizontal
                         showsHorizontalScrollIndicator={false}
                         contentContainerStyle={[
                             styles.tabsContent,
@@ -266,7 +266,7 @@ The deductible for comprehensive and collision coverage is $2,500, which may be 
                 </View>
 
                 {/* Main Content - Scrollable */}
-                <ScrollView 
+                <ScrollView
                     style={styles.mainContent}
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={[
@@ -312,10 +312,10 @@ The deductible for comprehensive and collision coverage is $2,500, which may be 
                         isTablet && styles.legalNoticeTablet,
                         isShortScreen && styles.legalNoticeShort
                     ]}>
-                        <Ionicons 
-                            name="warning-outline" 
-                            size={isSmallScreen ? 18 : isShortScreen ? 16 : 20} 
-                            color="#FEB914" 
+                        <Ionicons
+                            name="warning-outline"
+                            size={isSmallScreen ? 18 : isShortScreen ? 16 : 20}
+                            color="#FEB914"
                         />
                         <Text style={[
                             styles.legalNoticeText,
@@ -372,7 +372,7 @@ The deductible for comprehensive and collision coverage is $2,500, which may be 
                             ]}>📞 +234 806 026 1407-LEGAL</Text>
                         </View>
                     </View>
-                    
+
                     {/* Spacer for bottom safe area */}
                     <View style={[
                         styles.bottomSpacer,

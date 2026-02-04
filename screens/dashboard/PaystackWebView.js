@@ -33,12 +33,12 @@ const DynamicPayStackWebViewScreen = () => {
       return;
     }
 
-    const defaultEmail = "customer@example.com"; 
-    
+    const defaultEmail = "customer@example.com";
+
     initiateFunding(
       {
         amount: num,
-        email: defaultEmail, 
+        email: defaultEmail,
         channel: "card"
       },
       {
@@ -53,6 +53,7 @@ const DynamicPayStackWebViewScreen = () => {
           }
         },
         onError: (err) => {
+          console.log('errrrr', err)
           const msg =
             err.response?.data?.message ||
             err.response?.data?.channel?.[0] ||
@@ -67,15 +68,15 @@ const DynamicPayStackWebViewScreen = () => {
   const handleNavigation = (navState) => {
     const { url } = navState;
     if (url.includes("reference=") && url.includes("trxref=")) {
-      setPaystackUrl(null); 
+      setPaystackUrl(null);
 
       setModalData({ title: "Payment Successful!", message: "Your wallet has been credited.", isError: false });
       setModalVisible(true);
     }
-    
+
     // 3. Handle the specific "Close" button inside Paystack (if user cancels)
     else if (url.includes("close") || url.includes("cancel")) {
-        setPaystackUrl(null);
+      setPaystackUrl(null);
     }
   };
 
@@ -200,7 +201,7 @@ const DynamicPayStackWebViewScreen = () => {
 
 const styles = StyleSheet.create({
   container: { flexGrow: 1, padding: 20, backgroundColor: "#f8f9fa" },
-  headerRow: { marginBottom: 10 }, 
+  headerRow: { marginBottom: 10 },
   title: {
     fontSize: 28,
     fontWeight: "bold",
@@ -254,7 +255,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     padding: 15,
-    paddingTop: 50, 
+    paddingTop: 50,
     borderBottomWidth: 1,
     borderColor: "#eee",
     backgroundColor: "#f9fafb",
