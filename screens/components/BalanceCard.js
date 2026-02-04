@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TouchableOpacity, 
-  StyleSheet, 
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
   ActivityIndicator,
   useWindowDimensions,
   Dimensions,
@@ -28,7 +28,7 @@ const formatCurrency = (amount) => {
 export default function BalanceCard({ balanceData, isLoading, isError, userBalance = 0 }) {
   const navigation = useNavigation();
   const [balanceVisible, setBalanceVisible] = useState(false);
-  
+
   const { width, height } = useWindowDimensions();
   const isSmallScreen = width < 375; // iPhone SE, small Android
   const isMediumScreen = width >= 375 && width <= 414; // iPhone 12-15, most Android
@@ -36,12 +36,12 @@ export default function BalanceCard({ balanceData, isLoading, isError, userBalan
   const isTablet = width > 768;
   const screenHeight = Dimensions.get('window').height;
   const isShortScreen = screenHeight < 700; // Small height devices
-  
+
   // Use actualBalance prop or fallback to balanceData
   const balance = userBalance;
   const handleWithdraw = () => {
     // Pass the user's actual balance to Withdraw screen
-    navigation.navigate('Withdraw', { userBalance: balance }); 
+    navigation.navigate('Withdraw', { userBalance: balance });
   };
   const toggleBalanceVisibility = () => {
     setBalanceVisible(!balanceVisible);
@@ -51,9 +51,9 @@ export default function BalanceCard({ balanceData, isLoading, isError, userBalan
     if (isLoading) {
       return (
         <View style={styles.amountRow}>
-          <ActivityIndicator 
-            size={isSmallScreen ? "small" : isShortScreen ? "small" : "large"} 
-            color="white" 
+          <ActivityIndicator
+            size={isSmallScreen ? "small" : isShortScreen ? "small" : "large"}
+            color="white"
           />
           <Text style={[
             styles.loadingText,
@@ -74,15 +74,15 @@ export default function BalanceCard({ balanceData, isLoading, isError, userBalan
             isLargeScreen && styles.errorTextLarge,
             isShortScreen && styles.errorTextShort
           ]}>Error loading balance</Text>
-          <Entypo 
-            name="warning" 
-            size={isSmallScreen ? 16 : isShortScreen ? 14 : 22} 
-            color="red" 
+          <Entypo
+            name="warning"
+            size={isSmallScreen ? 16 : isShortScreen ? 14 : 22}
+            color="red"
           />
         </View>
       );
     }
-    
+
     return (
       <View style={styles.amountRow}>
         <View style={styles.balanceContainer}>
@@ -109,15 +109,15 @@ export default function BalanceCard({ balanceData, isLoading, isError, userBalan
           )}
         </View>
         <View style={styles.balanceActions}>
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={toggleBalanceVisibility}
             style={styles.visibilityButton}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons 
-              name={balanceVisible ? "eye-off-outline" : "eye-outline"} 
-              size={isSmallScreen ? 18 : isShortScreen ? 16 : 24} 
-              color="white" 
+            <Ionicons
+              name={balanceVisible ? "eye-off-outline" : "eye-outline"}
+              size={isSmallScreen ? 18 : isShortScreen ? 16 : 24}
+              color="white"
             />
           </TouchableOpacity>
         </View>
@@ -142,10 +142,10 @@ export default function BalanceCard({ balanceData, isLoading, isError, userBalan
           styles.balanceRow,
           isShortScreen && styles.balanceRowShort
         ]}>
-          <MaterialIcons 
-            name="monetization-on" 
-            size={isSmallScreen ? 16 : isShortScreen ? 14 : 20} 
-            color="#FFC107" 
+          <MaterialIcons
+            name="monetization-on"
+            size={isSmallScreen ? 16 : isShortScreen ? 14 : 20}
+            color="#FFC107"
           />
           <Text style={[
             styles.balanceLabel,
@@ -156,17 +156,17 @@ export default function BalanceCard({ balanceData, isLoading, isError, userBalan
             Available Balance
           </Text>
         </View>
-        <Entypo 
-          name="help-with-circle" 
-          size={isSmallScreen ? 14 : isShortScreen ? 12 : 18} 
-          color="#FFC107" 
+        <Entypo
+          name="help-with-circle"
+          size={isSmallScreen ? 14 : isShortScreen ? 12 : 18}
+          color="#FFC107"
         />
       </View>
 
       {renderBalanceContent()}
 
       {/* Withdraw Button */}
-      <TouchableOpacity 
+      <TouchableOpacity
         style={[
           styles.button,
           (isLoading || isError) && styles.buttonDisabled,
@@ -176,7 +176,7 @@ export default function BalanceCard({ balanceData, isLoading, isError, userBalan
           isShortScreen && styles.buttonShort
         ]}
         onPress={handleWithdraw}
-        disabled={isLoading || isError} 
+        disabled={isLoading || isError}
       >
         <Text style={[
           styles.buttonText,

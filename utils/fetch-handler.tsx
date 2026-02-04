@@ -42,6 +42,7 @@ export const useFetch = (): UseFetchReturn => {
             };
 
             console.log('full url', `${baseURL}${url}`)
+            // console.log('full config', config)
 
             const response = await fetch(`${baseURL}${url}`, config);
 

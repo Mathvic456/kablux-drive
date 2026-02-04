@@ -1,116 +1,129 @@
-import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
+import React, { use, useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
   Modal,
   FlatList,
-  ScrollView 
+  ScrollView
 } from 'react-native';
 import { MaterialIcons, FontAwesome, Entypo } from '@expo/vector-icons';
+import { banks } from '../../constants/banks';
+import { useFetch } from '../../utils/fetch-handler';
+import { useAuth } from '../../context/AuthContext';
+import { useNavigation } from '@react-navigation/native';
 
 export default function TransferForm() {
   const [accountNumber, setAccountNumber] = useState('');
   const [selectedBank, setSelectedBank] = useState(null);
   const [accountName, setAccountName] = useState('');
-  const [amount, setAmount] = useState('NGN30,000');
+  const [amount, setAmount] = useState('');
+  const [account, setAccount] = useState();
   const [showBankDropdown, setShowBankDropdown] = useState(false);
+  const { request } = useFetch();
+  const { token } = useAuth();
+  const navigation = useNavigation();
 
-  // Sample bank data
-  const banks = [
-    { id: '1', name: 'Access Bank', code: '044' },
-    { id: '2', name: 'First Bank', code: '011' },
-    { id: '3', name: 'Guaranty Trust Bank', code: '058' },
-    { id: '4', name: 'Zenith Bank', code: '057' },
-    { id: '5', name: 'United Bank for Africa', code: '033' },
-    { id: '6', name: 'Ecobank Nigeria', code: '050' },
-    { id: '7', name: 'Fidelity Bank', code: '070' },
-    { id: '8', name: 'Stanbic IBTC Bank', code: '039' },
-    { id: '9', name: 'Sterling Bank', code: '232' },
-    { id: '10', name: 'Union Bank', code: '032' },
-  ];
+  const getAccounts = async () => {
+    try {
+      const res = await request('wallets/transfer_recipient/', { method: 'GET', token })
+      console.log('transfer recp', res)
+      setAccount(res)
+    } catch (error) {
+      console.log('error getting accounts', error)
+    }
+  }
+
+  const clearForm = () => {
+    setAccountNumber('');
+    setSelectedBank(null);
+    setAccountName('');
+    setAmount('');
+  }
+  useEffect(() => {
+    clearForm();
+  }, []);
+  useEffect(() => {
+    getAccounts()
+  }, [])
+
 
   const handleAccountNumberChange = (text) => {
     // Remove non-numeric characters
     const numericText = text.replace(/[^0-9]/g, '');
     setAccountNumber(numericText);
-    
-    // Simulate account name lookup when account number is complete (10 digits)
-    if (numericText.length === 10 && selectedBank) {
-      // In a real app, you would call an API here to validate account number
-      simulateAccountNameLookup(numericText, selectedBank);
-    } else {
-      setAccountName('');
-    }
   };
 
-  const simulateAccountNameLookup = (accNumber, bank) => {
+  const accountNameLookup = async (accNumber, bank) => {
     // Simulate API call delay
-    setTimeout(() => {
-      // Mock account name based on bank and account number
-      const mockNames = {
-        'Access Bank': 'John Adebayo',
-        'First Bank': 'Chioma Nwosu', 
-        'Guaranty Trust Bank': 'Michael Okoro',
-        'Zenith Bank': 'Funke Adeleke',
-        'United Bank for Africa': 'David Chukwu',
-        'Ecobank Nigeria': 'Grace Okafor',
-        'Fidelity Bank': 'Samuel Ibrahim',
-        'Stanbic IBTC Bank': 'Temitope Lawal',
-        'Sterling Bank': 'Aisha Mohammed',
-        'Union Bank': 'Peter Eze',
-      };
-      
-      setAccountName(mockNames[bank.name] || 'Account Name Not Found');
-    }, 1000);
+    console.log('resolve payload', { 'account_number': accNumber, 'bank_code': bank.code })
+    try {
+      const res = await request('wallets/resolve-account/', {
+        method: 'POST',
+        body: {
+          "account_number": accNumber,
+          "bank_code": bank.code
+        },
+        token
+      });
+      if (res && res.data && res.data.account_name) {
+        setAccountName(res.data.account_name);
+      }
+      console.log("resolve response", res);
+    } catch (error) {
+      console.log("resolve error", error)
+    }
+
   };
 
   const handleBankSelect = (bank) => {
     setSelectedBank(bank);
     setShowBankDropdown(false);
-    
+
     // If account number is already entered, trigger account name lookup
     if (accountNumber.length === 10) {
-      simulateAccountNameLookup(accountNumber, bank);
+      accountNameLookup(accountNumber, bank);
     }
   };
 
-  const handleProceed = () => {
+  const handleProceed = async () => {
     // Validate form before proceeding
-    if (!accountNumber || !selectedBank || !accountName || !amount) {
+    if (!accountNumber || !selectedBank || !accountName) {
       alert('Please fill in all required fields');
       return;
     }
-    
+
     if (accountNumber.length !== 10) {
       alert('Please enter a valid 10-digit account number');
       return;
     }
-    
+
     // Proceed with transfer logic
     console.log('Transfer details:', {
       accountNumber,
       bank: selectedBank.name,
       accountName,
-      amount
     });
-    
-    alert('Transfer initiated successfully!');
-  };
+    try {
+      const res = await request('wallets/create_transfer_recipient/', {
+        method: 'POST',
+        body: {
+          "account_number": accountNumber,
+          "bank_code": selectedBank.code,
+          "account_name": accountName,
+        },
+        token
+      });
+      console.log("Transfer response", res);
+      navigation.navigate('BankTransfer', { recipient: res });
+      // alert('Transfer initiated successfully!');
+    } catch (error) {
+      console.error("Transfer error", error)
+      alert('Transfer initiated failed!');
+    }
 
-  // Get display values for beneficiary section
-  const getBeneficiaryName = () => {
-    return accountName || 'Not available';
-  };
-
-  const getBeneficiaryNumber = () => {
-    return accountNumber || 'Not available';
-  };
-
-  const getBankName = () => {
-    return selectedBank ? selectedBank.name : 'Not selected';
   };
 
   return (
@@ -135,7 +148,7 @@ export default function TransferForm() {
         </View>
 
         {/* Bank Dropdown */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.inputButton}
           onPress={() => setShowBankDropdown(true)}
         >
@@ -145,10 +158,10 @@ export default function TransferForm() {
               {selectedBank ? selectedBank.name : 'Select Bank'}
             </Text>
           </View>
-          <Entypo 
-            name={showBankDropdown ? "chevron-up" : "chevron-right"} 
-            size={18} 
-            color="white" 
+          <Entypo
+            name={showBankDropdown ? "chevron-up" : "chevron-right"}
+            size={18}
+            color="white"
           />
         </TouchableOpacity>
 
@@ -163,17 +176,6 @@ export default function TransferForm() {
           </View>
         ) : null}
 
-        {/* Amount Input */}
-        <Text style={styles.subLabel}>Enter Amount</Text>
-        <TextInput
-          style={styles.amountInput}
-          placeholder="NGN0.00"
-          placeholderTextColor="#888"
-          value={amount}
-          onChangeText={setAmount}
-          keyboardType="numeric"
-          selectionColor="#FFC107"
-        />
 
         {/* Beneficiary Info - ALWAYS SHOWING */}
         <Text style={styles.subLabel}>Beneficiary</Text>
@@ -185,31 +187,32 @@ export default function TransferForm() {
             <View>
               <Text style={[
                 styles.beneficiaryName,
-                !accountName && styles.placeholderText
+                !account?.account_name && styles.placeholderText
               ]}>
-                {getBeneficiaryName()}
+                {account?.account_name}
               </Text>
               <Text style={[
                 styles.beneficiaryNumber,
-                (!accountNumber || !selectedBank) && styles.placeholderText
+                (!account) && styles.placeholderText
               ]}>
-                {getBeneficiaryNumber()} • {getBankName()}
+                {account?.account_number} • {account?.bank_code}
               </Text>
             </View>
           </View>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
               styles.payButton,
-              (!accountNumber || !selectedBank || !accountName) && styles.payButtonDisabled
+              (!account) && styles.payButtonDisabled
             ]}
-            disabled={!accountNumber || !selectedBank || !accountName}
+            disabled={!account}
+            onPress={() => navigation.navigate('BankTransfer', { recipient: account })}
           >
             <Text style={styles.payText}>Pay</Text>
           </TouchableOpacity>
         </View>
 
         {/* Proceed Button */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[
             styles.proceedButton,
             (!accountNumber || !selectedBank || !accountName) && styles.proceedButtonDisabled
@@ -233,14 +236,14 @@ export default function TransferForm() {
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Select Bank</Text>
-                <TouchableOpacity 
+                <TouchableOpacity
                   onPress={() => setShowBankDropdown(false)}
                   style={styles.closeButton}
                 >
                   <Entypo name="cross" size={24} color="#FFC107" />
                 </TouchableOpacity>
               </View>
-              
+
               <FlatList
                 data={banks}
                 keyExtractor={(item) => item.id}

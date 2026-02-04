@@ -1,27 +1,30 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
-import { FontAwesome, Entypo, MaterialIcons, Feather, Ionicons   } from '@expo/vector-icons';
+import { FontAwesome, Entypo, MaterialIcons, Feather, Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import BankTransferComponents from '../components/BankTransferComponents';
+import BankWithdrawal from '../components/BankWithdrawal';
 
 
 export default function BankTransfer() {
-    const navigation = useNavigation();
-    const goBack = () => {
-        navigation.goBack();
-    }
+  const navigation = useNavigation();
+  const goBack = () => {
+    navigation.goBack();
+  }
   return (
     <View style={styles.container}>
-        <View style={styles.headerMain}>
-                <TouchableOpacity onPress={goBack}>
-                    <Ionicons name="arrow-back-circle" size={32} color="white" />
-                </TouchableOpacity>
-                <Text style={styles.text}>Bank Transfer</Text>
-                <View style={{width:24}}></View>
-        </View>
-        <BankTransferComponents />
+      <View style={styles.headerMain}>
+        <TouchableOpacity onPress={goBack}>
+          <Ionicons name="arrow-back-circle" size={32} color="white" />
+        </TouchableOpacity>
+        <Text style={styles.text}>Bank Transfer</Text>
+        <View style={{ width: 24 }}></View>
+      </View>
+      {/* <BankTransferComponents /> */}
+      <BankWithdrawal />
     </View>
-  )}
+  )
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -29,17 +32,17 @@ const styles = StyleSheet.create({
     backgroundColor: 'black',
     paddingHorizontal: 20,
     paddingTop: 40,
-    gap:40,
+    gap: 15,
   },
   text: {
     fontSize: 30,
-    color:'white',
-    alignSelf:'center',
-    justifyContent:'center',
+    color: 'white',
+    alignSelf: 'center',
+    justifyContent: 'center',
   },
-  headerMain:{
-    flexDirection:'row',
-    justifyContent:'space-between',
+  headerMain: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   header: {
     color: '#aaa',
