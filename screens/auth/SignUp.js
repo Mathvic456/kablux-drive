@@ -122,7 +122,7 @@ const SignUp = ({ navigation }) => {
   };
 
   const { mutate: register, isPending } = useRegisterEndPoint();
-  
+
   const handleProceed = async () => {
     if (!validateForm()) return;
 
@@ -130,7 +130,7 @@ const SignUp = ({ navigation }) => {
     const last_name = rest.length > 0 ? rest.join(" ") : "";
 
     await AsyncStorage.setItem("pendingEmail", email);
-    
+
     try {
       register(
         {
@@ -149,11 +149,22 @@ const SignUp = ({ navigation }) => {
           onError: (err) => {
             const errorData = err.response?.data;
 
+            // Handle "already exists" errors
+            const newErrors = { ...errors };
+            let hasError = false;
+
             if (errorData?.email?.[0]?.includes("already exists")) {
-              setErrors((prev) => ({
-                ...prev,
-                email: "This email is already registered. Try signing in instead.",
-              }));
+              newErrors.email = "This email is already registered. Try signing in instead.";
+              hasError = true;
+            }
+
+            if (errorData?.phone_number?.[0]?.includes("already exists")) {
+              newErrors.phone = "This phone number is already registered. Try signing in instead.";
+              hasError = true;
+            }
+
+            if (hasError) {
+              setErrors(newErrors);
             } else {
               console.error("Registration failed:", errorData || err.message);
               alert("Something went wrong. Please try again.");
@@ -170,8 +181,8 @@ const SignUp = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.mainContainer}>
       <StatusBar barStyle="light-content" backgroundColor="#0B2633" />
-      
-      <KeyboardAvoidingView 
+
+      <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
@@ -180,7 +191,7 @@ const SignUp = ({ navigation }) => {
         <View style={styles.banner} />
 
         {/* Scrollable Card */}
-        <ScrollView 
+        <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
@@ -188,32 +199,32 @@ const SignUp = ({ navigation }) => {
         >
           <View style={styles.card}>
             <View style={styles.logoContainer}>
-              <Image 
-                source={Logo} 
+              <Image
+                source={Logo}
                 style={[
-                  styles.logoIcon, 
-                  { 
-                    width: scaleSize(130), 
-                    height: scaleSize(100) 
+                  styles.logoIcon,
+                  {
+                    width: scaleSize(130),
+                    height: scaleSize(100)
                   }
-                ]} 
+                ]}
               />
             </View>
-            
+
             <Text style={[styles.title, { fontSize: scaleFont(24) }]}>
               Get Started Now
             </Text>
-            
+
             <Text style={[styles.subtitle, { fontSize: scaleFont(14) }]}>
               Let's create an account
             </Text>
 
             {/* Full Name Input */}
             <View style={styles.inputContainer}>
-              <Octicons 
-                name="person" 
-                size={scaleSize(24)} 
-                color="#aaa" 
+              <Octicons
+                name="person"
+                size={scaleSize(24)}
+                color="#aaa"
               />
               <TextInput
                 style={[styles.input, { height: scaleSize(50) }]}
@@ -321,7 +332,7 @@ const SignUp = ({ navigation }) => {
                 onChangeText={setPassword}
                 returnKeyType="done"
               />
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={() => setShowPassword(!showPassword)}
                 style={styles.eyeButton}
               >
@@ -356,6 +367,11 @@ const SignUp = ({ navigation }) => {
                 returnKeyType="done"
               />
             </View>
+            {errors.referral ? (
+              <Text style={[styles.errorText, { fontSize: scaleFont(12) }]}>
+                {errors.referral}
+              </Text>
+            ) : null}
 
             {/* Password Requirements */}
             <View style={styles.passwordRequirements}>
@@ -364,28 +380,28 @@ const SignUp = ({ navigation }) => {
               </Text>
               <View style={styles.requirementList}>
                 <Text style={[
-                  styles.requirementItem, 
+                  styles.requirementItem,
                   { fontSize: scaleFont(10) },
                   password.length >= 8 && styles.requirementMet
                 ]}>
                   • At least 8 characters
                 </Text>
                 <Text style={[
-                  styles.requirementItem, 
+                  styles.requirementItem,
                   { fontSize: scaleFont(10) },
                   /[A-Z]/.test(password) && styles.requirementMet
                 ]}>
                   • One uppercase letter
                 </Text>
                 <Text style={[
-                  styles.requirementItem, 
+                  styles.requirementItem,
                   { fontSize: scaleFont(10) },
                   /[0-9]/.test(password) && styles.requirementMet
                 ]}>
                   • One number
                 </Text>
                 <Text style={[
-                  styles.requirementItem, 
+                  styles.requirementItem,
                   { fontSize: scaleFont(10) },
                   /[!@#$%^&*(),.?":{}|<>]/.test(password) && styles.requirementMet
                 ]}>
@@ -395,11 +411,11 @@ const SignUp = ({ navigation }) => {
             </View>
 
             {/* Proceed Button */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[
-                styles.proceedBtn, 
+                styles.proceedBtn,
                 { paddingVertical: scaleSize(14) }
-              ]} 
+              ]}
               onPress={handleProceed}
               disabled={isPending}
             >
@@ -407,7 +423,7 @@ const SignUp = ({ navigation }) => {
                 <ActivityIndicator size="small" color="#000" />
               ) : (
                 <Text style={[
-                  styles.proceedText, 
+                  styles.proceedText,
                   { fontSize: scaleFont(16) }
                 ]}>
                   Proceed
@@ -419,7 +435,7 @@ const SignUp = ({ navigation }) => {
             <View style={[styles.dividerRow, { marginVertical: scaleSize(20) }]}>
               <View style={styles.divider} />
               <Text style={[
-                styles.dividerText, 
+                styles.dividerText,
                 { fontSize: scaleFont(12), marginHorizontal: scaleSize(10) }
               ]}>
                 or
@@ -428,20 +444,20 @@ const SignUp = ({ navigation }) => {
             </View>
 
             {/* Google Sign In */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[
-                styles.googleBtn, 
+                styles.googleBtn,
                 { paddingVertical: scaleSize(12) }
               ]}
             >
-              <FontAwesome 
-                name="google" 
-                size={scaleSize(18)} 
-                color="#fff" 
+              <FontAwesome
+                name="google"
+                size={scaleSize(18)}
+                color="#fff"
               />
               <Text style={[
-                styles.googleText, 
-                { 
+                styles.googleText,
+                {
                   fontSize: scaleFont(14),
                   marginLeft: scaleSize(8)
                 }
@@ -451,12 +467,12 @@ const SignUp = ({ navigation }) => {
             </TouchableOpacity>
 
             {/* Sign In Link */}
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={handleLogin}
               style={styles.loginLinkContainer}
             >
               <Text style={[
-                styles.footerText, 
+                styles.footerText,
                 { fontSize: scaleFont(12) }
               ]}>
                 Already have an account?{" "}
@@ -475,9 +491,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#000",
   },
-  container: { 
-    flex: 1, 
-    backgroundColor: "#000" 
+  container: {
+    flex: 1,
+    backgroundColor: "#000"
   },
   banner: {
     height: Math.max(200, height * 0.25),
@@ -533,11 +549,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#222',
   },
-  inputIcon: { 
+  inputIcon: {
     marginRight: Math.max(8, width * 0.02),
   },
-  input: { 
-    flex: 1, 
+  input: {
+    flex: 1,
     color: "#fff",
     fontSize: Math.max(14, width * 0.037),
     paddingHorizontal: Math.max(8, width * 0.02),
@@ -585,8 +601,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: Math.max(50, height * 0.06),
   },
-  proceedText: { 
-    color: "#000", 
+  proceedText: {
+    color: "#000",
     fontWeight: "bold",
   },
   dividerRow: {
@@ -594,12 +610,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     width: '100%',
   },
-  divider: { 
-    flex: 1, 
-    height: 1, 
-    backgroundColor: "#444" 
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#444"
   },
-  dividerText: { 
+  dividerText: {
     color: "#aaa",
   },
   googleBtn: {
@@ -612,7 +628,7 @@ const styles = StyleSheet.create({
     marginBottom: Math.max(20, height * 0.025),
     minHeight: Math.max(45, height * 0.055),
   },
-  googleText: { 
+  googleText: {
     color: "#fff",
     fontWeight: '600',
   },
@@ -620,12 +636,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: Math.max(10, height * 0.012),
   },
-  footerText: { 
+  footerText: {
     color: "#888",
   },
-  signup: { 
-    color: "#fcbf24", 
-    fontWeight: "bold" 
+  signup: {
+    color: "#fcbf24",
+    fontWeight: "bold"
   },
 });
 

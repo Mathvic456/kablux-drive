@@ -1,14 +1,14 @@
 import React, { useState, useContext } from 'react';
-import { 
-  View, 
-  Text, 
-  Image, 
-  TouchableOpacity, 
-  StyleSheet, 
-  ScrollView, 
+import {
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
   ActivityIndicator,
   useWindowDimensions,
-  Dimensions 
+  Dimensions
 } from 'react-native';
 import { MaterialIcons, FontAwesome5, Feather, Entypo } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -43,7 +43,7 @@ export default function Account() {
   }
 
   const Settings = () => {
-    navigation.navigate('Settings');
+    navigation.navigate('SettingsScreen');
   }
 
   const Safety = () => {
@@ -82,7 +82,7 @@ export default function Account() {
       onSuccess: () => {
         console.log("✅ Logout successful");
         setModalVisible(false);
-        
+
         // Navigate to login screen
         navigation.reset({
           index: 0,
@@ -91,13 +91,13 @@ export default function Account() {
       },
       onError: async (error) => {
         console.error("❌ Logout error:", error);
-        
+
         // Even if API fails, still clear local data and navigate
         try {
           await AsyncStorage.removeItem('userId');
           await AsyncStorage.removeItem('pendingEmail');
           setModalVisible(false);
-          
+
           navigation.reset({
             index: 0,
             routes: [{ name: 'Login' }],
@@ -112,9 +112,9 @@ export default function Account() {
   if (isPending) {
     return (
       <View style={[styles.loadingContainer, { height }]}>
-        <ActivityIndicator 
-          size={isSmallScreen ? "large" : "large"} 
-          color="#facc15" 
+        <ActivityIndicator
+          size={isSmallScreen ? "large" : "large"}
+          color="#facc15"
         />
       </View>
     );
@@ -136,7 +136,7 @@ export default function Account() {
 
   return (
     <>
-      <ScrollView 
+      <ScrollView
         style={styles.container}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -185,10 +185,10 @@ export default function Account() {
               ]}>
                 {profile.rating}
               </Text>
-              <FontAwesome5 
-                name="star" 
-                size={isSmallScreen ? 12 : 14} 
-                color="#FFC107" 
+              <FontAwesome5
+                name="star"
+                size={isSmallScreen ? 12 : 14}
+                color="#FFC107"
               />
             </View>
           </View>
@@ -201,18 +201,18 @@ export default function Account() {
           isLargeScreen && styles.boxLarge,
           isTablet && styles.boxTablet
         ]}>
-          <MenuItem 
-            onPress={PersonalInfo} 
-            icon={<MaterialIcons name="person-outline" size={isSmallScreen ? 18 : 20} color="#FFC107" />} 
-            label="Personal info" 
+          <MenuItem
+            onPress={PersonalInfo}
+            icon={<MaterialIcons name="person-outline" size={isSmallScreen ? 18 : 20} color="#FFC107" />}
+            label="Personal info"
             isSmallScreen={isSmallScreen}
             isLargeScreen={isLargeScreen}
           />
           <Divider isSmallScreen={isSmallScreen} isLargeScreen={isLargeScreen} />
-          <MenuItem 
-            onPress={LoginAndSecurity} 
-            icon={<Feather name="lock" size={isSmallScreen ? 18 : 20} color="#FFC107" />} 
-            label="Login & security" 
+          <MenuItem
+            onPress={LoginAndSecurity}
+            icon={<Feather name="lock" size={isSmallScreen ? 18 : 20} color="#FFC107" />}
+            label="Login & security"
             isSmallScreen={isSmallScreen}
             isLargeScreen={isLargeScreen}
           />
@@ -225,58 +225,58 @@ export default function Account() {
           isLargeScreen && styles.boxLarge,
           isTablet && styles.boxTablet
         ]}>
-          <MenuItem 
-            onPress={Settings} 
-            icon={<Feather name="settings" size={isSmallScreen ? 18 : 20} color="#FFC107" />} 
-            label="Settings" 
+          <MenuItem
+            onPress={Settings}
+            icon={<Feather name="settings" size={isSmallScreen ? 18 : 20} color="#FFC107" />}
+            label="Settings"
             isSmallScreen={isSmallScreen}
             isLargeScreen={isLargeScreen}
           />
           <Divider isSmallScreen={isSmallScreen} isLargeScreen={isLargeScreen} />
-          <MenuItem 
-            onPress={Safety} 
-            icon={<Feather name="shield" size={isSmallScreen ? 18 : 20} color="#FFC107" />} 
-            label="Safety" 
+          <MenuItem
+            onPress={Safety}
+            icon={<Feather name="shield" size={isSmallScreen ? 18 : 20} color="#FFC107" />}
+            label="Safety"
             isSmallScreen={isSmallScreen}
             isLargeScreen={isLargeScreen}
           />
           <Divider isSmallScreen={isSmallScreen} isLargeScreen={isLargeScreen} />
-          <MenuItem 
-            onPress={City} 
-            icon={<Entypo name="location-pin" size={isSmallScreen ? 18 : 20} color="#FFC107" />} 
-            label="City" 
+          <MenuItem
+            onPress={City}
+            icon={<Entypo name="location-pin" size={isSmallScreen ? 18 : 20} color="#FFC107" />}
+            label="City"
             isSmallScreen={isSmallScreen}
             isLargeScreen={isLargeScreen}
           />
           <Divider isSmallScreen={isSmallScreen} isLargeScreen={isLargeScreen} />
-          <MenuItem 
-            onPress={ReferAndEarn} 
-            icon={<Feather name="gift" size={isSmallScreen ? 18 : 20} color="#FFC107" />} 
-            label="Refer & Earn" 
+          <MenuItem
+            onPress={ReferAndEarn}
+            icon={<Feather name="gift" size={isSmallScreen ? 18 : 20} color="#FFC107" />}
+            label="Refer & Earn"
             isSmallScreen={isSmallScreen}
             isLargeScreen={isLargeScreen}
           />
           <Divider isSmallScreen={isSmallScreen} isLargeScreen={isLargeScreen} />
-          <MenuItem 
-            onPress={HelpAndSupport} 
-            icon={<Feather name="help-circle" size={isSmallScreen ? 18 : 20} color="#FFC107" />} 
-            label="Help & Support" 
+          <MenuItem
+            onPress={HelpAndSupport}
+            icon={<Feather name="help-circle" size={isSmallScreen ? 18 : 20} color="#FFC107" />}
+            label="Help & Support"
             isSmallScreen={isSmallScreen}
             isLargeScreen={isLargeScreen}
           />
           <Divider isSmallScreen={isSmallScreen} isLargeScreen={isLargeScreen} />
-          <MenuItem 
-            onPress={Legal} 
-            icon={<Feather name="file-text" size={isSmallScreen ? 18 : 20} color="#FFC107" />} 
-            label="Legal" 
+          <MenuItem
+            onPress={Legal}
+            icon={<Feather name="file-text" size={isSmallScreen ? 18 : 20} color="#FFC107" />}
+            label="Legal"
             isSmallScreen={isSmallScreen}
             isLargeScreen={isLargeScreen}
           />
           <Divider isSmallScreen={isSmallScreen} isLargeScreen={isLargeScreen} />
-          <MenuItem 
-            onPress={() => setModalVisible(true)} 
-            icon={<Feather name="log-out" size={isSmallScreen ? 18 : 20} color="#ff4444" />} 
-            label="Log Out" 
+          <MenuItem
+            onPress={() => setModalVisible(true)}
+            icon={<Feather name="log-out" size={isSmallScreen ? 18 : 20} color="#ff4444" />}
+            label="Log Out"
             isLogout
             isSmallScreen={isSmallScreen}
             isLargeScreen={isLargeScreen}
@@ -302,12 +302,12 @@ export default function Account() {
 
 /* --- Small Components --- */
 const MenuItem = ({ icon, label, onPress, isLogout, isSmallScreen, isLargeScreen }) => (
-  <TouchableOpacity 
+  <TouchableOpacity
     style={[
       styles.row,
       isSmallScreen && styles.rowSmall,
       isLargeScreen && styles.rowLarge
-    ]} 
+    ]}
     onPress={onPress}
     activeOpacity={0.7}
   >
@@ -320,11 +320,11 @@ const MenuItem = ({ icon, label, onPress, isLogout, isSmallScreen, isLargeScreen
     ]}>
       {label}
     </Text>
-    <Entypo 
-      name="chevron-right" 
-      size={isSmallScreen ? 16 : 18} 
-      color={isLogout ? "#ff4444" : "#FFC107"} 
-      style={{ marginLeft: 'auto' }} 
+    <Entypo
+      name="chevron-right"
+      size={isSmallScreen ? 16 : 18}
+      color={isLogout ? "#ff4444" : "#FFC107"}
+      style={{ marginLeft: 'auto' }}
     />
   </TouchableOpacity>
 );
@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
     height: width * 0.2,
     borderRadius: width * 0.1,
     marginRight: width * 0.04,
-    alignSelf:'center',
+    alignSelf: 'center',
     // borderWidth: 1,
     // borderColor: 'white',
     padding: 10,
@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
   },
   profileInfo: {
     flex: 1,
-    alignSelf:'center',
+    alignSelf: 'center',
   },
   profileInfoSmall: {
     marginLeft: width * 0.03,
