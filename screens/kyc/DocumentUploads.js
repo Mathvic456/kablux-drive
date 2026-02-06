@@ -22,13 +22,13 @@ const DocumentUpload = ({ navigation }) => {
   const [documents, setDocuments] = useState({
     DRIVER_LICENSE: null,
     NATIONAL_ID: null,
-    POLICE_CLEARANCE: null,
+    // POLICE_CLEARANCE: null,
   });
 
   const [uploadedIds, setUploadedIds] = useState({
     DRIVER_LICENSE: null,
     NATIONAL_ID: null,
-    POLICE_CLEARANCE: null,
+    // POLICE_CLEARANCE: null,
   });
 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -50,7 +50,7 @@ const DocumentUpload = ({ navigation }) => {
   const documentLabels = {
     DRIVER_LICENSE: "Driver's License",
     NATIONAL_ID: "National ID",
-    POLICE_CLEARANCE: "Police Clearance",
+    // POLICE_CLEARANCE: "Police Clearance",
   };
 
   const [isUploadingMap, setIsUploadingMap] = useState({});
@@ -58,7 +58,7 @@ const DocumentUpload = ({ navigation }) => {
   const pickDocument = async (docType) => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
+
       if (status !== "granted") {
         setErrorMessage("Please grant permission to access your photos");
         setShowErrorModal(true);
@@ -77,7 +77,7 @@ const DocumentUpload = ({ navigation }) => {
           ...prev,
           [docType]: asset.uri,
         }));
-        
+
         await uploadDocument(docType, asset.uri);
       }
     } catch (error) {
@@ -144,47 +144,47 @@ const DocumentUpload = ({ navigation }) => {
     }));
   };
 
-const submitAllDocuments = async () => {
-  const allUploaded = Object.keys(uploadedIds).every(
-    (key) => uploadedIds[key] !== null
-  );
+  const submitAllDocuments = async () => {
+    const allUploaded = Object.keys(uploadedIds).every(
+      (key) => uploadedIds[key] !== null
+    );
 
-  if (!allUploaded) {
-    setErrorMessage("Please upload all required documents before submitting");
-    setShowErrorModal(true);
-    return;
-  }
-
-  try {
-    console.log("🔄 Checking KYC status after uploads...");
-    
-    // Refetch the KYC status to get the latest state
-    const { data: updatedKycData } = await refetchKycStatus();
-    
-    console.log("📋 Updated KYC Status:", updatedKycData?.kyc_status);
-
-    if (updatedKycData?.kyc_status === "IN_REVIEW") {
-      setShowReviewModal(true);
-      
-      setTimeout(() => {
-        setShowReviewModal(false);
-        navigation.goBack();
-      }, 3000);
-    } else {
-      // Fallback success message if status hasn't changed yet
-      setShowSuccessModal(true);
-      
-      setTimeout(() => {
-        setShowSuccessModal(false);
-        navigation.goBack();
-      }, 3000);
+    if (!allUploaded) {
+      setErrorMessage("Please upload all required documents before submitting");
+      setShowErrorModal(true);
+      return;
     }
-  } catch (error) {
-    console.error("KYC status check error:", error);
-    setErrorMessage("Documents uploaded but status check failed. Please refresh the app.");
-    setShowErrorModal(true);
-  }
-};
+
+    try {
+      console.log("🔄 Checking KYC status after uploads...");
+
+      // Refetch the KYC status to get the latest state
+      const { data: updatedKycData } = await refetchKycStatus();
+
+      console.log("📋 Updated KYC Status:", updatedKycData?.kyc_status);
+
+      if (updatedKycData?.kyc_status === "IN_REVIEW") {
+        setShowReviewModal(true);
+
+        setTimeout(() => {
+          setShowReviewModal(false);
+          navigation.goBack();
+        }, 3000);
+      } else {
+        // Fallback success message if status hasn't changed yet
+        setShowSuccessModal(true);
+
+        setTimeout(() => {
+          setShowSuccessModal(false);
+          navigation.goBack();
+        }, 3000);
+      }
+    } catch (error) {
+      console.error("KYC status check error:", error);
+      setErrorMessage("Documents uploaded but status check failed. Please refresh the app.");
+      setShowErrorModal(true);
+    }
+  };
 
   const renderDocumentCard = (docType) => {
     const hasDocument = documents[docType] !== null;
@@ -195,23 +195,23 @@ const submitAllDocuments = async () => {
       <View key={docType} style={styles.docItemContainer}>
         <View style={styles.docItemHeader}>
           <View style={styles.docNameContainer}>
-            <MaterialIcons 
-              name={hasUploadedId ? "check-circle" : "radio-button-unchecked"} 
-              size={24} 
-              color={hasUploadedId ? "#4CAF50" : "#666"} 
+            <MaterialIcons
+              name={hasUploadedId ? "check-circle" : "radio-button-unchecked"}
+              size={24}
+              color={hasUploadedId ? "#4CAF50" : "#666"}
             />
             <Text style={styles.docName}>{documentLabels[docType]}</Text>
           </View>
-          
+
           {hasUploadedId ? (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.removeButton}
               onPress={() => removeDocument(docType)}
             >
               <MaterialIcons name="close" size={20} color="#F44336" />
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.uploadButton}
               onPress={() => pickDocument(docType)}
               disabled={isThisSpecificDocUploading}
@@ -263,7 +263,7 @@ const submitAllDocuments = async () => {
         <Text style={styles.title}>KYC Verification</Text>
         <Text style={styles.subtitle}>
           Please upload each document and ensure they are clear and legible.
-          We are required to verify your identity before you can use the application. 
+          We are required to verify your identity before you can use the application.
           Your information will be encrypted and stored securely.
         </Text>
 
@@ -273,11 +273,11 @@ const submitAllDocuments = async () => {
             Documents Uploaded: {uploadedCount} of {totalCount}
           </Text>
           <View style={styles.progressBar}>
-            <View 
+            <View
               style={[
                 styles.progressFill,
                 { width: `${(uploadedCount / totalCount) * 100}%` }
-              ]} 
+              ]}
             />
           </View>
         </View>
@@ -359,9 +359,9 @@ const submitAllDocuments = async () => {
 };
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: "#000" 
+  container: {
+    flex: 1,
+    backgroundColor: "#000"
   },
   banner: {
     height: 200,
@@ -501,10 +501,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#555",
     opacity: 0.6,
   },
-  proceedText: { 
-    color: "#000", 
-    fontWeight: "bold", 
-    fontSize: 16 
+  proceedText: {
+    color: "#000",
+    fontWeight: "bold",
+    fontSize: 16
   },
   loadingContainer: {
     flexDirection: 'row',
