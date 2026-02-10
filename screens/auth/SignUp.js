@@ -21,6 +21,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { useRegisterEndPoint } from "../../services/auth.service";
 import Logo from "../../assets/Logo.png";
+import CentralModal from "../components/CentralModal";
 
 const { width, height } = Dimensions.get('window');
 
@@ -32,6 +33,8 @@ const SignUp = ({ navigation }) => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [referral, setReferral] = useState("");
+  const [showErr, setShowErr] = useState(false);
+  const [errMessage, setErrMessage] = useState('');
 
   const [errors, setErrors] = useState({
     fullName: "",
@@ -162,12 +165,17 @@ const SignUp = ({ navigation }) => {
               newErrors.phone = "This phone number is already registered. Try signing in instead.";
               hasError = true;
             }
+            if (errorData[0]?.includes("registered")) {
+              setErrMessage(errorData[0] || "This account already exists")
+              setShowErr(true);
+              return;
+            }
 
             if (hasError) {
               setErrors(newErrors);
             } else {
-              console.error("Registration failed:", errorData || err.message);
-              alert("Something went wrong. Please try again.");
+              console.error("Registration failjjediijooiiuu:", errorData[0]);
+              return alert("Something went wrong. Please try again.");
             }
           },
         }
@@ -481,6 +489,19 @@ const SignUp = ({ navigation }) => {
             </TouchableOpacity>
           </View>
         </ScrollView>
+
+        <CentralModal
+          visible={showErr}
+          onClose={() => setShowErr(false)}
+          title="Sorry!"
+          subText={errMessage}
+          icon="alert-circle"
+          confirmText="Okay"
+          closeText=""
+          onConfirm={() => setShowErr(false)}
+          confirmButtonColor="#F44336"
+          themeColor="#F44336"
+        />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

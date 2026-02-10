@@ -145,11 +145,11 @@ const DocumentUpload = ({ navigation }) => {
   };
 
   const submitAllDocuments = async () => {
-    const allUploaded = Object.keys(uploadedIds).every(
+    const oneUploaded = Object.keys(uploadedIds).some(
       (key) => uploadedIds[key] !== null
     );
 
-    if (!allUploaded) {
+    if (!oneUploaded) {
       setErrorMessage("Please upload all required documents before submitting");
       setShowErrorModal(true);
       return;

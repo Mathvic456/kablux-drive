@@ -80,7 +80,8 @@
           "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone for audio recording."
         }
       ],
-      "expo-font"
+      "expo-font",
+      "@rnmapbox/maps"
     ],
     "extra": {
       "eas": {
