@@ -22,6 +22,7 @@ export default function BankWithdrawal() {
     const { request } = useFetch();
     const { token } = useAuth();
     const [loading, setLoading] = useState(false);
+    const [errState, setErrState] = useState({ errMessage: '', showModal: false })
 
     const getAccounts = async () => {
         try {
@@ -69,7 +70,7 @@ export default function BankWithdrawal() {
             // alert('Transfer initiated successfully!');
         } catch (error) {
             console.error("Transfer error", error)
-            alert('Transfer initiated failed!' + (error || ''));
+            setErrState((prev) => { return { ...prev, errMessage: error || '', showModal: true } })
         } finally {
             setLoading(false);
         }
@@ -144,6 +145,19 @@ export default function BankWithdrawal() {
                     </Text>
                 </TouchableOpacity>
             </ScrollView>
+            {/* Error Modal */}
+            <CentralModal
+                visible={errState.showModal}
+                onClose={() => setShowErrorModal(false)}
+                title="Attention Required"
+                subText={errState.errMessage}
+                icon="alert-circle"
+                confirmText="Okay"
+                closeText=""
+                onConfirm={() => setErrState((prev) => { return { ...prev, showModal: false } })}
+                confirmButtonColor="#F44336"
+                themeColor="#F44336"
+            />
         </View>
     );
 }
