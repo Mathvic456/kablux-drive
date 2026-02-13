@@ -156,12 +156,12 @@ const DocumentUpload = ({ navigation }) => {
     }
 
     try {
-      console.log("🔄 Checking KYC status after uploads...");
+      console.log("Checking KYC status after uploads...");
 
       // Refetch the KYC status to get the latest state
       const { data: updatedKycData } = await refetchKycStatus();
 
-      console.log("📋 Updated KYC Status:", updatedKycData?.kyc_status);
+      console.log("Updated KYC Status:", updatedKycData?.kyc_status);
 
       if (updatedKycData?.kyc_status === "IN_REVIEW") {
         setShowReviewModal(true);

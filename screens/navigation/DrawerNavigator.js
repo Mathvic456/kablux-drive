@@ -143,6 +143,7 @@ export default function DrawerNavigator() {
           headerShown: false,
           drawerStyle: { width: 200 },
           swipeEnabled: true,
+          drawerType: 'front',
         }}
       >
         {/* Main Tabs */}
