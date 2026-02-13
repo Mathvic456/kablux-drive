@@ -30,7 +30,7 @@ export const useProfile = (token: string) => {
       console.log(storedToken, " stored token -------------------c")
       try {
         const response = await axios.get(
-          "https://api.kabluxe.com/api/v1/users/me/",
+          `${process.env.EXPO_PUBLIC_API_URL}users/me/`,
           {
             headers: {
               Authorization: `Bearer ${storedToken}`,
