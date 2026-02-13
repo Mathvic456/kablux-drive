@@ -43,6 +43,7 @@ import { useActiveStatusEndPoint } from "../../services/auth.service";
 import { api } from "../../services/api";
 import { navigationRef } from '../context/NavigationContext'; // adjust path
 import { DrawerActions } from "@react-navigation/native";
+import { useAuth } from "../../context/AuthContext";
 
 
 const { width, height } = Dimensions.get('window');
@@ -79,6 +80,8 @@ export default function Home() {
   const [lowBalanceWarningVisible, setLowBalanceWarningVisible] = useState(false);
   const [showLowBalanceBanner, setShowLowBalanceBanner] = useState(true);
 
+  const { token } = useAuth()
+
   const {
     handleWsEvent,
     status,
@@ -106,11 +109,13 @@ export default function Home() {
     getSentOffer,
   } = useContext(SocketContext);
 
+
   const {
     data: profile,
     isPending: profileLoading,
     isError: profileError,
-  } = useProfile();
+  } = useProfile(token);
+
 
   const { data: kycData, isLoading } = useDriverKycStatus();
   const { data: balanceData, refetch: refetchBalance } = useGetMyBalance();

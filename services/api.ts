@@ -31,7 +31,7 @@ api.interceptors.request.use(async (config) => {
     if (!config.url?.includes("auth/")) {
       // Use AuthContext's getValidToken if available
       let token: string | null = null;
-      
+
       if (getValidTokenFn) {
         token = await getValidTokenFn();
         console.log(`🔐 [API Request ${requestId}] Token from Context:`, !!token);
@@ -42,6 +42,7 @@ api.interceptors.request.use(async (config) => {
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
         console.log(`✅ [API Request ${requestId}] Authorization header set`);
+        console.log('token-----------', token)
       } else {
         console.log(`❌ [API Request ${requestId}] No valid token available`);
       }
@@ -65,7 +66,7 @@ api.interceptors.request.use(async (config) => {
   if (config.url?.includes("auth/") && config.headers.Authorization) {
     delete config.headers.Authorization;
   }
-  
+
   return config;
 });
 
@@ -77,17 +78,17 @@ api.interceptors.response.use(
   },
   (error) => {
     const requestId = Math.random().toString(36).substring(7);
-    
+
     console.error(`🚨 [API Error ${requestId}] URL:`, error.config?.url);
     console.error(`🚨 [API Error ${requestId}] Method:`, error.config?.method?.toUpperCase());
     console.error(`🚨 [API Error ${requestId}] Status:`, error.response?.status);
     console.error(`🚨 [API Error ${requestId}] Status Text:`, error.response?.statusText);
     console.error(`🚨 [API Error ${requestId}] Message:`, error.message);
-    
+
     if (error.response) {
       console.error(`🚨 [API Error ${requestId}] Response headers:`, error.response.headers);
       console.error(`🚨 [API Error ${requestId}] Response data:`, error.response.data);
-      
+
       if (error.response.status === 401) {
         console.error(`🔐 [API Error ${requestId}] AUTHENTICATION ERROR - Invalid or missing token`);
       } else if (error.response.status === 404) {
@@ -101,9 +102,9 @@ api.interceptors.response.use(
     } else {
       console.error(`⚡ [API Error ${requestId}] UNKNOWN ERROR:`, error.message);
     }
-    
+
     console.error(`🚨 [API Error ${requestId}] Full error config:`, error.config);
-    
+
     return Promise.reject(error);
   }
 );
