@@ -61,6 +61,8 @@ export async function getDevicePushToken(): Promise<string | null> {
                     importance: Notifications.AndroidImportance.MAX,
                     vibrationPattern: [0, 250, 250, 250],
                     lightColor: "#FF231F7C",
+                    sound: 'kablux-sound.mp3',
+                    enableVibrate: true,
                 });
             } catch (channelError) {
                 console.error("❌ Failed to set Android notification channel:", channelError);
