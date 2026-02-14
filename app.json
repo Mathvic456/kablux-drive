@@ -8,11 +8,18 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "owner": "crashingout",
+    "owner": "ag0213m",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
+    },
+    "notification": {
+      "icon": "",
+      "color": "#ffffff",
+      "sounds": [
+        "./assets/sounds/kablux-sound.mp3"
+      ]
     },
     "ios": {
       "supportsTablet": true,
@@ -85,7 +92,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "ba89ec3d-c46f-433a-9e79-3198aab91f8c"
+        "projectId": "0add42da-8f7e-4b9c-a956-aff5030593a6"
       }
     }
   }
