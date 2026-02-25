@@ -5,7 +5,7 @@ export default {
     version: "1.0.0",
     scheme: "kablux-drive",
     orientation: "portrait",
-    icon: "./assets/icon.png",
+    icon: "./assets/driver-logo4.png",
     userInterfaceStyle: "light",
     newArchEnabled: true,
     owner: "agbaby",
@@ -40,7 +40,7 @@ export default {
           apiKey: process.env.EXPO_PUBLIC_GOOGLE_API_KEY,
         },
       },
-      edgeToEdgeEnabled: true,
+      edgeToEdgeEnabled: false,
       permissions: [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",

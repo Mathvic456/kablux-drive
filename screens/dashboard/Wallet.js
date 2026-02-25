@@ -1,13 +1,13 @@
-import { 
-  View, 
-  StyleSheet, 
-  ScrollView, 
-  RefreshControl, 
-  SafeAreaView, 
-  StatusBar, 
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  RefreshControl,
+  SafeAreaView,
+  StatusBar,
   Platform,
   useWindowDimensions,
-  Dimensions 
+  Dimensions
 } from 'react-native';
 import { useState, useCallback } from 'react';
 import BalanceCard from '../components/BalanceCard';
@@ -21,7 +21,7 @@ import { useGetMyBalance, useGetMyTransactions } from '../../services/funding.se
 export default function Wallet() {
   const navigation = useNavigation();
   const [refreshing, setRefreshing] = useState(false);
-  
+
   const { width, height } = useWindowDimensions();
   const isSmallScreen = width < 375;
   const isLargeScreen = width > 414;
@@ -29,18 +29,18 @@ export default function Wallet() {
   const screenHeight = Dimensions.get('window').height;
   const isShortScreen = screenHeight < 700;
 
-  const { 
-    data: balanceData, 
-    isLoading: isBalanceLoading, 
+  const {
+    data: balanceData,
+    isLoading: isBalanceLoading,
     isError: isBalanceError,
-    refetch: refetchBalance 
+    refetch: refetchBalance
   } = useGetMyBalance();
 
-  const { 
-    data: transactionsData, 
-    isLoading: isTxLoading, 
+  const {
+    data: transactionsData,
+    isLoading: isTxLoading,
     isError: isTxError,
-    refetch: refetchTransactions 
+    refetch: refetchTransactions
   } = useGetMyTransactions();
 
   // Get the actual balance value
@@ -51,7 +51,7 @@ export default function Wallet() {
     setRefreshing(true);
     // Refetch both simultaneously and wait for them to finish
     await Promise.all([
-      refetchBalance(), 
+      refetchBalance(),
       refetchTransactions()
     ]);
     setRefreshing(false);
@@ -68,7 +68,7 @@ export default function Wallet() {
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: 'black' }]}>
       <StatusBar barStyle="light-content" backgroundColor="black" />
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={[
           styles.container,
           isSmallScreen && styles.containerSmall,
@@ -77,8 +77,8 @@ export default function Wallet() {
           isShortScreen && styles.containerShort
         ]}
         refreshControl={
-          <RefreshControl 
-            refreshing={refreshing} 
+          <RefreshControl
+            refreshing={refreshing}
             onRefresh={onRefresh}
             tintColor="#FFC107"
             colors={['#FFC107']}
@@ -88,7 +88,7 @@ export default function Wallet() {
         showsVerticalScrollIndicator={false}
       >
         {/* Pass the actual balance to BalanceCard */}
-        <BalanceCard 
+        <BalanceCard
           balanceData={balanceData}
           isLoading={isBalanceLoading}
           isError={isBalanceError}
@@ -104,10 +104,10 @@ export default function Wallet() {
             isLargeScreen && styles.errorBannerLarge,
             isShortScreen && styles.errorBannerShort
           ]}>
-            <MaterialIcons 
-              name="warning" 
-              size={isSmallScreen ? 18 : isShortScreen ? 16 : 20} 
-              color="#fff" 
+            <MaterialIcons
+              name="warning"
+              size={isSmallScreen ? 18 : isShortScreen ? 16 : 20}
+              color="#fff"
             />
             <View style={[
               styles.errorBannerContent,
@@ -141,12 +141,14 @@ export default function Wallet() {
           <ActionButtons
             label="Top up"
             icon={<Entypo name="plus" size={20} color="#FFC107" />}
-            // onPress={goToTopUp}
+            onPress={goToBankTransfer}
+
+          // onPress={goToTopUp}
           />
         </View>
 
         {/* 5. Pass transaction data down */}
-        <TransactionHistory 
+        <TransactionHistory
           data={transactionsData}
           isLoading={isTxLoading}
           isError={isTxError}

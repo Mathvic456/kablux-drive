@@ -103,16 +103,16 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
     const rawEvent = msg.data?.type || msg.type || msg.event;
     const event = rawEvent?.toUpperCase().replace(/\s+/g, "_");
 
-    console.log("📩 [DRIVER_RIDE] ========== WS EVENT ==========");
-    console.log("📩 [DRIVER_RIDE] Event type:", event);
-    console.log("📩 [DRIVER_RIDE] Full message:", JSON.stringify(msg, null, 2));
-    console.log("📩 [DRIVER_RIDE] ================================");
+    console.log("[DRIVER_RIDE] ========== WS EVENT ==========");
+    console.log("[DRIVER_RIDE] Event type:", event);
+    console.log("[DRIVER_RIDE] Full message:", JSON.stringify(msg, null, 2));
+    console.log("[DRIVER_RIDE] ================================");
 
     if (event === "RIDE_ACCEPTED") {
       const { ride_id, rider_id } = msg.data || {};
 
       if (!ride_id || !rider_id) {
-        console.error("❌ [DRIVER_RIDE] Missing ride_id or rider_id in RIDE_ACCEPTED event:", msg);
+        console.error("[DRIVER_RIDE] Missing ride_id or rider_id in RIDE_ACCEPTED event:", msg);
         return;
       }
 
@@ -130,17 +130,17 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
         riderId: rider_id,
       });
     } else {
-      console.log("⚠️ [DRIVER_RIDE] Unhandled event type:", event);
+      console.log("[DRIVER_RIDE] Unhandled event type:", event);
     }
   };
 
   const startRide = () => {
     if (!rideId) {
-      console.warn("⚠️ [DRIVER_RIDE] Cannot start ride - no rideId");
+      console.warn("[DRIVER_RIDE] Cannot start ride - no rideId");
       return;
     }
 
-    console.log("🚦 [DRIVER_RIDE] Starting ride:", rideId);
+    console.log("[DRIVER_RIDE] Starting ride:", rideId);
     setStatus("ride_started");
 
     persist({
@@ -152,11 +152,11 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
 
   const arrive = () => {
     if (!rideId) {
-      console.warn("⚠️ [DRIVER_RIDE] Cannot mark arrived - no rideId");
+      console.warn("[DRIVER_RIDE] Cannot mark arrived - no rideId");
       return;
     }
 
-    console.log("📍 [DRIVER_RIDE] Driver arrived at pickup location");
+    console.log("[DRIVER_RIDE] Driver arrived at pickup location");
     setStatus("arrived");
 
     persist({

@@ -335,56 +335,70 @@ export default function Bookings() {
 
     try {
       setIsDownloading(true);
+
       const html = generateReceiptHTML(ride);
       const safeId = String(ride.id || Date.now()).replace(/[^a-zA-Z0-9]/g, "_");
       const fileName = `Kablux_Trip_${safeId}.pdf`;
 
-      const { uri: tempUri } = await Print.printToFileAsync({ html, base64: false });
+      // Generate PDF
+      const { uri } = await Print.printToFileAsync({
+        html,
+        base64: false,
+      });
 
-      if (Platform.OS === 'android') {
-        try {
-          const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
-          if (permissions.granted) {
-            const newFileUri = await FileSystem.StorageAccessFramework.createFileAsync(
-              permissions.directoryUri,
-              fileName,
-              'application/pdf'
-            );
-            const fileContent = await FileSystem.readAsStringAsync(tempUri, {
-              encoding: FileSystem.EncodingType.Base64
-            });
-            await FileSystem.writeAsStringAsync(newFileUri, fileContent, {
-              encoding: FileSystem.EncodingType.Base64
-            });
-            Alert.alert('✅ Saved', 'Receipt saved to your chosen folder.');
-            return;
-          }
-          // User denied SAF permission — fall through to share sheet
-        } catch (e) {
-          console.log("SAF failed, falling back to share:", e);
+      if (Platform.OS === "android") {
+        // ✅ Get Download folder URI
+        const downloadsDir =
+          FileSystem.StorageAccessFramework.getUriForDirectoryInRoot("Download");
+
+        // ✅ Ask permission specifically for Downloads folder
+        const permission =
+          await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(
+            downloadsDir
+          );
+
+        if (!permission.granted) {
+          Alert.alert("Permission required", "Allow access to Downloads folder.");
+          return;
         }
-      }
 
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(tempUri, {
-          mimeType: 'application/pdf',
-          dialogTitle: `Save Kablux Trip ${safeId}`,
-          UTI: 'com.adobe.pdf',
+        const base64 = await FileSystem.readAsStringAsync(uri, {
+          encoding: FileSystem.EncodingType.Base64,
         });
-      } else {
-        Alert.alert('Error', 'Sharing is not available on this device.');
-      }
 
+        const fileUri =
+          await FileSystem.StorageAccessFramework.createFileAsync(
+            permission.directoryUri,
+            fileName,
+            "application/pdf"
+          );
+
+        await FileSystem.writeAsStringAsync(fileUri, base64, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+
+        Alert.alert("✅ Downloaded", "Receipt saved to Downloads folder.");
+      } else {
+        // iOS fallback
+        const finalUri = FileSystem.documentDirectory + fileName;
+
+        await FileSystem.copyAsync({
+          from: uri,
+          to: finalUri,
+        });
+
+        Alert.alert("✅ Downloaded", "Receipt saved to Files app.");
+      }
     } catch (error) {
-      console.error('Receipt download error:', error);
-      Alert.alert('Error', 'Could not generate PDF. Please try again.');
+      console.error("Download error:", error);
+      Alert.alert("Error", "Could not download receipt.");
     } finally {
       setIsDownloading(false);
     }
   };
 
   const openReceiptModal = (ride) => {
+    console.log('selected ride---------------', ride)
     setSelectedReceipt(ride);
     setShowReceiptModal(true);
   };
@@ -712,7 +726,7 @@ export default function Bookings() {
           title="Trip Details"
           icon="document-text-outline"
           contentMode="custom"
-          confirmText={isDownloading ? "Generating..." : "Download Waybill"}
+          confirmText={isDownloading ? "Generating..." : "Download Receipt"}
           closeText="Close"
           containerStyle={styles.bookingDetailsContainer}
           confirmButtonColor="#FFC107"
@@ -727,9 +741,10 @@ export default function Bookings() {
                 styles.receiptScrollContent,
                 isShortScreen && styles.receiptScrollContentShort
               ]}
+              style={{ width: '100%', paddingHorizontal: 10 }}
             >
               {/* Trip ID & Status */}
-              <View style={styles.detailSection}>
+              <View style={{ ...styles.detailSection, width: '100%' }}>
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Trip ID</Text>
                   <Text style={styles.detailValue}>#{selectedReceipt.id || 'N/A'}</Text>
@@ -1243,7 +1258,7 @@ const styles = StyleSheet.create({
   totalSection: {
     backgroundColor: '#FFC107',
     borderRadius: 10,
-    padding: 16,
+    padding: 5,
     alignItems: 'center',
     marginTop: 8,
     marginBottom: 4,

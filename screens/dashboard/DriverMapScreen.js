@@ -24,14 +24,22 @@ if (!GOOGLE_API_KEY) {
   console.error("EXPO_PUBLIC_GOOGLE_API_KEY is missing in environment variables.");
 }
 
-const { height } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+
+const DEFAULT_REGION = {
+  latitude: 6.5244,
+  longitude: 3.3792,
+  latitudeDelta: 0.05,
+  longitudeDelta: 0.05,
+};
 
 export default function DriverMapScreen({ navigation }) {
-  console.log('keyyy', GOOGLE_API_KEY)
   const mapRef = useRef(null);
   const route = useRoute();
   const { rideDetails } = route.params;
   const { status } = useDriverRide();
+  // console.log('api key', GOOGLE_API_KEY)
+  // console.log('ride dets------------', rideDetails)
 
   const [slideAnim] = useState(new Animated.Value(height * 0.25));
   const [currentDriverLocation, setCurrentDriverLocation] = useState(null);
@@ -39,6 +47,7 @@ export default function DriverMapScreen({ navigation }) {
   const [routeDistance, setRouteDistance] = useState(null);
   const [routeDuration, setRouteDuration] = useState(null);
   const [permissionModalVisible, setPermissionModalVisible] = useState(false);
+  const [locating, setLocating] = useState(true);
 
   const locationSubscription = useRef(null);
 
@@ -54,13 +63,14 @@ export default function DriverMapScreen({ navigation }) {
   // Request location permissions and start tracking
   useEffect(() => {
     (async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
+      // Renamed to avoid shadowing the context `status`
+      let { status: permStatus } = await Location.requestForegroundPermissionsAsync();
+      if (permStatus !== 'granted') {
         setPermissionModalVisible(true);
+        setLocating(false);
         return;
       }
 
-      // Watch driver position
       locationSubscription.current = await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.High,
@@ -69,8 +79,8 @@ export default function DriverMapScreen({ navigation }) {
         },
         (location) => {
           const { latitude, longitude } = location.coords;
-          const newCoordinate = { latitude, longitude };
-          setCurrentDriverLocation(newCoordinate);
+          setCurrentDriverLocation({ latitude, longitude });
+          setLocating(false);
         }
       );
     })();
@@ -82,18 +92,54 @@ export default function DriverMapScreen({ navigation }) {
     };
   }, []);
 
-  // Fit map to show both driver and destination
+  // Animate map to fit driver + destination whenever either changes
   useEffect(() => {
-    if (currentDriverLocation && destination && mapRef.current) {
-      mapRef.current.fitToCoordinates([currentDriverLocation, destination], {
-        edgePadding: { top: 100, right: 50, bottom: 300, left: 50 },
-        animated: true,
-      });
+    if (!currentDriverLocation) return;
+
+    if (destination) {
+      const allLatitudes = [currentDriverLocation.latitude, destination.latitude];
+      const allLongitudes = [currentDriverLocation.longitude, destination.longitude];
+
+      const minLat = Math.min(...allLatitudes);
+      const maxLat = Math.max(...allLatitudes);
+      const minLng = Math.min(...allLongitudes);
+      const maxLng = Math.max(...allLongitudes);
+
+      const latDiff = maxLat - minLat;
+      const lngDiff = maxLng - minLng;
+      const latPadding = latDiff * 0.2 || 0.01;
+      const lngPadding = lngDiff * 0.2 || 0.01;
+
+      const newRegion = {
+        latitude: (minLat + maxLat) / 2,
+        longitude: (minLng + maxLng) / 2,
+        latitudeDelta: Math.max(latDiff + latPadding * 2, 0.01),
+        longitudeDelta: Math.max(lngDiff + lngPadding * 2, 0.01),
+      };
+
+      setTimeout(() => {
+        try {
+          mapRef.current?.animateToRegion(newRegion, 1000);
+        } catch (error) {
+          console.error('Error animating map:', error);
+        }
+      }, 600);
+    } else {
+      const newRegion = {
+        latitude: currentDriverLocation.latitude,
+        longitude: currentDriverLocation.longitude,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
+      };
+      setTimeout(() => {
+        mapRef.current?.animateToRegion(newRegion, 1000);
+      }, 600);
     }
   }, [currentDriverLocation, destination]);
 
   // Set destination based on ride status
   useEffect(() => {
+
     if (!rideDetails?.raw) {
       console.warn("⚠️ No ride details found");
       return;
@@ -101,10 +147,6 @@ export default function DriverMapScreen({ navigation }) {
 
     const raw = rideDetails.raw;
 
-    console.log("🗺️ Setting destination based on status:", status);
-    console.log("📍 Raw data:", raw);
-
-    // When driver is on the way or just arrived, show route to PICKUP
     if (status === "ride_created" || status === "driver_on_way" || status === "arrived") {
       const pickupLat = parseFloat(raw.pickup_lat);
       const pickupLng = parseFloat(raw.pickup_lng);
@@ -115,13 +157,10 @@ export default function DriverMapScreen({ navigation }) {
           longitude: pickupLng,
           address: raw.pickup_address || "Pickup Location",
         });
-        console.log("✅ Destination set to PICKUP:", pickupLat, pickupLng);
       } else {
         console.error("❌ Invalid pickup coordinates");
       }
-    }
-    // When ride has started, show route to DROPOFF
-    else if (status === "ride_started") {
+    } else if (status === "ride_started") {
       const dropoffLat = parseFloat(raw.dropoff_lat);
       const dropoffLng = parseFloat(raw.dropoff_lng);
 
@@ -131,16 +170,11 @@ export default function DriverMapScreen({ navigation }) {
           longitude: dropoffLng,
           address: raw.dropoff_address || "Drop-off Location",
         });
-        console.log("✅ Destination set to DROPOFF:", dropoffLat, dropoffLng);
       } else {
         console.error("❌ Invalid dropoff coordinates");
       }
     }
   }, [status, rideDetails]);
-
-  const handleBackPress = () => {
-    navigation.goBack();
-  };
 
   const getStatusText = () => {
     switch (status) {
@@ -163,125 +197,97 @@ export default function DriverMapScreen({ navigation }) {
     return "Drop-off Location";
   };
 
-  const renderDriverMapContent = () => {
-    if (!GOOGLE_API_KEY) {
-      return (
-        <View style={styles.mapPlaceholder}>
-          <Text style={styles.mapText}>Map API Key is missing!</Text>
-        </View>
-      );
-    }
+  return (
+    <View style={styles.container}>
 
-    // Show loader until we get the first GPS lock
-    if (!currentDriverLocation) {
-      return (
-        <View style={styles.mapPlaceholder}>
-          <ActivityIndicator size="large" color="#007aff" />
-          <Text style={styles.mapSubtext}>Locating Driver...</Text>
-        </View>
-      );
-    }
-
-    if (!destination) {
-      return (
-        <View style={styles.mapPlaceholder}>
-          <ActivityIndicator size="large" color="#007aff" />
-          <Text style={styles.mapSubtext}>Loading destination...</Text>
-        </View>
-      );
-    }
-
-    return (
+      {/* MapView with explicit pixel width/height — this is the most reliable
+          way to guarantee the map renders on both iOS and Android. No wrapper
+          View, no absoluteFillObject ambiguity. All overlays use position
+          'absolute' to float above it. */}
       <MapView
         ref={mapRef}
         style={styles.map}
         provider={PROVIDER_GOOGLE}
-        initialRegion={{
-          latitude: currentDriverLocation.latitude,
-          longitude: currentDriverLocation.longitude,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
-        }}
+        initialRegion={DEFAULT_REGION}
         showsUserLocation={false}
         showsMyLocationButton={false}
         showsCompass={false}
         customMapStyle={darkMapStyle}
       >
-        {/* Driver Marker (Your Location) */}
-        <Marker
-          coordinate={currentDriverLocation}
-          title="You"
-          anchor={{ x: 0.5, y: 0.5 }}
-        >
-          <View style={styles.driverMarkerContainer}>
-            <Image
-              source={require('../../assets/images/target.png')}
-              style={{ width: 30, height: 30 }}
-              resizeMode="contain"
-            />
-          </View>
-        </Marker>
+        {currentDriverLocation && (
+          <Marker
+            coordinate={currentDriverLocation}
+            title="You"
+            anchor={{ x: 0.5, y: 0.5 }}
+          >
+            <View style={styles.driverMarkerContainer}>
+              <Image
+                source={require('../../assets/images/target.png')}
+                style={{ width: 30, height: 30 }}
+                resizeMode="contain"
+              />
+            </View>
+          </Marker>
+        )}
 
-        {/* Destination Marker (Pickup or Drop-off) */}
-        <Marker
-          coordinate={destination}
-          title={getDestinationLabel()}
-          description={destination.address}
-        >
-          <View style={styles.destinationMarkerContainer}>
-            <FontAwesome5
-              name={status === "ride_started" ? "flag-checkered" : "map-pin"}
-              size={20}
-              color="#1c1c1c"
-            />
-          </View>
-        </Marker>
+        {destination && (
+          <Marker
+            coordinate={destination}
+            title={getDestinationLabel()}
+            description={destination.address}
+          >
+            <View style={styles.destinationMarkerContainer}>
+              <FontAwesome5
+                name={status === "ride_started" ? "flag-checkered" : "map-pin"}
+                size={20}
+                color="#1c1c1c"
+              />
+            </View>
+          </Marker>
+        )}
 
-        {/* Route Line from Driver to Destination */}
-        <MapViewDirections
-          origin={currentDriverLocation}
-          destination={destination}
-          apikey={GOOGLE_API_KEY}
-          strokeWidth={5}
-          strokeColor="#007aff"
-          optimizeWaypoints={true}
-          onReady={(result) => {
-            console.log(`Distance: ${result.distance} km`);
-            console.log(`Duration: ${result.duration} min`);
-            setRouteDistance(result.distance);
-            setRouteDuration(result.duration);
-          }}
-          onError={(errorMessage) => {
-            console.warn("MapViewDirections Error:", errorMessage);
-          }}
-        />
+        {currentDriverLocation && destination && GOOGLE_API_KEY && (
+          <MapViewDirections
+            origin={currentDriverLocation}
+            destination={destination}
+            apikey={GOOGLE_API_KEY}
+            strokeWidth={5}
+            strokeColor="#facc15"
+            optimizeWaypoints={true}
+            onReady={(result) => {
+              setRouteDistance(result.distance);
+              setRouteDuration(result.duration);
+            }}
+            onError={(errorMessage) => {
+              console.warn("MapViewDirections Error:", errorMessage);
+            }}
+          />
+        )}
       </MapView>
-    );
-  };
 
-  return (
-    <View style={styles.container}>
-      {/* Map View */}
-      <View style={styles.mapContainer}>
-        {renderDriverMapContent()}
-      </View>
+      {/* Locating indicator — outside MapView to avoid Fabric/JSI crash */}
+      {locating && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="small" color="#facc15" />
+          <Text style={styles.loadingText}>Locating…</Text>
+        </View>
+      )}
 
       {/* Top Navigation */}
       <View style={styles.topBar}>
-        <TouchableOpacity style={styles.iconContainer} onPress={handleBackPress}>
+        <TouchableOpacity style={styles.iconContainer} onPress={() => navigation.goBack()}>
           <Feather name="arrow-left" size={24} color="white" />
         </TouchableOpacity>
         <View style={styles.statusBadge}>
           <Text style={styles.statusText}>{getStatusText()}</Text>
-          <ActivityIndicator size="small" color="white" style={{ marginLeft: 5 }} />
+          {/* <ActivityIndicator size="small" color="white" style={{ marginLeft: 5 }} /> */}
         </View>
       </View>
 
-      {/* Bottom Panel - Ride Info Summary */}
+      {/* Bottom Panel */}
       <Animated.View style={[styles.bottomPanel, { transform: [{ translateY: slideAnim }] }]}>
         <View style={styles.dragHandle} />
 
-        {/* Distance & Time Info */}
         <View style={styles.infoRow}>
           <View style={styles.infoBox}>
             <Text style={styles.infoLabel}>Distance</Text>
@@ -298,9 +304,8 @@ export default function DriverMapScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Destination Display */}
         <View style={styles.destinationDisplay}>
-          <Feather name="map-pin" size={18} color="#007aff" style={{ marginRight: 10 }} />
+          <Feather name="map-pin" size={18} color="#facc15" style={{ marginRight: 10 }} />
           <View style={{ flex: 1 }}>
             <Text style={styles.destinationTitle}>{getDestinationLabel()}</Text>
             <Text style={styles.destinationAddress} numberOfLines={2}>
@@ -309,20 +314,17 @@ export default function DriverMapScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Open Navigation Button */}
-        <TouchableOpacity
+        {/* <TouchableOpacity
           style={styles.actionButton}
           onPress={() => {
             if (destination) {
-              const url = `https://www.google.com/maps/dir/?api=1&destination=${destination.latitude},${destination.longitude}`;
               setPermissionModalVisible(true);
-              // You can use Linking.openURL(url) to actually open Google Maps
             }
           }}
         >
           <Text style={styles.actionButtonText}>Open Navigation</Text>
           <Feather name="navigation" size={20} color="white" style={{ marginLeft: 10 }} />
-        </TouchableOpacity>
+        </TouchableOpacity> */}
       </Animated.View>
 
       <CentralModal
@@ -334,8 +336,8 @@ export default function DriverMapScreen({ navigation }) {
         confirmText="OK"
         closeText=""
         onConfirm={() => setPermissionModalVisible(false)}
-        confirmButtonColor="#007aff"
-        themeColor="#007aff"
+        confirmButtonColor="#facc15"
+        themeColor="#facc15"
       />
     </View>
   );
@@ -346,28 +348,28 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000',
   },
-  mapContainer: {
-    flex: 1,
-    backgroundColor: '#333',
-  },
+  // Explicit pixel dimensions are the most reliable way to size a MapView.
+  // flex:1 and absoluteFillObject both depend on the parent having a resolved
+  // size before the map mounts, which isn't guaranteed on Android/Fabric.
   map: {
-    ...StyleSheet.absoluteFillObject,
+    width,
+    height,
   },
-  mapPlaceholder: {
-    flex: 1,
-    justifyContent: 'center',
+  loadingOverlay: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1c1c1c'
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
   },
-  mapText: {
-    fontSize: 18,
-    color: '#f0d46d',
-    fontWeight: 'bold',
-  },
-  mapSubtext: {
-    fontSize: 14,
-    color: '#aaa',
-    marginTop: 10,
+  loadingText: {
+    color: '#fff',
+    fontSize: 12,
+    marginLeft: 6,
   },
   topBar: {
     position: 'absolute',
@@ -387,7 +389,7 @@ const styles = StyleSheet.create({
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 122, 255, 0.9)',
+    backgroundColor: '#facc15',
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 20,
@@ -401,8 +403,7 @@ const styles = StyleSheet.create({
     height: 40,
     width: 40,
     borderRadius: 20,
-    backgroundColor: "#007aff",
-    display: 'flex',
+    backgroundColor: "#facc15",
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 6,
@@ -411,7 +412,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 6,
     borderWidth: 3,
-    borderColor: 'white'
+    borderColor: 'white',
   },
   destinationMarkerContainer: {
     width: 40,
@@ -495,7 +496,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#007aff',
+    backgroundColor: '#facc15',
     padding: 15,
     borderRadius: 12,
   },

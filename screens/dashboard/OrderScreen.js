@@ -20,7 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function OrderScreen() {
   const navigation = useNavigation();
   const route = useRoute();
-  
+
   const { socket } = useContext(SocketContext);
   const { item, onCounterSubmitted } = route.params || {};
 
@@ -117,7 +117,7 @@ export default function OrderScreen() {
               longitudeDelta: 0.01,
             };
             setMapRegion(newRegion);
-            
+
             // Animate map to new location
             if (mapRef.current) {
               mapRef.current.animateToRegion(newRegion, 1000);
@@ -136,21 +136,21 @@ export default function OrderScreen() {
 
   return (
     <View style={styles.container}>
-      
+
       {/* 1. Background Map */}
       <View style={styles.mapContainer}>
-       <MapView
-        ref={mapRef}
-        provider={PROVIDER_GOOGLE}
-        style={styles.map}
-        customMapStyle={darkMapStyle}
-        initialRegion={mapRegion}
-        region={mapRegion}
-        scrollEnabled={true} 
-        zoomEnabled={true} 
-        pitchEnabled={true}
-        rotateEnabled={true} 
-      >
+        <MapView
+          ref={mapRef}
+          provider={PROVIDER_GOOGLE}
+          style={styles.map}
+          customMapStyle={darkMapStyle}
+          initialRegion={mapRegion}
+          region={mapRegion}
+          scrollEnabled={true}
+          zoomEnabled={true}
+          pitchEnabled={true}
+          rotateEnabled={true}
+        >
           <Marker coordinate={{
             latitude: mapRegion.latitude,
             longitude: mapRegion.longitude,
@@ -160,8 +160,8 @@ export default function OrderScreen() {
             </View>
           </Marker>
         </MapView>
-        
-        
+
+
         {/* Loading indicator while geocoding */}
         {isGeocoding && (
           <View style={styles.geocodingIndicator}>
@@ -172,133 +172,133 @@ export default function OrderScreen() {
 
       {/* 2. Immovable Modal Overlay */}
       <View style={styles.modalContent}>
-<SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
-        <ScrollView 
+        <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
+          <ScrollView
             showsVerticalScrollIndicator={false}
             bounces={false}
             contentContainerStyle={{ flexGrow: 1 }}
-        >
-        {/* Header: Back Button & Title */}
-        <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Feather name="arrow-left" size={24} color="white" />
-          </TouchableOpacity>
-          <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>Price Details</Text>
-          </View>
-          
-        </View>
+          >
+            {/* Header: Back Button & Title */}
+            <View style={styles.headerRow}>
+              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                <Feather name="arrow-left" size={24} color="white" />
+              </TouchableOpacity>
+              <View style={styles.headerTitleContainer}>
+                <Text style={styles.headerTitle}>Price Details</Text>
+              </View>
 
-        {/* Pickup Location Info */}
-        <View style={styles.locationSection}>
-          <Text style={styles.labelLeft}>Pickup</Text>
-          <View style={styles.addressRow}>
-            <View style={styles.smallMarker}>
-              <View style={styles.innerDot} />
             </View>
-            <Text style={styles.addressText} numberOfLines={2}>
-              {item.address || "Pickup Location"}
-            </Text>
-          </View>
-        </View>
 
-        <View style={styles.divider} />
+            {/* Pickup Location Info */}
+            <View style={styles.locationSection}>
+              <Text style={styles.labelLeft}>Pickup</Text>
+              <View style={styles.addressRow}>
+                <View style={styles.smallMarker}>
+                  <View style={styles.innerDot} />
+                </View>
+                <Text style={styles.addressText} numberOfLines={2}>
+                  {item.address || "Pickup Location"}
+                </Text>
+              </View>
+            </View>
 
-        {/* Base Offer Title */}
-        <Text style={styles.sectionTitle}>Base Offer</Text>
+            <View style={styles.divider} />
 
-        {/* Price & Controls (+ / -) */}
-        <View style={styles.priceControlRow}>
-          <TouchableOpacity 
-            onPress={handleDecrease}
-            style={styles.circleButton}
-            disabled={isSubmitting || counterAmount <= 0}
-          >
-            <Ionicons name="remove" size={24} color="white" />
-          </TouchableOpacity>
+            {/* Base Offer Title */}
+            <Text style={styles.sectionTitle}>Base Offer</Text>
 
-          <Text style={styles.mainPrice}>
-            ₦{counterAmount.toLocaleString()}
-          </Text>
+            {/* Price & Controls (+ / -) */}
+            <View style={styles.priceControlRow}>
+              <TouchableOpacity
+                onPress={handleDecrease}
+                style={styles.circleButton}
+                disabled={isSubmitting || counterAmount <= 0}
+              >
+                <Ionicons name="remove" size={24} color="white" />
+              </TouchableOpacity>
 
-          <TouchableOpacity 
-            onPress={handleIncrease}
-            style={styles.circleButton}
-            disabled={isSubmitting}
-          >
-            <Ionicons name="add" size={24} color="white" />
-          </TouchableOpacity>
-        </View>
+              <Text style={styles.mainPrice}>
+                ₦{counterAmount.toLocaleString()}
+              </Text>
 
-        {/* Difference indicator */}
-        {hasAdjusted && (
-          <Text style={[
-            styles.differenceText,
-            difference > 0 ? styles.higher : styles.lower
-          ]}>
-            {difference > 0 ? '+' : ''}₦{Math.abs(difference).toLocaleString()} from original offer
-          </Text>
-        )}
+              <TouchableOpacity
+                onPress={handleIncrease}
+                style={styles.circleButton}
+                disabled={isSubmitting}
+              >
+                <Ionicons name="add" size={24} color="white" />
+              </TouchableOpacity>
+            </View>
 
-        {/* Price Suggestions (3 Boxes) */}
-        <View style={styles.suggestionsRow}>
-          {/* 1000 Below Original */}
-          <TouchableOpacity 
-            style={styles.suggestionBox} 
-            onPress={() => setSuggestion(Math.max(0, originalOffer - 1000))}
-            disabled={originalOffer <= 1000}
-          >
-            <Text style={styles.suggestionText}>- ₦1,000</Text>
-            <Text style={styles.suggestionSubText}>Below</Text>
-          </TouchableOpacity>
+            {/* Difference indicator */}
+            {hasAdjusted && (
+              <Text style={[
+                styles.differenceText,
+                difference > 0 ? styles.higher : styles.lower
+              ]}>
+                {difference > 0 ? '+' : ''}₦{Math.abs(difference).toLocaleString()} from original offer
+              </Text>
+            )}
 
-          {/* 1000 Above Original */}
-          <TouchableOpacity 
-            style={styles.suggestionBox} 
-            onPress={() => setSuggestion(originalOffer + 1000)}
-          >
-            <Text style={styles.suggestionText}>+ ₦1,000</Text>
-            <Text style={styles.suggestionSubText}>Above</Text>
-          </TouchableOpacity>
+            {/* Price Suggestions (3 Boxes) */}
+            <View style={styles.suggestionsRow}>
+              {/* 1000 Below Original */}
+              <TouchableOpacity
+                style={styles.suggestionBox}
+                onPress={() => setSuggestion(Math.max(0, originalOffer - 1000))}
+                disabled={originalOffer <= 1000}
+              >
+                <Text style={styles.suggestionText}>- ₦1,000</Text>
+                <Text style={styles.suggestionSubText}>Below</Text>
+              </TouchableOpacity>
 
-          {/* 2000 Above Original */}
-          <TouchableOpacity 
-            style={styles.suggestionBox} 
-            onPress={() => setSuggestion(originalOffer + 2000)}
-          >
-            <Text style={styles.suggestionText}>+ ₦2,000</Text>
-            <Text style={styles.suggestionSubText}>Above</Text>
-          </TouchableOpacity>
-        </View>
+              {/* 1000 Above Original */}
+              <TouchableOpacity
+                style={styles.suggestionBox}
+                onPress={() => setSuggestion(originalOffer + 1000)}
+              >
+                <Text style={styles.suggestionText}>+ ₦1,000</Text>
+                <Text style={styles.suggestionSubText}>Above</Text>
+              </TouchableOpacity>
 
-        {/* Counter Offer Button (Brand Yellow) */}
-        <TouchableOpacity
-          onPress={handleSubmitCounter}
-          disabled={isSubmitting || counterAmount <= 0}
-          style={[
-            styles.submitButton,
-            (isSubmitting || counterAmount <= 0) && styles.disabledButton,
-          ]}
-        >
-          {isSubmitting ? (
-            <ActivityIndicator color="black" />
-          ) : (
-            <Text style={styles.submitButtonText}>
-              Counter Offer for ₦{counterAmount.toLocaleString()}
-            </Text>
-          )}
-        </TouchableOpacity>
+              {/* 2000 Above Original */}
+              <TouchableOpacity
+                style={styles.suggestionBox}
+                onPress={() => setSuggestion(originalOffer + 2000)}
+              >
+                <Text style={styles.suggestionText}>+ ₦2,000</Text>
+                <Text style={styles.suggestionSubText}>Above</Text>
+              </TouchableOpacity>
+            </View>
 
-        {/* Close/Cancel Button (White Outline) */}
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          disabled={isSubmitting}
-          style={styles.cancelButton}
-        >
-          <Text style={styles.cancelButtonText}>Close</Text>
-        </TouchableOpacity>
+            {/* Counter Offer Button (Brand Yellow) */}
+            <TouchableOpacity
+              onPress={handleSubmitCounter}
+              disabled={isSubmitting || counterAmount <= 0}
+              style={[
+                styles.submitButton,
+                (isSubmitting || counterAmount <= 0) && styles.disabledButton,
+              ]}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator color="black" />
+              ) : (
+                <Text style={styles.submitButtonText}>
+                  Counter Offer for ₦{counterAmount.toLocaleString()}
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            {/* Close/Cancel Button (White Outline) */}
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              disabled={isSubmitting}
+              style={styles.cancelButton}
+            >
+              <Text style={styles.cancelButtonText}>Close</Text>
+            </TouchableOpacity>
           </ScrollView>
-          </SafeAreaView>
+        </SafeAreaView>
       </View>
 
       {/* Success/Error Modal */}
@@ -332,9 +332,9 @@ export default function OrderScreen() {
 
 const styles = StyleSheet.create({
   safeArea: {
-  flex: 1,
-  backgroundColor: '#181818',
-},
+    flex: 1,
+    backgroundColor: '#181818',
+  },
   container: {
     flex: 1,
     backgroundColor: '#181818',
@@ -365,7 +365,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
-  
+
   // --- Map Background ---
   mapContainer: {
     ...StyleSheet.absoluteFillObject,
@@ -398,23 +398,23 @@ const styles = StyleSheet.create({
   },
 
   // --- Modal Content ---
- modalContent: {
-  position: 'absolute',
-  bottom: 0,
-  left: 0,
-  right: 0,
-  height: '60%', // Takes up 60% from bottom (adjust as needed)
-  padding: 15,
-  zIndex: 10,
-  paddingBottom: Platform.OS === 'ios' ? 40 : 24,
-  backgroundColor: '#1a1a1a',
-  borderTopLeftRadius: 24,
-  borderTopRightRadius: 24,
-},
+  modalContent: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '60%', // Takes up 60% from bottom (adjust as needed)
+    padding: 15,
+    zIndex: 10,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+    backgroundColor: '#1a1a1a',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+  },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-marginBottom: 20,
+    marginBottom: 20,
     marginTop: 20,
     paddingHorizontal: 15,
   },
@@ -430,7 +430,7 @@ marginBottom: 20,
     fontSize: 22,
     fontWeight: 'bold',
     color: 'white',
-    
+
   },
 
   // --- Location Section ---
