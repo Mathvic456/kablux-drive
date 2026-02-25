@@ -35,12 +35,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const initAuth = async () => {
       try {
         const storedRememberMe = await AsyncStorage.getItem("rememberMe");
-        
+
         if (storedRememberMe === "true") {
           const storedToken = await AsyncStorage.getItem("token");
           console.log("Token:", token)
           const storedRefresh = await AsyncStorage.getItem("refreshToken");
-          
+
           if (storedToken && storedRefresh) {
             console.log("🔐 Restoring session from AsyncStorage (Remember Me)");
             setToken(storedToken);
@@ -69,30 +69,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const setTokens = async (access: string, refresh: string, remember: boolean) => {
     console.log(`🔑 Setting tokens (Remember Me: ${remember})`);
-    
+
     // Always set in Context (in-memory)
     setToken(access);
     setRefreshToken(refresh);
     setRememberMe(remember);
 
     // Only persist to AsyncStorage if "remember me" is enabled
-    if (remember) {
-      await AsyncStorage.setItem("token", access);
-      await AsyncStorage.setItem("refreshToken", refresh);
-      await AsyncStorage.setItem("rememberMe", "true");
-      console.log("💾 Tokens saved to AsyncStorage");
-    } else {
-      // Clear AsyncStorage if "remember me" is disabled
-      await AsyncStorage.removeItem("token");
-      await AsyncStorage.removeItem("refreshToken");
-      await AsyncStorage.removeItem("rememberMe");
-      console.log("🗑️ Tokens cleared from AsyncStorage (not persisting)");
-    }
+    // if (remember) {
+    await AsyncStorage.setItem("token", access);
+    await AsyncStorage.setItem("refreshToken", refresh);
+    await AsyncStorage.setItem("rememberMe", "true");
+    console.log("💾 Tokens saved to AsyncStorage");
+    // } else {
+    //   // Clear AsyncStorage if "remember me" is disabled
+    //   await AsyncStorage.removeItem("token");
+    //   await AsyncStorage.removeItem("refreshToken");
+    //   await AsyncStorage.removeItem("rememberMe");
+    //   console.log("🗑️ Tokens cleared from AsyncStorage (not persisting)");
+    // }
   };
 
   const clearTokens = async () => {
     console.log("🚪 Clearing all tokens");
-    
+
     // Clear Context
     setToken(null);
     setRefreshToken(null);

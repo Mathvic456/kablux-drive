@@ -15,6 +15,8 @@ const StatusBadge = () => {
   const { isConnected, currentLocation, locationPermission, toggleOnlineStatus } = useContext(SocketContext);
   const [isLoading, setIsLoading] = useState(false);
   const { toggleOnline } = useDriverRide();
+  const [badgeHeight, setBadgeHeight] = useState(56);
+
 
   const handleToggle = async () => {
     setIsLoading(true);
@@ -109,28 +111,15 @@ const StatusBadge = () => {
       </View>
     );
   }
-
   // State 4: Connected and online
   return (
-    <View style={styles.container}>
-      {/* <View style={styles.header}>
-        <Text style={styles.title}>Go Online</Text>
-        <TouchableOpacity style={styles.infoButton}>
-          <Ionicons name="information-circle-outline" size={18} color="#888" />
-        </TouchableOpacity>
-      </View> */}
-
+    <View style={styles.container}>  {/* just normal container, no absolute */}
       <View style={styles.switchContainer}>
         <View style={styles.switchInfo}>
           <View style={styles.locationInfo}>
             <View style={[styles.statusDot, styles.onlineDot]} />
             <Text style={styles.onlineStatus}>Online & Receiving Rides</Text>
           </View>
-          {/* {currentLocation && (
-            <Text style={styles.locationText}>
-              {currentLocation.lat.toFixed(4)}, {currentLocation.long.toFixed(4)}
-            </Text>
-          )} */}
         </View>
 
         <TouchableOpacity
@@ -156,6 +145,8 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderWidth: 1,
     borderColor: "#333",
+
+
   },
   header: {
     flexDirection: "row",

@@ -382,6 +382,14 @@ export default function Home() {
     setViewOfferModalVisible(true);
   };
 
+  const removeRideNotification = (id) => {
+    setRideNotifications(prev =>
+      prev.filter(item =>
+        item.ride_request_view_id !== id && item.ride_request_id !== id
+      )
+    );
+  };
+
   const handleAcceptAsCounter = (offer) => {
     if (!hasSufficientBalance()) {
       setLowBalanceWarningVisible(true);
@@ -529,13 +537,7 @@ export default function Home() {
     }
   };
 
-  const removeRideNotification = (id) => {
-    setRideNotifications(prev =>
-      prev.filter(item =>
-        item.ride_request_view_id !== id && item.ride_request_id !== id
-      )
-    );
-  };
+
 
   const handleCounterSubmit = (ride_request_view_id) => {
     setNegotiationUpdates((prev) => {
@@ -611,31 +613,32 @@ export default function Home() {
   return (
     <SafeAreaView style={styles.mainContainer}>
       <StatusBar barStyle="light-content" backgroundColor="#000" />
+      <View style={styles.container}>
+        <HomeHeader
+          profile={profile}
+          notificationCount={
+            rideNotifications.length + negotiationArray.length
+          }
+          onMenuPress={handleOpenDrawer}
+        />
 
-      <ScrollView
-        style={styles.scrollContainer}
-        contentContainerStyle={styles.scrollContentContainer}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor="#facc15"
-            colors={["#facc15"]}
-          />
-        }
-      >
-        <View style={styles.container}>
-          <HomeHeader
-            profile={profile}
-            notificationCount={
-              rideNotifications.length + negotiationArray.length
-            }
-            onMenuPress={handleOpenDrawer}
-          />
+        <StatusBadge />
+        <ScrollView
+          style={styles.scrollContainer}
+          contentContainerStyle={styles.scrollContentContainer}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#facc15"
+              colors={["#facc15"]}
+            />
+          }
+        >
+
 
           {/* Status Badge */}
-          <StatusBadge />
 
           {/* Active Ride Section */}
           <ActiveRideSection
@@ -825,8 +828,8 @@ export default function Home() {
               </TouchableOpacity>
             </View>
           )}
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </View>
 
       {/* Tier Overlay */}
       <TierOverlay
@@ -1409,7 +1412,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: Math.max(16, width * 0.04),
     paddingTop: 8,
-    paddingBottom: 20,
+    paddingBottom: 1,
   },
   detailRow: {
     flexDirection: 'row',

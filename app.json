@@ -8,18 +8,14 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "owner": "ag0213m",
+    "owner": "agbaby",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
     "notification": {
-      "icon": "",
-      "color": "#ffffff",
-      "sounds": [
-        "./assets/sounds/kablux-sound.mp3"
-      ]
+      "color": "#ffffff"
     },
     "ios": {
       "supportsTablet": true,
@@ -31,7 +27,7 @@
         ]
       },
       "config": {
-        "googleMapsApiKey": "AIzaSyD8sdkbIi1FZnlJss8U4byBQ8hFbyMG7ro"
+        "googleMapsApiKey": "AIzaSyD5mNdwJg_TARwAw6OugmUFCo2_mnUTKqI"
       }
     },
     "android": {
@@ -41,7 +37,7 @@
       },
       "config": {
         "googleMaps": {
-          "apiKey": "AIzaSyD8sdkbIi1FZnlJss8U4byBQ8hFbyMG7ro"
+          "apiKey": "AIzaSyD5mNdwJg_TARwAw6OugmUFCo2_mnUTKqI"
         }
       },
       "edgeToEdgeEnabled": true,
@@ -87,12 +83,11 @@
           "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone for audio recording."
         }
       ],
-      "expo-font",
-      "@rnmapbox/maps"
+      "expo-font"
     ],
     "extra": {
       "eas": {
-        "projectId": "0add42da-8f7e-4b9c-a956-aff5030593a6"
+        "projectId": "07dff6e6-f4c1-4796-ad30-39fa35e57744"
       }
     }
   }

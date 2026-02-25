@@ -19,6 +19,8 @@ import Logo from "../../assets/Logo.png";
 import { useLoginEndPoint } from "../../services/auth.service";
 import { useAuth } from "../../context/AuthContext";
 import { usePushNotifications } from "../../hooks/usePushNotifications";
+import { useGoogleAuth } from "../../utils/useGoogleAuth";
+import GoogleSignInButton from "../../components/GoogleSignInButton";
 
 const { width, height } = Dimensions.get('window');
 
@@ -32,6 +34,11 @@ const Login = ({ navigation }) => {
     password: "",
   });
   const [authError, setAuthError] = useState("");
+
+  const { promptGoogleSignIn, isLoading: isGoogleLoading } = useGoogleAuth({
+    onSuccess: () => navigation.replace("Mainapp"),
+    onError: (msg) => console.error('[Google Auth]', msg),
+  });
 
   // Responsive scaling functions
   const scaleFont = (size) => {
@@ -379,6 +386,8 @@ const Login = ({ navigation }) => {
               )}
             </TouchableOpacity>
 
+
+
             {/* Divider */}
             <View style={[
               styles.dividerRow,
@@ -396,6 +405,12 @@ const Login = ({ navigation }) => {
               </Text>
               <View style={styles.divider} />
             </View>
+
+            <GoogleSignInButton
+              onPress={promptGoogleSignIn}
+              disabled={isGoogleLoading}
+              loading={isGoogleLoading}
+            />
 
             {/* Sign Up Link */}
             <TouchableOpacity

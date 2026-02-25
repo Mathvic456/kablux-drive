@@ -9,38 +9,49 @@ import { DriverRideProvider } from './context/DriverRideContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { setAuthTokenGetter } from './services/api';
 import React, { useEffect } from 'react';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
+
 
 
 
 const queryClient = new QueryClient();
 export default function App() {
-  function ApiAuthConnector() {
-  const { getValidToken } = useAuth();
 
   useEffect(() => {
-    setAuthTokenGetter(getValidToken);
-    console.log("✅ API layer connected to AuthContext");
-  }, [getValidToken]);
+    GoogleSignin.configure({
+      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+      offlineAccess: true, // required for idToken to be non-null
+    });
+  }, []);
 
-  return null;
-}
+  function ApiAuthConnector() {
+    const { getValidToken } = useAuth();
+
+    useEffect(() => {
+      setAuthTokenGetter(getValidToken);
+      console.log("✅ API layer connected to AuthContext");
+    }, [getValidToken]);
+
+
+    return null;
+  }
 
   try {
     return (
-    <NavigationContainer ref={navigationRef}>
-          <AuthProvider>
-        <ApiAuthConnector />
-        <DriverRideProvider>
-      <WebSocketProvider>
-        
-        <QueryClientProvider client={queryClient}>
-        <AppNavigator />
-        </QueryClientProvider>
-      
-      </WebSocketProvider>
-      </DriverRideProvider>
-      </AuthProvider>
-          </NavigationContainer>
+      <NavigationContainer ref={navigationRef}>
+        <AuthProvider>
+          <ApiAuthConnector />
+          <DriverRideProvider>
+            <WebSocketProvider>
+
+              <QueryClientProvider client={queryClient}>
+                <AppNavigator />
+              </QueryClientProvider>
+
+            </WebSocketProvider>
+          </DriverRideProvider>
+        </AuthProvider>
+      </NavigationContainer>
     );
   } catch (error) {
     console.error("🔴 APP INITIALIZATION ERROR:", JSON.stringify(error, null, 2));
