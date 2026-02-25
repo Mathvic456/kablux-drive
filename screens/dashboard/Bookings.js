@@ -26,12 +26,12 @@ import * as Sharing from 'expo-sharing';
 
 export default function Bookings() {
   const { width, height } = useWindowDimensions();
-  const isSmallScreen = width < 375; // iPhone SE, small Android
-  const isMediumScreen = width >= 375 && width <= 414; // iPhone 12-15, most Android
-  const isLargeScreen = width > 414; // iPhone Plus/Pro Max
+  const isSmallScreen = width < 375;
+  const isMediumScreen = width >= 375 && width <= 414;
+  const isLargeScreen = width > 414;
   const isTablet = width > 768;
   const screenHeight = Dimensions.get('window').height;
-  const isShortScreen = screenHeight < 700; // Small height devices
+  const isShortScreen = screenHeight < 700;
 
   const [activeTab, setActiveTab] = useState('all');
   const [filter, setFilter] = useState("all");
@@ -81,7 +81,7 @@ export default function Bookings() {
   const generateReceiptHTML = (ride) => {
     const formattedDate = formatDate(ride.start_time);
     const formattedFare = formatCurrency(ride.fare);
-    const serviceType = "Standard Ride";
+    const statusColor = ride.status === 'completed' ? '#4CAF50' : ride.status === 'cancelled' ? '#F44336' : '#FFC107';
 
     return `
       <!DOCTYPE html>
@@ -89,61 +89,241 @@ export default function Bookings() {
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Ride Waybill - ${ride.id || 'N/A'}</title>
+        <title>Kablux Trip Receipt - ${ride.id || 'N/A'}</title>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: Helvetica, sans-serif; line-height: 1.6; color: #333; padding: 20px; background-color: #f5f5f5; }
-          .receipt-container { max-width: 600px; margin: 0 auto; background-color: white; border-radius: 12px; padding: 30px; }
-          .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #eee; padding-bottom: 20px; }
-          .header h1 { font-size: 24px; font-weight: bold; }
-          .header h2 { color: #FFC107; font-size: 18px; margin-top: 5px; }
-          .info-row { display: flex; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
-          .label { color: #666; font-weight: bold; }
-          .value { text-align: right; max-width: 60%; }
-          .total-section { background-color: #FFF8E1; padding: 20px; border-radius: 8px; margin-top: 20px; }
-          .total-row { display: flex; justify-content: space-between; font-size: 18px; font-weight: bold; }
-          .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #999; }
+          body {
+            font-family: Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f0f0f0;
+            padding: 30px 20px;
+          }
+          .receipt-container {
+            max-width: 580px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+          }
+          /* Header Banner */
+          .header-banner {
+            background-color: #1a1a1a;
+            padding: 28px 30px 24px;
+            text-align: center;
+          }
+          .brand-name {
+            color: #FFC107;
+            font-size: 26px;
+            font-weight: 900;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+          }
+          .brand-sub {
+            color: #aaa;
+            font-size: 13px;
+            margin-top: 4px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+          }
+          .receipt-title {
+            color: #fff;
+            font-size: 16px;
+            margin-top: 12px;
+            font-weight: 600;
+            background-color: #333;
+            display: inline-block;
+            padding: 4px 14px;
+            border-radius: 20px;
+          }
+          /* Body */
+          .body { padding: 28px 30px; }
+          /* Trip ID Row */
+          .trip-id-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 2px dashed #e0e0e0;
+          }
+          .trip-id-label { color: #999; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
+          .trip-id-value { color: #333; font-size: 14px; font-weight: 700; }
+          .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #fff;
+            background-color: ${statusColor};
+          }
+          /* Info Sections */
+          .section {
+            margin-bottom: 16px;
+          }
+          .section-title {
+            color: #999;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 700;
+            margin-bottom: 4px;
+          }
+          .section-value {
+            color: #222;
+            font-size: 14px;
+            font-weight: 500;
+          }
+          .divider {
+            height: 1px;
+            background-color: #f0f0f0;
+            margin: 16px 0;
+          }
+          /* Route */
+          .route-container {
+            background-color: #f9f9f9;
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 16px;
+          }
+          .route-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+          }
+          .route-icon-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 3px;
+          }
+          .dot-green {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            background-color: #4CAF50;
+            flex-shrink: 0;
+          }
+          .dot-red {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            background-color: #F44336;
+            flex-shrink: 0;
+          }
+          .route-line {
+            width: 2px;
+            height: 24px;
+            background-color: #ccc;
+            margin: 3px 0;
+          }
+          .route-text-col { flex: 1; }
+          .route-label { color: #999; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
+          .route-value { color: #222; font-size: 13px; font-weight: 500; margin-top: 2px; margin-bottom: 16px; }
+          /* Earnings Block */
+          .earnings-block {
+            background-color: #1a1a1a;
+            border-radius: 12px;
+            padding: 20px 24px;
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          }
+          .earnings-label {
+            color: #aaa;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+          }
+          .earnings-amount {
+            color: #FFC107;
+            font-size: 28px;
+            font-weight: 900;
+          }
+          /* Footer */
+          .footer {
+            text-align: center;
+            padding: 20px 30px;
+            background-color: #fafafa;
+            border-top: 1px solid #eee;
+          }
+          .footer-text { color: #bbb; font-size: 11px; }
+          .footer-brand { color: #FFC107; font-weight: 700; }
         </style>
       </head>
       <body>
         <div class="receipt-container">
-          <div class="header">
-            <h1>KABLUX DRIVER</h1>
-            <h2>Trip Summary</h2>
-            <div style="color:#888; font-size:12px; margin-top:5px;">ID: ${ride.id || 'N/A'}</div>
-          </div>
-          
-          <div class="info-row">
-            <span class="label">Date</span>
-            <span class="value">${formattedDate}</span>
-          </div>
-          <div class="info-row">
-            <span class="label">Pickup</span>
-            <span class="value">${ride.pickup_address || 'N/A'}</span>
-          </div>
-          <div class="info-row">
-            <span class="label">Drop-off</span>
-            <span class="value">${ride.dropoff_address || 'N/A'}</span>
-          </div>
-          <div class="info-row">
-            <span class="label">Rider</span>
-            <span class="value">${ride.rider_name || 'Kablux Rider'}</span>
-          </div>
-          <div class="info-row">
-            <span class="label">Status</span>
-            <span class="value" style="text-transform:uppercase;">${ride.status}</span>
+
+          <!-- Header -->
+          <div class="header-banner">
+            <div class="brand-name">Kablux</div>
+            <div class="brand-sub">Driver App</div>
+            <div class="receipt-title">Trip Receipt</div>
           </div>
 
-          <div class="total-section">
-            <div class="total-row">
-              <span>EARNINGS</span>
-              <span>${formattedFare}</span>
+          <!-- Body -->
+          <div class="body">
+
+            <!-- Trip ID & Status -->
+            <div class="trip-id-row">
+              <div>
+                <div class="trip-id-label">Trip ID</div>
+                <div class="trip-id-value">#${ride.id || 'N/A'}</div>
+              </div>
+              <div class="status-badge">${(ride.status || 'unknown').toUpperCase()}</div>
             </div>
+
+            <!-- Date & Rider -->
+            <div style="display:flex; gap:16px; margin-bottom:16px;">
+              <div class="section" style="flex:1;">
+                <div class="section-title">Date & Time</div>
+                <div class="section-value">${formattedDate}</div>
+              </div>
+              <div class="section" style="flex:1;">
+                <div class="section-title">Rider</div>
+                <div class="section-value">${ride.rider_name || 'Kablux Rider'}</div>
+              </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Route -->
+            <div class="route-container">
+              <div class="route-row">
+                <div class="route-icon-col">
+                  <div class="dot-green"></div>
+                  <div class="route-line"></div>
+                  <div class="dot-red"></div>
+                </div>
+                <div class="route-text-col">
+                  <div>
+                    <div class="route-label">Pickup</div>
+                    <div class="route-value">${ride.pickup_address || 'N/A'}</div>
+                  </div>
+                  <div>
+                    <div class="route-label">Drop-off</div>
+                    <div class="route-value" style="margin-bottom:0;">${ride.dropoff_address || 'N/A'}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Earnings -->
+            <div class="earnings-block">
+              <div class="earnings-label">Total Earnings</div>
+              <div class="earnings-amount">${formattedFare}</div>
+            </div>
+
           </div>
-          
+
+          <!-- Footer -->
           <div class="footer">
-            Generated via Kablux Driver App
+            <div class="footer-text">Generated by <span class="footer-brand">Kablux Driver</span> &nbsp;•&nbsp; ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
           </div>
+
         </div>
       </body>
       </html>
@@ -159,9 +339,9 @@ export default function Bookings() {
       const safeId = String(ride.id || Date.now()).replace(/[^a-zA-Z0-9]/g, "_");
       const fileName = `Kablux_Trip_${safeId}.pdf`;
 
-      const { uri: tempUri } = await Print.printToFileAsync({ html, base64: true });
+      const { uri: tempUri } = await Print.printToFileAsync({ html, base64: false });
 
-      if (Platform.OS === 'android' && FileSystem.StorageAccessFramework) {
+      if (Platform.OS === 'android') {
         try {
           const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
           if (permissions.granted) {
@@ -170,43 +350,46 @@ export default function Bookings() {
               fileName,
               'application/pdf'
             );
-            const fileString = await FileSystem.readAsStringAsync(tempUri, { encoding: FileSystem.EncodingType.Base64 });
-            await FileSystem.writeAsStringAsync(newFileUri, fileString, { encoding: FileSystem.EncodingType.Base64 });
-            Alert.alert('Success', 'Receipt saved to Downloads');
+            const fileContent = await FileSystem.readAsStringAsync(tempUri, {
+              encoding: FileSystem.EncodingType.Base64
+            });
+            await FileSystem.writeAsStringAsync(newFileUri, fileContent, {
+              encoding: FileSystem.EncodingType.Base64
+            });
+            Alert.alert('✅ Saved', 'Receipt saved to your chosen folder.');
             return;
           }
+          // User denied SAF permission — fall through to share sheet
         } catch (e) {
-          console.log("SAF failed, falling back to share");
+          console.log("SAF failed, falling back to share:", e);
         }
       }
 
-      if (await Sharing.isAvailableAsync()) {
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
         await Sharing.shareAsync(tempUri, {
           mimeType: 'application/pdf',
-          dialogTitle: 'Save Trip Summary',
+          dialogTitle: `Save Kablux Trip ${safeId}`,
           UTI: 'com.adobe.pdf',
         });
       } else {
-        Alert.alert('Error', 'Sharing not available');
+        Alert.alert('Error', 'Sharing is not available on this device.');
       }
 
     } catch (error) {
-      console.error(error);
-      Alert.alert('Error', 'Could not generate PDF');
+      console.error('Receipt download error:', error);
+      Alert.alert('Error', 'Could not generate PDF. Please try again.');
     } finally {
       setIsDownloading(false);
     }
   };
 
   const openReceiptModal = (ride) => {
-    console.log('rideiiii', ride)
-    console.log('Opening receipt modal for ride:', ride.driver);
     setSelectedReceipt(ride);
     setShowReceiptModal(true);
   };
 
   const closeReceiptModal = () => {
-    console.log('Closing receipt modal');
     setShowReceiptModal(false);
     setSelectedReceipt(null);
   };
@@ -258,7 +441,7 @@ export default function Bookings() {
     return result;
   }, [rideHistoryResponse, activeTab, filter]);
 
-  // --- RENDER ITEM COMPONENT ---
+  // --- RENDER ITEM ---
 
   const renderItem = ({ item }) => {
     return (
@@ -373,11 +556,8 @@ export default function Bookings() {
     return (
       <SafeAreaView style={[styles.safeArea, { backgroundColor: 'black' }]}>
         <StatusBar barStyle="light-content" backgroundColor="black" />
-        <View style={[styles.centerContainer, { height: height }]}>
-          <ActivityIndicator
-            size={isSmallScreen ? "large" : "large"}
-            color="#FFC107"
-          />
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#FFC107" />
           <Text style={[
             styles.loadingText,
             isSmallScreen && styles.loadingTextSmall,
@@ -532,13 +712,13 @@ export default function Bookings() {
           title="Trip Details"
           icon="document-text-outline"
           contentMode="custom"
-          confirmText="Download Waybill"
+          confirmText={isDownloading ? "Generating..." : "Download Waybill"}
           closeText="Close"
           containerStyle={styles.bookingDetailsContainer}
           confirmButtonColor="#FFC107"
           themeColor="#FFC107"
-          onConfirm={() => downloadReceipt(selectedReceipt)}
-          maxHeight={isShortScreen ? '65%' : '70%'}
+          onConfirm={() => !isDownloading && downloadReceipt(selectedReceipt)}
+          maxHeight={isShortScreen ? 0.65 : 0.70}
         >
           {selectedReceipt && (
             <ScrollView
@@ -557,49 +737,57 @@ export default function Bookings() {
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Status</Text>
                   <View style={[
-                    styles.statusBadge,
+                    styles.modalStatusBadge,
                     selectedReceipt.status === 'completed' ? styles.statusCompleted :
                       selectedReceipt.status === 'cancelled' ? styles.statusCancelled :
-                        { backgroundColor: 'rgba(247, 183, 49, 0.2)' }
+                        styles.statusPending
                   ]}>
-                    <Text style={styles.statusText}>{(selectedReceipt.status || "unknown").toUpperCase()}</Text>
+                    <Text style={styles.modalStatusText}>
+                      {(selectedReceipt.status || 'unknown').toUpperCase()}
+                    </Text>
                   </View>
                 </View>
               </View>
 
               {/* Date */}
               <View style={styles.detailSection}>
-                <Text style={styles.detailLabel}>Date</Text>
-                <Text style={styles.detailValue}>{formatDate(selectedReceipt.start_time)}</Text>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Date</Text>
+                  <Text style={[styles.detailValue, styles.detailValueWide]}>
+                    {formatDate(selectedReceipt.start_time)}
+                  </Text>
+                </View>
               </View>
 
               {/* Pickup Location */}
               <View style={styles.detailSection}>
                 <View style={styles.locationHeader}>
                   <Ionicons name="ellipse" size={10} color="#4CAF50" />
-                  <Text style={styles.detailLabel}>Pickup Location</Text>
+                  <Text style={[styles.detailLabel, { marginLeft: 6 }]}>Pickup</Text>
                 </View>
-                <Text style={styles.detailValue}>{selectedReceipt.pickup_address || 'N/A'}</Text>
+                <Text style={styles.detailValueFull}>{selectedReceipt.pickup_address || 'N/A'}</Text>
               </View>
 
               {/* Dropoff Location */}
               <View style={styles.detailSection}>
                 <View style={styles.locationHeader}>
                   <Ionicons name="location" size={10} color="#FF5252" />
-                  <Text style={styles.detailLabel}>Drop-off Location</Text>
+                  <Text style={[styles.detailLabel, { marginLeft: 6 }]}>Drop-off</Text>
                 </View>
-                <Text style={styles.detailValue}>{selectedReceipt.dropoff_address || 'N/A'}</Text>
+                <Text style={styles.detailValueFull}>{selectedReceipt.dropoff_address || 'N/A'}</Text>
               </View>
 
               {/* Rider */}
               <View style={styles.detailSection}>
-                <Text style={styles.detailLabel}>Rider</Text>
-                <Text style={styles.detailValue}>{selectedReceipt.rider_name || 'Rider'}</Text>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Rider</Text>
+                  <Text style={styles.detailValue}>{selectedReceipt.rider_name || 'Rider'}</Text>
+                </View>
               </View>
 
               {/* Total Earnings */}
-              <View style={[styles.detailSection, styles.totalSection]}>
-                <Text style={styles.totalLabel}>Total Earnings</Text>
+              <View style={styles.totalSection}>
+                <Text style={styles.totalLabel}>TOTAL EARNINGS</Text>
                 <Text style={styles.totalValue}>{formatCurrency(selectedReceipt.fare)}</Text>
               </View>
             </ScrollView>
@@ -621,19 +809,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'black',
   },
-  // Header
+
+  // ─── Header ───────────────────────────────────────────────────────────────
   header: {
     paddingHorizontal: width * 0.05,
     paddingTop: Platform.OS === 'ios' ? 10 : 20,
     paddingBottom: height * 0.02,
     borderBottomWidth: 1,
     borderBottomColor: '#333',
-  },
-  bookingDetailsContainer: {
-    borderWidth: 1,
-    borderColor: '#444',
-    height: 'fit-content',
-    padding: 5
   },
   headerSmall: {
     paddingHorizontal: width * 0.04,
@@ -657,16 +840,11 @@ const styles = StyleSheet.create({
     fontSize: Math.min(width * 0.07, 28),
     fontWeight: '700',
   },
-  headerTitleSmall: {
-    fontSize: Math.min(width * 0.065, 24),
-  },
-  headerTitleLarge: {
-    fontSize: Math.min(width * 0.075, 32),
-  },
-  headerTitleShort: {
-    fontSize: Math.min(width * 0.06, 22),
-  },
-  // Tabs
+  headerTitleSmall: { fontSize: Math.min(width * 0.065, 24) },
+  headerTitleLarge: { fontSize: Math.min(width * 0.075, 32) },
+  headerTitleShort: { fontSize: Math.min(width * 0.06, 22) },
+
+  // ─── Tabs ─────────────────────────────────────────────────────────────────
   tabsContainer: {
     flexDirection: 'row',
     marginHorizontal: width * 0.05,
@@ -711,40 +889,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 20,
   },
-  tabSmall: {
-    paddingVertical: height * 0.01,
-    borderRadius: 18,
-  },
-  tabLarge: {
-    paddingVertical: height * 0.014,
-    borderRadius: 22,
-  },
-  tabShort: {
-    paddingVertical: height * 0.008,
-    borderRadius: 18,
-  },
-  tabActive: {
-    backgroundColor: '#333',
-  },
+  tabSmall: { paddingVertical: height * 0.01, borderRadius: 18 },
+  tabLarge: { paddingVertical: height * 0.014, borderRadius: 22 },
+  tabShort: { paddingVertical: height * 0.008, borderRadius: 18 },
+  tabActive: { backgroundColor: '#333' },
   tabText: {
     color: '#888',
     fontSize: Math.min(width * 0.037, 16),
     fontWeight: '600',
   },
-  tabTextSmall: {
-    fontSize: Math.min(width * 0.035, 14),
-  },
-  tabTextLarge: {
-    fontSize: Math.min(width * 0.039, 18),
-  },
-  tabTextShort: {
-    fontSize: Math.min(width * 0.034, 13),
-  },
-  tabTextActive: {
-    color: 'white',
-    fontWeight: '700',
-  },
-  // Filter
+  tabTextSmall: { fontSize: Math.min(width * 0.035, 14) },
+  tabTextLarge: { fontSize: Math.min(width * 0.039, 18) },
+  tabTextShort: { fontSize: Math.min(width * 0.034, 13) },
+  tabTextActive: { color: 'white', fontWeight: '700' },
+
+  // ─── Filter ───────────────────────────────────────────────────────────────
   filterContainer: {
     paddingHorizontal: width * 0.05,
     marginBottom: height * 0.015,
@@ -762,9 +921,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     width: '100%',
   },
-  filterContainerShort: {
-    marginBottom: height * 0.008,
-  },
+  filterContainerShort: { marginBottom: height * 0.008 },
   filterButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -805,19 +962,11 @@ const styles = StyleSheet.create({
     fontSize: Math.min(width * 0.036, 15),
     fontWeight: "600",
   },
-  filterTextSmall: {
-    fontSize: Math.min(width * 0.034, 14),
-    marginLeft: width * 0.01,
-  },
-  filterTextLarge: {
-    fontSize: Math.min(width * 0.038, 16),
-    marginLeft: width * 0.02,
-  },
-  filterTextShort: {
-    fontSize: Math.min(width * 0.033, 13),
-    marginLeft: width * 0.008,
-  },
-  // Rides List
+  filterTextSmall: { fontSize: Math.min(width * 0.034, 14), marginLeft: width * 0.01 },
+  filterTextLarge: { fontSize: Math.min(width * 0.038, 16), marginLeft: width * 0.02 },
+  filterTextShort: { fontSize: Math.min(width * 0.033, 13), marginLeft: width * 0.008 },
+
+  // ─── Rides List ───────────────────────────────────────────────────────────
   ridesContent: {
     paddingHorizontal: width * 0.05,
     paddingBottom: Platform.OS === 'ios' ? height * 0.04 : height * 0.02,
@@ -844,7 +993,8 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
   },
-  // Loading & Empty States
+
+  // ─── Loading & Empty ──────────────────────────────────────────────────────
   centerContainer: {
     flex: 1,
     alignItems: 'center',
@@ -856,52 +1006,29 @@ const styles = StyleSheet.create({
     fontSize: Math.min(width * 0.04, 16),
     marginTop: height * 0.01,
   },
-  loadingTextSmall: {
-    fontSize: Math.min(width * 0.038, 15),
-    marginTop: height * 0.008,
-  },
-  loadingTextLarge: {
-    fontSize: Math.min(width * 0.042, 18),
-    marginTop: height * 0.012,
-  },
-  loadingTextShort: {
-    fontSize: Math.min(width * 0.036, 14),
-    marginTop: height * 0.006,
-  },
+  loadingTextSmall: { fontSize: Math.min(width * 0.038, 15), marginTop: height * 0.008 },
+  loadingTextLarge: { fontSize: Math.min(width * 0.042, 18), marginTop: height * 0.012 },
+  loadingTextShort: { fontSize: Math.min(width * 0.036, 14), marginTop: height * 0.006 },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
     padding: height * 0.05,
     flex: 1,
   },
-  emptyStateSmall: {
-    padding: height * 0.04,
-  },
-  emptyStateLarge: {
-    padding: height * 0.06,
-  },
-  emptyStateShort: {
-    padding: height * 0.03,
-  },
+  emptyStateSmall: { padding: height * 0.04 },
+  emptyStateLarge: { padding: height * 0.06 },
+  emptyStateShort: { padding: height * 0.03 },
   emptyStateText: {
     color: '#666',
     fontSize: Math.min(width * 0.04, 16),
     marginTop: height * 0.01,
     textAlign: 'center',
   },
-  emptyStateTextSmall: {
-    fontSize: Math.min(width * 0.038, 15),
-    marginTop: height * 0.008,
-  },
-  emptyStateTextLarge: {
-    fontSize: Math.min(width * 0.042, 18),
-    marginTop: height * 0.012,
-  },
-  emptyStateTextShort: {
-    fontSize: Math.min(width * 0.036, 14),
-    marginTop: height * 0.006,
-  },
-  // Card Styles
+  emptyStateTextSmall: { fontSize: Math.min(width * 0.038, 15), marginTop: height * 0.008 },
+  emptyStateTextLarge: { fontSize: Math.min(width * 0.042, 18), marginTop: height * 0.012 },
+  emptyStateTextShort: { fontSize: Math.min(width * 0.036, 14), marginTop: height * 0.006 },
+
+  // ─── Cards ────────────────────────────────────────────────────────────────
   card: {
     backgroundColor: '#1E1E1E',
     borderRadius: Math.min(width * 0.03, 12),
@@ -924,10 +1051,7 @@ const styles = StyleSheet.create({
     marginBottom: height * 0.02,
     minHeight: height * 0.16,
   },
-  cardTablet: {
-    maxWidth: 500,
-    alignSelf: 'center',
-  },
+  cardTablet: { maxWidth: 500, alignSelf: 'center' },
   cardShort: {
     marginBottom: height * 0.01,
     padding: width * 0.03,
@@ -942,32 +1066,19 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#333',
   },
-  cardHeaderSmall: {
-    marginBottom: height * 0.01,
-    paddingBottom: height * 0.01,
-  },
-  cardHeaderLarge: {
-    marginBottom: height * 0.015,
-    paddingBottom: height * 0.015,
-  },
-  cardHeaderShort: {
-    marginBottom: height * 0.008,
-    paddingBottom: height * 0.008,
-  },
+  cardHeaderSmall: { marginBottom: height * 0.01, paddingBottom: height * 0.01 },
+  cardHeaderLarge: { marginBottom: height * 0.015, paddingBottom: height * 0.015 },
+  cardHeaderShort: { marginBottom: height * 0.008, paddingBottom: height * 0.008 },
   dateText: {
     color: '#888',
     fontSize: Math.min(width * 0.035, 14),
     flex: 1,
   },
-  dateTextSmall: {
-    fontSize: Math.min(width * 0.033, 13),
-  },
-  dateTextLarge: {
-    fontSize: Math.min(width * 0.037, 15),
-  },
-  dateTextShort: {
-    fontSize: Math.min(width * 0.032, 12),
-  },
+  dateTextSmall: { fontSize: Math.min(width * 0.033, 13) },
+  dateTextLarge: { fontSize: Math.min(width * 0.037, 15) },
+  dateTextShort: { fontSize: Math.min(width * 0.032, 12) },
+
+  // ─── Status Badge (card) ──────────────────────────────────────────────────
   statusBadge: {
     paddingHorizontal: width * 0.02,
     paddingVertical: height * 0.005,
@@ -985,59 +1096,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: width * 0.015,
     paddingVertical: height * 0.003,
   },
-  statusCompleted: {
-    backgroundColor: 'rgba(76, 175, 80, 0.15)',
-  },
-  statusCancelled: {
-    backgroundColor: 'rgba(244, 67, 54, 0.15)',
-  },
+  statusCompleted: { backgroundColor: 'rgba(76, 175, 80, 0.15)' },
+  statusCancelled: { backgroundColor: 'rgba(244, 67, 54, 0.15)' },
   statusText: {
     color: '#fff',
     fontSize: Math.min(width * 0.03, 12),
     fontWeight: 'bold',
     textTransform: 'capitalize',
   },
-  statusTextSmall: {
-    fontSize: Math.min(width * 0.028, 11),
-  },
-  statusTextLarge: {
-    fontSize: Math.min(width * 0.032, 13),
-  },
-  statusTextShort: {
-    fontSize: Math.min(width * 0.027, 10),
-  },
-  locationsContainer: {
-    marginBottom: height * 0.012,
-  },
-  locationsContainerShort: {
-    marginBottom: height * 0.008,
-  },
+  statusTextSmall: { fontSize: Math.min(width * 0.028, 11) },
+  statusTextLarge: { fontSize: Math.min(width * 0.032, 13) },
+  statusTextShort: { fontSize: Math.min(width * 0.027, 10) },
+
+  // ─── Locations ────────────────────────────────────────────────────────────
+  locationsContainer: { marginBottom: height * 0.012 },
+  locationsContainerShort: { marginBottom: height * 0.008 },
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: height * 0.004,
     minHeight: height * 0.02,
   },
-  locationRowSmall: {
-    marginBottom: height * 0.003,
-    minHeight: height * 0.018,
-  },
-  locationRowShort: {
-    marginBottom: height * 0.002,
-    minHeight: height * 0.016,
-  },
+  locationRowSmall: { marginBottom: height * 0.003, minHeight: height * 0.018 },
+  locationRowShort: { marginBottom: height * 0.002, minHeight: height * 0.016 },
   dot: {
     width: Math.min(width * 0.018, 8),
     height: Math.min(width * 0.018, 8),
     borderRadius: Math.min(width * 0.009, 4),
     marginRight: width * 0.025,
   },
-  greenDot: {
-    backgroundColor: '#4CAF50',
-  },
-  redDot: {
-    backgroundColor: '#FF5252',
-  },
+  greenDot: { backgroundColor: '#4CAF50' },
+  redDot: { backgroundColor: '#FF5252' },
   verticalLine: {
     height: height * 0.015,
     width: 1,
@@ -1045,26 +1134,18 @@ const styles = StyleSheet.create({
     marginLeft: width * 0.008,
     marginVertical: height * 0.002,
   },
-  verticalLineSmall: {
-    height: height * 0.012,
-  },
-  verticalLineShort: {
-    height: height * 0.01,
-  },
+  verticalLineSmall: { height: height * 0.012 },
+  verticalLineShort: { height: height * 0.01 },
   addressText: {
     color: 'white',
     fontSize: Math.min(width * 0.038, 15),
     flex: 1,
   },
-  addressTextSmall: {
-    fontSize: Math.min(width * 0.036, 14),
-  },
-  addressTextLarge: {
-    fontSize: Math.min(width * 0.04, 16),
-  },
-  addressTextShort: {
-    fontSize: Math.min(width * 0.034, 13),
-  },
+  addressTextSmall: { fontSize: Math.min(width * 0.036, 14) },
+  addressTextLarge: { fontSize: Math.min(width * 0.04, 16) },
+  addressTextShort: { fontSize: Math.min(width * 0.034, 13) },
+
+  // ─── Card Footer ──────────────────────────────────────────────────────────
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1074,76 +1155,55 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#333',
   },
-  cardFooterSmall: {
-    marginTop: height * 0.006,
-    paddingTop: height * 0.01,
-  },
-  cardFooterLarge: {
-    marginTop: height * 0.01,
-    paddingTop: height * 0.015,
-  },
-  cardFooterShort: {
-    marginTop: height * 0.004,
-    paddingTop: height * 0.008,
-  },
-  priceLabel: {
-    color: '#888',
-    fontSize: Math.min(width * 0.035, 14),
-  },
-  priceLabelSmall: {
-    fontSize: Math.min(width * 0.033, 13),
-  },
-  priceLabelLarge: {
-    fontSize: Math.min(width * 0.037, 15),
-  },
-  priceLabelShort: {
-    fontSize: Math.min(width * 0.032, 12),
-  },
+  cardFooterSmall: { marginTop: height * 0.006, paddingTop: height * 0.01 },
+  cardFooterLarge: { marginTop: height * 0.01, paddingTop: height * 0.015 },
+  cardFooterShort: { marginTop: height * 0.004, paddingTop: height * 0.008 },
+  priceLabel: { color: '#888', fontSize: Math.min(width * 0.035, 14) },
+  priceLabelSmall: { fontSize: Math.min(width * 0.033, 13) },
+  priceLabelLarge: { fontSize: Math.min(width * 0.037, 15) },
+  priceLabelShort: { fontSize: Math.min(width * 0.032, 12) },
   priceText: {
     color: '#FFC107',
     fontSize: Math.min(width * 0.045, 18),
     fontWeight: 'bold',
   },
-  priceTextSmall: {
-    fontSize: Math.min(width * 0.042, 17),
+  priceTextSmall: { fontSize: Math.min(width * 0.042, 17) },
+  priceTextLarge: { fontSize: Math.min(width * 0.048, 20) },
+  priceTextShort: { fontSize: Math.min(width * 0.04, 16) },
+
+  // ─── Modal ────────────────────────────────────────────────────────────────
+  // FIX: removed `height: 'fit-content'` (invalid in RN — caused the Yoga crash)
+  bookingDetailsContainer: {
+    borderWidth: 1,
+    borderColor: '#444',
+    padding: 5,
   },
-  priceTextLarge: {
-    fontSize: Math.min(width * 0.048, 20),
-  },
-  priceTextShort: {
-    fontSize: Math.min(width * 0.04, 16),
-  },
-  // Modal Styles
-  receiptScrollContent: {
-    paddingBottom: 20,
-  },
-  receiptScrollContentShort: {
-    paddingBottom: 10,
-  },
+  receiptScrollContent: { paddingBottom: 20 },
+  receiptScrollContentShort: { paddingBottom: 10 },
+
   detailSection: {
     marginBottom: 10,
     paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#333',
-    borderWidth: 2,
-    // borderColor: '',
   },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   locationHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   detailLabel: {
     color: '#888',
     fontSize: 13,
     fontWeight: '600',
   },
+  // For values shown inline in a detailRow (right-aligned, bounded width)
   detailValue: {
     color: '#fff',
     fontSize: 13,
@@ -1151,42 +1211,54 @@ const styles = StyleSheet.create({
     maxWidth: '60%',
     textAlign: 'right',
   },
-  statusBadge: {
+  // Wider value for things like date that need more room
+  detailValueWide: {
+    maxWidth: '70%',
+  },
+  // For values shown below a label (full width, left-aligned)
+  detailValueFull: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+
+  // ─── Modal Status Badge (separate from card badge to avoid duplicate key) ─
+  modalStatusBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 4,
   },
-  statusCompleted: {
-    backgroundColor: 'rgba(76, 175, 80, 0.15)',
+  statusPending: {
+    backgroundColor: 'rgba(247, 183, 49, 0.2)',
   },
-  statusCancelled: {
-    backgroundColor: 'rgba(244, 67, 54, 0.15)',
-  },
-  statusText: {
+  modalStatusText: {
     color: '#fff',
     fontSize: 11,
     fontWeight: 'bold',
-    textTransform: 'capitalize',
+    textTransform: 'uppercase',
   },
+
+  // ─── Total Section ────────────────────────────────────────────────────────
   totalSection: {
     backgroundColor: '#FFC107',
+    borderRadius: 10,
+    padding: 16,
     alignItems: 'center',
-    borderRadius: 8,
-    // borderRadius: 8,
-    // padding: 8,
-    // alignItems: 'center',
-    // marginTop: 5,
-    // marginBottom: 0,
+    marginTop: 8,
+    marginBottom: 4,
   },
   totalLabel: {
     color: '#000',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
-    marginBottom: 8,
+    letterSpacing: 1,
+    marginBottom: 6,
+    textTransform: 'uppercase',
   },
   totalValue: {
     color: '#000',
-    fontSize: 24,
-    fontWeight: '800',
+    fontSize: 26,
+    fontWeight: '900',
   },
 });

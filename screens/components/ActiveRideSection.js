@@ -3,11 +3,11 @@ import { useNavigation } from '@react-navigation/native';
 import React from 'react';
 import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-const ActiveRideSection = ({ 
-  status, 
-  rideId, 
-  rideDetails, 
-  onStartRide, 
+const ActiveRideSection = ({
+  status,
+  rideId,
+  rideDetails,
+  onStartRide,
   onFinishRide,
   isStarting = false,
   isFinishing = false,
@@ -17,9 +17,9 @@ const ActiveRideSection = ({
 }) => {
 
   const navigation = useNavigation();
-  
+
   const isPickupPhase = status === 'ride_created' || status === 'driver_on_way';
-  
+
   if (status === 'not_busy') return null;
 
   const formatCurrency = (amount) => {
@@ -64,9 +64,9 @@ const ActiveRideSection = ({
         <View style={styles.riderCard}>
           <View style={styles.riderAvatar}>
             {rideDetails.rider.profile_image ? (
-                <Image source={{uri: rideDetails.rider.profile_image}} style={styles.avatarImage} />
+              <Image source={{ uri: rideDetails.rider.profile_image }} style={styles.avatarImage} />
             ) : (
-                <Ionicons name="person" size={24} color="#facc15" />
+              <Ionicons name="person" size={24} color="#facc15" />
             )}
           </View>
           <View style={styles.riderDetails}>
@@ -81,44 +81,44 @@ const ActiveRideSection = ({
       <View style={styles.routeContainer}>
         {/* Pickup */}
         <View style={styles.addressRow}>
-            <View style={styles.timelineContainer}>
-                <Ionicons name="ellipse" size={12} color="#facc15" />
-                <View style={styles.timelineLine} />
-            </View>
-            <View style={styles.addressContent}>
-                <Text style={styles.addressLabel}>PICKUP</Text>
-                <Text style={styles.addressText} numberOfLines={2}>
-                    {rideDetails?.pickup_address || "Pickup location not set"}
-                </Text>
-            </View>
+          <View style={styles.timelineContainer}>
+            <Ionicons name="ellipse" size={12} color="#facc15" />
+            <View style={styles.timelineLine} />
+          </View>
+          <View style={styles.addressContent}>
+            <Text style={styles.addressLabel}>PICKUP</Text>
+            <Text style={styles.addressText} numberOfLines={2}>
+              {rideDetails?.pickup_address || "Pickup location not set"}
+            </Text>
+          </View>
         </View>
 
         {/* Dropoff */}
         <View style={styles.addressRow}>
-            <View style={styles.timelineContainer}>
-                <Ionicons name="location" size={12} color="#4CAF50" />
-            </View>
-            <View style={styles.addressContent}>
-                <Text style={styles.addressLabel}>DROPOFF</Text>
-                <Text style={styles.addressText} numberOfLines={2}>
-                    {rideDetails?.dropoff_address || "Destination not set"}
-                </Text>
-            </View>
+          <View style={styles.timelineContainer}>
+            <Ionicons name="location" size={12} color="#4CAF50" />
+          </View>
+          <View style={styles.addressContent}>
+            <Text style={styles.addressLabel}>DROPOFF</Text>
+            <Text style={styles.addressText} numberOfLines={2}>
+              {rideDetails?.dropoff_address || "Destination not set"}
+            </Text>
+          </View>
         </View>
       </View>
 
       {rideDetails?.fare !== undefined && (
         <View style={styles.fareContainer}>
-            <Text style={styles.fareLabel}>Est. Fare</Text>
-            <Text style={styles.fareValue}>{formatCurrency(rideDetails.fare)}</Text>
+          <Text style={styles.fareLabel}>Est. Fare</Text>
+          <Text style={styles.fareValue}>{formatCurrency(rideDetails.fare)}</Text>
         </View>
       )}
 
       <View style={styles.actionsContainer}>
-        
+
         {/* Main Action Button */}
         {isPickupPhase && (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.actionButton, isArriving && styles.buttonDisabled]}
             onPress={onArrived}
             disabled={isArriving}
@@ -128,7 +128,7 @@ const ActiveRideSection = ({
         )}
 
         {status === "arrived" && (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.actionButton, isStarting && styles.buttonDisabled]}
             onPress={onStartRide}
             disabled={isStarting}
@@ -138,7 +138,7 @@ const ActiveRideSection = ({
         )}
 
         {status === 'ride_started' && (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.actionButton, styles.finishButton, isFinishing && styles.buttonDisabled]}
             onPress={onFinishRide}
             disabled={isFinishing}
@@ -147,22 +147,22 @@ const ActiveRideSection = ({
           </TouchableOpacity>
         )}
 
-          <TouchableOpacity 
+        <TouchableOpacity
           style={styles.chatButton}
-          onPress={() => navigation.navigate('DriverChat', { 
-              riderName: rideDetails?.rider?.name || "Passenger" 
+          onPress={() => navigation.navigate('DriverChat', {
+            riderName: rideDetails?.rider?.name || "Passenger"
           })}
-      >
+        >
           <Ionicons name="chatbubble-outline" size={24} color="white" />
-      </TouchableOpacity>
+        </TouchableOpacity>
 
 
         {/* Map Button */}
-        <TouchableOpacity 
-            style={styles.mapButton}
-            onPress={() => navigation.navigate('DriverMapScreen', { rideDetails })}
+        <TouchableOpacity
+          style={styles.mapButton}
+          onPress={() => navigation.navigate('DriverMapScreen', { rideDetails })}
         >
-            <Ionicons name="map-outline" size={24} color="white" />
+          <Ionicons name="map-outline" size={24} color="white" />
         </TouchableOpacity>
 
       </View>
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
   },
-  
+
   /* HEADER */
   header: {
     flexDirection: 'row',
@@ -351,15 +351,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#4CAF50',
   },
   chatButton: {
-  width: 54,
-  height: 54,
-  backgroundColor: '#2a2a2a',
-  borderRadius: 12,
-  justifyContent: 'center',
-  alignItems: 'center',
-  borderWidth: 1,
-  borderColor: '#444',
-},
+    width: 54,
+    height: 54,
+    backgroundColor: '#2a2a2a',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#444',
+  },
   mapButton: {
     width: 54,
     height: 54,
