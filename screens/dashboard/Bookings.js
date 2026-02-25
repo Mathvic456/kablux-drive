@@ -1,18 +1,18 @@
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  FlatList, 
-  TouchableOpacity, 
-  ActivityIndicator, 
-  RefreshControl, 
-  Alert, 
-  Platform, 
-  useWindowDimensions, 
-  Dimensions, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  ActivityIndicator,
+  RefreshControl,
+  Alert,
+  Platform,
+  useWindowDimensions,
+  Dimensions,
   ScrollView,
   StatusBar,
-  SafeAreaView 
+  SafeAreaView
 } from 'react-native';
 import { useState, useMemo, useCallback } from 'react';
 import { useRideHistory } from '../../services/rideHistory.service';
@@ -42,11 +42,11 @@ export default function Bookings() {
   const [selectedReceipt, setSelectedReceipt] = useState(null);
   const [isDownloading, setIsDownloading] = useState(false);
 
-  const { 
-    data: rideHistoryResponse, 
-    isPending, 
-    isError, 
-    refetch 
+  const {
+    data: rideHistoryResponse,
+    isPending,
+    isError,
+    refetch
   } = useRideHistory(true);
 
   const tabs = [
@@ -81,7 +81,7 @@ export default function Bookings() {
   const generateReceiptHTML = (ride) => {
     const formattedDate = formatDate(ride.start_time);
     const formattedFare = formatCurrency(ride.fare);
-    const serviceType = "Standard Ride"; 
+    const serviceType = "Standard Ride";
 
     return `
       <!DOCTYPE html>
@@ -199,7 +199,8 @@ export default function Bookings() {
   };
 
   const openReceiptModal = (ride) => {
-    console.log('Opening receipt modal for ride:', ride.id);
+    console.log('rideiiii', ride)
+    console.log('Opening receipt modal for ride:', ride.driver);
     setSelectedReceipt(ride);
     setShowReceiptModal(true);
   };
@@ -214,8 +215,8 @@ export default function Bookings() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    try { await refetch(); } 
-    catch (e) { console.error(e); } 
+    try { await refetch(); }
+    catch (e) { console.error(e); }
     finally { setRefreshing(false); }
   }, [refetch]);
 
@@ -232,24 +233,24 @@ export default function Bookings() {
     if (filter !== 'all') {
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      
+
       result = result.filter(ride => {
         if (!ride?.start_time) return false;
         const rideDate = new Date(ride.start_time);
-        
+
         if (filter === 'today') {
-           const rideDay = new Date(rideDate.getFullYear(), rideDate.getMonth(), rideDate.getDate());
-           return rideDay.getTime() === today.getTime();
+          const rideDay = new Date(rideDate.getFullYear(), rideDate.getMonth(), rideDate.getDate());
+          return rideDay.getTime() === today.getTime();
         }
         if (filter === 'week') {
-           const weekAgo = new Date(today);
-           weekAgo.setDate(weekAgo.getDate() - 7);
-           return rideDate >= weekAgo;
+          const weekAgo = new Date(today);
+          weekAgo.setDate(weekAgo.getDate() - 7);
+          return rideDate >= weekAgo;
         }
         if (filter === 'month') {
-           const monthAgo = new Date(today);
-           monthAgo.setMonth(monthAgo.getMonth() - 1);
-           return rideDate >= monthAgo;
+          const monthAgo = new Date(today);
+          monthAgo.setMonth(monthAgo.getMonth() - 1);
+          return rideDate >= monthAgo;
         }
         return true;
       });
@@ -261,14 +262,14 @@ export default function Bookings() {
 
   const renderItem = ({ item }) => {
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         style={[
           styles.card,
           isSmallScreen && styles.cardSmall,
           isLargeScreen && styles.cardLarge,
           isTablet && styles.cardTablet,
           isShortScreen && styles.cardShort
-        ]} 
+        ]}
         activeOpacity={0.7}
         onPress={() => openReceiptModal(item)}
       >
@@ -287,7 +288,7 @@ export default function Bookings() {
             {formatDate(item.start_time)}
           </Text>
           <View style={[
-            styles.statusBadge, 
+            styles.statusBadge,
             item.status === 'cancelled' ? styles.statusCancelled : styles.statusCompleted,
             isSmallScreen && styles.statusBadgeSmall,
             isLargeScreen && styles.statusBadgeLarge,
@@ -321,7 +322,7 @@ export default function Bookings() {
               {item.pickup_address || "Unknown Pickup"}
             </Text>
           </View>
-          
+
           <View style={[
             styles.verticalLine,
             isSmallScreen && styles.verticalLineSmall,
@@ -373,9 +374,9 @@ export default function Bookings() {
       <SafeAreaView style={[styles.safeArea, { backgroundColor: 'black' }]}>
         <StatusBar barStyle="light-content" backgroundColor="black" />
         <View style={[styles.centerContainer, { height: height }]}>
-          <ActivityIndicator 
-            size={isSmallScreen ? "large" : "large"} 
-            color="#FFC107" 
+          <ActivityIndicator
+            size={isSmallScreen ? "large" : "large"}
+            color="#FFC107"
           />
           <Text style={[
             styles.loadingText,
@@ -438,7 +439,7 @@ export default function Bookings() {
             </TouchableOpacity>
           ))}
         </View>
-        
+
         {/* FILTER BUTTON */}
         <View style={[
           styles.filterContainer,
@@ -462,10 +463,10 @@ export default function Bookings() {
             }}
             activeOpacity={0.7}
           >
-            <Ionicons 
-              name="filter" 
-              size={isSmallScreen ? 14 : isShortScreen ? 12 : 16} 
-              color="#FFC107" 
+            <Ionicons
+              name="filter"
+              size={isSmallScreen ? 14 : isShortScreen ? 12 : 16}
+              color="#FFC107"
             />
             <Text style={[
               styles.filterText,
@@ -540,7 +541,7 @@ export default function Bookings() {
           maxHeight={isShortScreen ? '65%' : '70%'}
         >
           {selectedReceipt && (
-            <ScrollView 
+            <ScrollView
               showsVerticalScrollIndicator={false}
               contentContainerStyle={[
                 styles.receiptScrollContent,
@@ -557,9 +558,9 @@ export default function Bookings() {
                   <Text style={styles.detailLabel}>Status</Text>
                   <View style={[
                     styles.statusBadge,
-                    selectedReceipt.status === 'completed' ? styles.statusCompleted : 
-                    selectedReceipt.status === 'cancelled' ? styles.statusCancelled :
-                    { backgroundColor: 'rgba(247, 183, 49, 0.2)' }
+                    selectedReceipt.status === 'completed' ? styles.statusCompleted :
+                      selectedReceipt.status === 'cancelled' ? styles.statusCancelled :
+                        { backgroundColor: 'rgba(247, 183, 49, 0.2)' }
                   ]}>
                     <Text style={styles.statusText}>{(selectedReceipt.status || "unknown").toUpperCase()}</Text>
                   </View>
@@ -628,10 +629,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#333',
   },
-  bookingDetailsContainer:{
-    borderWidth:1,
-    borderColor:'#444',
-    height:'fit-content',
+  bookingDetailsContainer: {
+    borderWidth: 1,
+    borderColor: '#444',
+    height: 'fit-content',
     padding: 5
   },
   headerSmall: {

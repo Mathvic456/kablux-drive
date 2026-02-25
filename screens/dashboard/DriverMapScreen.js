@@ -27,6 +27,7 @@ if (!GOOGLE_API_KEY) {
 const { height } = Dimensions.get('window');
 
 export default function DriverMapScreen({ navigation }) {
+  console.log('keyyy', GOOGLE_API_KEY)
   const mapRef = useRef(null);
   const route = useRoute();
   const { rideDetails } = route.params;
@@ -99,7 +100,7 @@ export default function DriverMapScreen({ navigation }) {
     }
 
     const raw = rideDetails.raw;
-    
+
     console.log("🗺️ Setting destination based on status:", status);
     console.log("📍 Raw data:", raw);
 
@@ -107,7 +108,7 @@ export default function DriverMapScreen({ navigation }) {
     if (status === "ride_created" || status === "driver_on_way" || status === "arrived") {
       const pickupLat = parseFloat(raw.pickup_lat);
       const pickupLng = parseFloat(raw.pickup_lng);
-      
+
       if (!isNaN(pickupLat) && !isNaN(pickupLng)) {
         setDestination({
           latitude: pickupLat,
@@ -123,7 +124,7 @@ export default function DriverMapScreen({ navigation }) {
     else if (status === "ride_started") {
       const dropoffLat = parseFloat(raw.dropoff_lat);
       const dropoffLng = parseFloat(raw.dropoff_lng);
-      
+
       if (!isNaN(dropoffLat) && !isNaN(dropoffLng)) {
         setDestination({
           latitude: dropoffLat,
@@ -228,10 +229,10 @@ export default function DriverMapScreen({ navigation }) {
           description={destination.address}
         >
           <View style={styles.destinationMarkerContainer}>
-            <FontAwesome5 
-              name={status === "ride_started" ? "flag-checkered" : "map-pin"} 
-              size={20} 
-              color="#1c1c1c" 
+            <FontAwesome5
+              name={status === "ride_started" ? "flag-checkered" : "map-pin"}
+              size={20}
+              color="#1c1c1c"
             />
           </View>
         </Marker>

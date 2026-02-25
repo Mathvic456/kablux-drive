@@ -6,7 +6,6 @@ import { useDriverRide } from "./DriverRideContext";
 import { useAuth } from "./AuthContext";
 
 const WSS_URL = process.env.EXPO_PUBLIC_WSS_URL;
-const ONLINE_PREF_KEY = 'user_requested_online';
 
 // --- Types ---
 interface RideNotification {
@@ -40,6 +39,9 @@ interface SocketContextValue {
   chatMessages: Record<string, any[]>;
   sendChatMessage: (rideId: string, text: string) => Promise<void>;
   toggleOnlineStatus: () => Promise<void>;
+  // Exposed so Home can call the server-side status update alongside the WS toggle
+  goOnlineOnServer: () => Promise<void>;
+  goOfflineOnServer: () => Promise<void>;
 }
 
 export const SocketContext = createContext<SocketContextValue | undefined>(undefined);
@@ -55,9 +57,15 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
   const retryTimeout = useRef<NodeJS.Timeout | null>(null);
   const retryAttempts = useRef(0);
   const maxRetryDelay = 30000;
-  const shouldReconnect = useRef(true);
+  // FIX: shouldReconnect controls ONLY reconnect-on-drop, not user intent.
+  // isOnlineRef tracks user intent so we never reconnect when user chose offline.
+  const shouldReconnect = useRef(false);
+  const isOnlineRef = useRef(false);
   const sentOffersRef = useRef<Map<string, RideNotification>>(new Map());
   const currentRideIdRef = useRef<string | null>(null);
+
+  // FIX: Toggling is tracked separately to prevent double-fires causing flicker.
+  const isTogglingRef = useRef(false);
 
   // State
   const [isConnected, setIsConnected] = useState(false);
@@ -67,7 +75,6 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
   const [, forceUpdate] = useState(0);
   const [locationPermission, setLocationPermission] = useState<string>('undetermined');
   const { token, getValidToken, clearTokens } = useAuth();
-  const [hasInitialized, setHasInitialized] = useState(false);
   const { rideId, handleWsEvent } = useDriverRide();
   const [chatMessages, setChatMessages] = useState<Record<string, any[]>>({});
 
@@ -79,15 +86,15 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
   // --- LOGOUT LOGIC ---
   const handleLogout = async () => {
     console.log("🚪 [LOGOUT] Session expired - cleaning up everything...");
+    isOnlineRef.current = false;
     shouldReconnect.current = false;
 
     if (retryTimeout.current) {
-      console.log("⏰ [LOGOUT] Clearing pending retry timeout");
       clearTimeout(retryTimeout.current);
+      retryTimeout.current = null;
     }
 
     if (ws.current) {
-      console.log("🔌 [LOGOUT] Closing active socket");
       ws.current.close();
       ws.current = null;
     }
@@ -98,71 +105,113 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
 
     setTimeout(() => {
       if (navigationRef.isReady()) {
-        console.log("🚀 [LOGOUT] Navigating to Login screen");
         navigationRef.reset({ index: 0, routes: [{ name: 'Login' as never }] });
       }
     }, 100);
   };
 
+  // --- SERVER STATUS HELPERS ---
+  // These are intentionally no-ops here; Home wires them to activeStatusMutation.
+  // Exposed on context so callers can coordinate both WS + server status together.
+  const goOnlineOnServer = async () => {
+    // Implemented by consumer (Home) via activeStatusMutation
+  };
+  const goOfflineOnServer = async () => {
+    // Implemented by consumer (Home) via activeStatusMutation
+  };
+
+  // --- TOGGLE ONLINE/OFFLINE ---
+  // FIX: Guard with isTogglingRef so rapid taps don't cause flicker or double-connect.
   const toggleOnlineStatus = async () => {
-    if (isConnected) {
-      // GO OFFLINE
-      console.log("[USER ACTION] goOffline clicked");
+    if (isTogglingRef.current) {
+      console.log("⚠️ [TOGGLE] Already toggling, ignoring duplicate call");
+      return;
+    }
+    isTogglingRef.current = true;
 
-      setHasInitialized(false);
-      stopLocationTracking();
+    try {
+      if (isOnlineRef.current) {
+        // --- GO OFFLINE ---
+        console.log("[USER ACTION] Going offline");
+        isOnlineRef.current = false;
+        shouldReconnect.current = false;
 
-      if (ws.current) {
-        console.log("🔌 [OFFLINE] Closing WebSocket connection");
-        ws.current.close();
-        ws.current = null;
-      }
+        if (retryTimeout.current) {
+          clearTimeout(retryTimeout.current);
+          retryTimeout.current = null;
+        }
 
-      shouldReconnect.current = false;
+        stopLocationTracking();
 
-      if (retryTimeout.current) {
-        clearTimeout(retryTimeout.current);
-        retryTimeout.current = null;
-      }
+        if (ws.current) {
+          ws.current.close();
+          ws.current = null;
+        }
 
-      setIsConnected(false);
-      setRideNotifications([]);
-    } else {
-      // GO ONLINE
-      console.log("[USER ACTION] goOnline clicked");
+        // State is set AFTER cleanup, not before, to prevent flicker.
+        setIsConnected(false);
+        setRideNotifications([]);
 
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      setLocationPermission(status);
+      } else {
+        // --- GO ONLINE ---
+        console.log("[USER ACTION] Going online");
 
-      if (status !== 'granted') {
-        console.warn("🚫 [PERMISSION] User denied location");
-        return;
-      }
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        setLocationPermission(status);
 
-      if (!hasInitialized) {
-        setHasInitialized(true);
+        if (status !== 'granted') {
+          console.warn("🚫 [PERMISSION] Location denied, cannot go online");
+          return; // Don't set isOnlineRef - stay offline
+        }
+
+        isOnlineRef.current = true;
         shouldReconnect.current = true;
+
         await startLocationTracking();
+
         const validToken = await getValidToken();
-        if (validToken) connectWebSocket(validToken);
+        if (validToken) {
+          connectWebSocket(validToken);
+        } else {
+          console.error("❌ [TOGGLE] No valid token, reverting online intent");
+          isOnlineRef.current = false;
+          shouldReconnect.current = false;
+        }
       }
+    } finally {
+      isTogglingRef.current = false;
     }
   };
 
+  // --- NOTIFICATION PARSING ---
+  // FIX: Expanded field name fallbacks so offers aren't silently dropped.
   const parseRideNotification = (data: any): RideNotification | null => {
     try {
-      console.log("🛠️ [PARSING] Attempting to parse raw data:", data);
-      const offerMatch = data.message?.match(/Rider offer:\s*([\d.]+)/);
-      const distanceVal = data.distance ? parseFloat(data.distance) : undefined;
-      const timeCalc = distanceVal ? String((distanceVal / 0.5) * 60) : "0";
+      console.log("🛠️ [PARSING] Raw data:", JSON.stringify(data, null, 2));
 
-      const finalId = data.ride_id || data.ride_request_id;
+      // FIX: Accept all known field name variants from the server
+      const finalId =
+        data.ride_request_id ||
+        data.ride_id ||
+        data.request_id ||
+        data.id ||
+        null;
+
       if (!finalId) {
-        console.warn("⚠️ [PARSE FAILED] Missing ride_id in payload:", data);
+        console.warn("⚠️ [PARSE FAILED] No ride ID found in any known field. Full payload:", JSON.stringify(data));
         return null;
       }
 
-      const parsed = {
+      const offerMatch = data.message?.match(/Rider offer:\s*([\d.]+)/);
+      const distanceVal = data.distance
+        ? parseFloat(data.distance)
+        : data.distance_km
+          ? parseFloat(data.distance_km)
+          : undefined;
+
+      const timeCalc = distanceVal ? String((distanceVal / 0.5) * 60) : "0";
+
+      const parsed: RideNotification = {
         ride_request_id: finalId,
         notification_type: data.type || "RIDE_REQUESTED",
         ride_type: data.ride_type || "standard",
@@ -170,32 +219,30 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         rider_name: data.rider_name || "Unknown Rider",
         rider_rating: data.rider_rating || "4.5",
         time_to_pickup: timeCalc,
-        address: data.pickup || data.pickup_address || "Address not provided",
-        offer_amount: offerMatch ? parseFloat(offerMatch[1]) : (data.fare || 0),
-        estimated_fare: data.fare,
+        address: data.pickup || data.pickup_address || data.address || "Address not provided",
+        offer_amount: offerMatch
+          ? parseFloat(offerMatch[1])
+          : data.offer_amount ?? data.fare ?? 0,
+        estimated_fare: data.estimated_fare ?? data.fare,
         distance_km: distanceVal,
       };
-      console.log("✅ [PARSED] Successfully formatted notification:", parsed.ride_request_id);
+
+      console.log("✅ [PARSED] Notification ready:", parsed.ride_request_id);
       return parsed;
     } catch (err) {
-      console.error("❌ [PARSE ERROR] Fatal error during parsing:", err);
+      console.error("❌ [PARSE ERROR]", err);
       return null;
     }
   };
 
   // --- MAP STORAGE (SENT OFFERS) ---
   const saveSentOffer = (rideId: string, offer: RideNotification) => {
-    console.log(`💾 [STORAGE] Saving offer for ride: ${rideId}`);
     sentOffersRef.current.set(rideId, offer);
-    console.log(`📊 [STORAGE] Map entries: ${sentOffersRef.current.size}. Keys:`, Array.from(sentOffersRef.current.keys()));
     forceUpdate(v => v + 1);
   };
 
   const getSentOffer = (rideId: string) => {
-    console.log(`🔍 [STORAGE] Looking for ride: ${rideId}`);
-    const result = sentOffersRef.current.get(rideId);
-    result ? console.log("✅ [STORAGE] Offer found") : console.log("❌ [STORAGE] Offer not found");
-    return result;
+    return sentOffersRef.current.get(rideId);
   };
 
   // --- LOCATION LOGIC ---
@@ -205,18 +252,17 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         type: "location_update",
         data: { lat: location.lat, long: location.long },
       }));
-      console.log("📍 [LOCATION] Sent to server:", location);
-    } else {
-      console.log("📍 [LOCATION] WebSocket not open, update skipped. State:", socket.readyState);
+      console.log("📍 [LOCATION] Sent:", location);
     }
   };
 
   const startLocationTracking = async () => {
-    console.log("🛰️ [LOCATION] Initializing tracking...");
+    console.log("🛰️ [LOCATION] Initializing...");
     try {
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
       const coords = { lat: loc.coords.latitude, long: loc.coords.longitude };
-
       setCurrentLocation(coords);
       currentLocationRef.current = coords;
 
@@ -227,8 +273,10 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
       locationSubscription.current = await Location.watchPositionAsync(
         { accuracy: Location.Accuracy.Balanced, timeInterval: 10000, distanceInterval: 50 },
         (location) => {
-          const newCoords = { lat: location.coords.latitude, long: location.coords.longitude };
-          console.log("📍 [LOCATION] Watch update:", newCoords);
+          const newCoords = {
+            lat: location.coords.latitude,
+            long: location.coords.longitude,
+          };
           setCurrentLocation(newCoords);
           currentLocationRef.current = newCoords;
 
@@ -244,7 +292,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
   };
 
   const stopLocationTracking = () => {
-    console.log("🛑 [LOCATION] Stopping tracking...");
+    console.log("🛑 [LOCATION] Stopping...");
     locationSubscription.current?.remove();
     locationSubscription.current = null;
     if (locationInterval.current) {
@@ -253,43 +301,43 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
     }
   };
 
+  // --- CHAT ---
   const sendChatMessage = async (rideId: string, text: string) => {
-    const payload = {
-      type: "send_message",
-      data: { ride_id: rideId, message: text }
-    };
-
     const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const newMessage = {
       id: tempId,
       text,
       sender: 'driver',
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
     setChatMessages(prev => {
       const existing = prev[rideId] || [];
-
-      if (existing.some(m => m.id === tempId)) {
-        console.log("⚠️ [CHAT] Duplicate message detected, skipping:", tempId);
-        return prev;
-      }
-
-      return {
-        ...prev,
-        [rideId]: [...existing, newMessage]
-      };
+      if (existing.some(m => m.id === tempId)) return prev;
+      return { ...prev, [rideId]: [...existing, newMessage] };
     });
 
     if (ws.current?.readyState === WebSocket.OPEN) {
-      ws.current.send(JSON.stringify(payload));
+      ws.current.send(JSON.stringify({
+        type: "send_message",
+        data: { ride_id: rideId, message: text },
+      }));
     }
   };
 
   // --- WEBSOCKET LIFECYCLE ---
   const connectWebSocket = async (accessToken: string) => {
+    // FIX: Don't open a new socket if one is already open/connecting
+    if (
+      ws.current &&
+      (ws.current.readyState === WebSocket.OPEN ||
+        ws.current.readyState === WebSocket.CONNECTING)
+    ) {
+      console.log("⚠️ [WS] Socket already open/connecting, skipping duplicate connect");
+      return;
+    }
+
     if (ws.current) {
-      console.log("🔌 [WS] Existing connection found, closing it first");
       ws.current.close();
     }
 
@@ -298,13 +346,17 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
     ws.current = socket;
 
     socket.onopen = () => {
-      console.log("✅ [WS] Connected and Ready (Driver)");
+      console.log("✅ [WS] Connected (Driver)");
       setIsConnected(true);
       retryAttempts.current = 0;
 
+      // Send current location immediately on connect
+      if (currentLocationRef.current) {
+        sendLocationUpdate(socket, currentLocationRef.current);
+      }
+
       locationInterval.current = setInterval(() => {
         if (ws.current?.readyState === WebSocket.OPEN && currentLocationRef.current) {
-          console.log("💓 [WS] Sending location heartbeat");
           sendLocationUpdate(ws.current, currentLocationRef.current);
         }
       }, 15000);
@@ -313,39 +365,41 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
     socket.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
-        console.log("📩 [WS_DRIVER] ========== NEW MESSAGE ==========");
-        console.log("📩 [WS_DRIVER] Type:", msg.type);
-        console.log("📩 [WS_DRIVER] Full payload:", JSON.stringify(msg, null, 2));
+        console.log("[WS_DRIVER] ========== NEW MESSAGE ==========");
+        console.log("[WS_DRIVER] Type:", msg.type);
+        console.log("[WS_DRIVER] Full payload:", JSON.stringify(msg, null, 2));
 
-        // ✅ FIX: Forward ALL notify events to DriverRideContext
+        // Forward ALL notify events to DriverRideContext
         if (msg.type === "notify" && msg.data) {
-          const eventType = msg.data.type;
-          console.log("🔔 [WS_DRIVER] Forwarding event to DriverRideContext:", eventType);
+          console.log("🔔 [WS_DRIVER] Forwarding to DriverRideContext:", msg.data.type);
           handleWsEvent(msg);
         }
 
-        // Handle RIDE_REQUESTED notifications
-        if (msg.type === "notify" && msg.data?.type === "RIDE_REQUESTED") {
+        // FIX: Handle RIDE_REQUESTED at both possible levels in the payload
+        const isRideRequested =
+          (msg.type === "notify" && msg.data?.type === "RIDE_REQUESTED") ||
+          msg.type === "RIDE_REQUESTED";
+
+        if (isRideRequested) {
           console.log("🚗 [WS_DRIVER] New ride request detected!");
-          const notification = parseRideNotification(msg.data);
+          // Data can be at msg.data or msg itself
+          const rawData = msg.data || msg;
+          const notification = parseRideNotification(rawData);
 
           if (notification) {
             setRideNotifications(prev => {
               if (prev.some(n => n.ride_request_id === notification.ride_request_id)) {
-                console.log("⚠️ [WS_DRIVER] Ignoring duplicate notification ID:", notification.ride_request_id);
+                console.log("⚠️ [WS_DRIVER] Duplicate notification, ignoring:", notification.ride_request_id);
                 return prev;
               }
+              console.log("✅ [WS_DRIVER] Adding notification:", notification.ride_request_id);
               return [...prev, notification];
             });
           }
-        }
-        // Handle session expiration
-        else if (msg.type === "error" && msg.message?.includes("expired")) {
-          console.error("🔑 [WS_DRIVER] Auth error detected in message stream");
+        } else if (msg.type === "error" && msg.message?.includes("expired")) {
+          console.error("🔑 [WS_DRIVER] Auth expired");
           handleLogout();
-        }
-        // Handle chat messages
-        else if (msg.type === "chat_message" && msg.message) {
+        } else if (msg.type === "chat_message" && msg.message) {
           const { id, content, sender_role, created_at } = msg.message;
           const activeRideId = currentRideIdRef.current;
 
@@ -359,26 +413,16 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
 
             setChatMessages(prev => {
               const existing = prev[activeRideId] || [];
+              if (existing.some(m => m.id === String(id))) return prev;
 
-              // Strict duplicate check
-              if (existing.some(m => m.id === String(id))) {
-                return prev;
-              }
-
-              // Optimistic cleanup
               const cleanExisting = existing.filter(m => {
                 const isTemp = m.id.startsWith('temp_');
                 const isSameContent = m.text === content;
                 return !(isTemp && isSameContent);
               });
 
-              return {
-                ...prev,
-                [activeRideId]: [...cleanExisting, newMessage]
-              };
+              return { ...prev, [activeRideId]: [...cleanExisting, newMessage] };
             });
-          } else {
-            console.error("❌ [CHAT] No activeRideId! Both hook and ref are null.");
           }
         } else {
           console.log("⚠️ [WS_DRIVER] Unhandled message type:", msg.type);
@@ -393,40 +437,59 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
     socket.onclose = (e) => {
       console.log(`🚪 [WS_DRIVER] Closed. Code: ${e.code}, Reason: ${e.reason || "None"}`);
       setIsConnected(false);
-      stopLocationTracking();
-      if (shouldReconnect.current) scheduleRetry();
+
+      if (locationInterval.current) {
+        clearInterval(locationInterval.current);
+        locationInterval.current = null;
+      }
+
+      // FIX: Only reconnect if user intent is still "online"
+      if (shouldReconnect.current && isOnlineRef.current) {
+        scheduleRetry();
+      } else {
+        console.log("🛑 [WS] Not reconnecting - user is offline or session ended");
+      }
     };
 
     socket.onerror = (err) => {
-      console.error("⚠️ [WS_DRIVER] Error:", err);
+      console.error("⚠️ [WS_DRIVER] Socket error:", err);
     };
   };
 
   const scheduleRetry = () => {
-    if (!shouldReconnect.current) return;
-
+    if (!shouldReconnect.current || !isOnlineRef.current) return;
     if (retryTimeout.current) clearTimeout(retryTimeout.current);
 
     const delay = Math.min(1000 * Math.pow(2, retryAttempts.current), maxRetryDelay);
-    console.log(`⏰ [RETRY] Attempt ${retryAttempts.current + 1} scheduled in ${delay}ms`);
+    console.log(`⏰ [RETRY] Attempt ${retryAttempts.current + 1} in ${delay}ms`);
     retryAttempts.current++;
 
     retryTimeout.current = setTimeout(async () => {
-      console.log("🔄 [RETRY] Executing connection attempt...");
+      if (!isOnlineRef.current) {
+        console.log("🛑 [RETRY] User went offline, cancelling retry");
+        return;
+      }
+
+      console.log("🔄 [RETRY] Reconnecting...");
+
+      // FIX: Restart location tracking on reconnect (was missing before)
+      if (!locationSubscription.current) {
+        await startLocationTracking();
+      }
+
       const validToken = await getValidToken();
       if (validToken) {
         connectWebSocket(validToken);
       } else {
-        console.log("❌ [RETRY] No valid token, retry failed");
+        console.log("❌ [RETRY] No valid token");
         scheduleRetry();
       }
     }, delay);
   };
 
-  // --- EFFECTS ---
+  // --- MOUNT / UNMOUNT ---
   useEffect(() => {
     console.log("🎬 [LIFECYCLE] Driver WebSocketProvider Mounted");
-    shouldReconnect.current = true;
 
     (async () => {
       const { status } = await Location.getForegroundPermissionsAsync();
@@ -434,30 +497,25 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
 
       if (status === 'granted') {
         console.log("✅ [INIT] Permission already granted, auto-connecting...");
-        setHasInitialized(true);
+        isOnlineRef.current = true;
+        shouldReconnect.current = true;
         await startLocationTracking();
         const validToken = await getValidToken();
-        if (validToken) {
-          connectWebSocket(validToken);
-        }
+        if (validToken) connectWebSocket(validToken);
       } else {
         console.log("⏸️ [INIT] No permission yet, waiting for user action");
       }
     })();
 
     return () => {
-      console.log("🧹 [LIFECYCLE] Driver WebSocketProvider Unmounting - cleaning up...");
+      console.log("🧹 [LIFECYCLE] WebSocketProvider Unmounting");
+      isOnlineRef.current = false;
       shouldReconnect.current = false;
       ws.current?.close();
       stopLocationTracking();
       if (retryTimeout.current) clearTimeout(retryTimeout.current);
     };
   }, []);
-
-  useEffect(() => {
-    console.log("🔄 [RIDEID] rideId changed:", rideId);
-    currentRideIdRef.current = rideId;
-  }, [rideId]);
 
   return (
     <SocketContext.Provider
@@ -469,13 +527,18 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         currentLocation,
         sessionExpired,
         clearSessionExpired: () => setSessionExpired(false),
-        clearNotification: (id) => setRideNotifications(prev => prev.filter(n => n.ride_request_id !== id)),
+        clearNotification: (id) =>
+          setRideNotifications(prev =>
+            prev.filter(n => n.ride_request_id !== id)
+          ),
         clearAllNotifications: () => setRideNotifications([]),
         sentOffers: sentOffersRef.current,
         saveSentOffer,
         getSentOffer,
         locationPermission,
         toggleOnlineStatus,
+        goOnlineOnServer,
+        goOfflineOnServer,
         chatMessages,
         sendChatMessage,
       }}
