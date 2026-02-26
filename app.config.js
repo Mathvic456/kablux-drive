@@ -79,6 +79,12 @@ export default {
         },
       ],
       [
+        "expo-notifications",
+        {
+          sound: "./assets/sounds/kablux-sound.wav"
+        },
+      ],
+      [
         "expo-av",
         {
           microphonePermission:

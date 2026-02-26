@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { navigationRef } from "../screens/context/NavigationContext";
 import { useDriverRide } from "./DriverRideContext";
 import { useAuth } from "./AuthContext";
+import { playMessageSound } from "../utils/PlayMessageSound";
 
 const WSS_URL = process.env.EXPO_PUBLIC_WSS_URL;
 
@@ -432,6 +433,8 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         console.log("📩 [WS_DRIVER] ================================");
       } catch (err) {
         console.error("❌ [WS_DRIVER] Message parse error:", err);
+      } finally {
+        playMessageSound()
       }
     };
 
