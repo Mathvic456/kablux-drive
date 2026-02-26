@@ -222,8 +222,8 @@ export default function DriverMapScreen({ navigation }) {
           >
             <View style={styles.driverMarkerContainer}>
               <Image
-                source={require('../../assets/images/target.png')}
-                style={{ width: 30, height: 30 }}
+                source={require('../../assets/curr-location.png')}
+                style={{ width: 20, height: 20 }}
                 resizeMode="contain"
               />
             </View>
@@ -415,9 +415,9 @@ const styles = StyleSheet.create({
     borderColor: 'white',
   },
   destinationMarkerContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 20,
+    height: 20,
+    borderRadius: '50%',
     backgroundColor: "#f0d46d",
     justifyContent: 'center',
     alignItems: 'center',

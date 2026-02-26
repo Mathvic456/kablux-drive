@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFetch } from "../utils/fetch-handler";
 import { useAuth } from "./AuthContext";
+import { api } from "../services/api";
 
 type DriverRideStatus =
   | "not_busy"
@@ -21,6 +22,8 @@ interface DriverRideContextValue {
   loadPersisted: () => Promise<void>;
   reset: () => void;
   toggleOnline: () => Promise<void>;
+  setNegotiationUpdates: React.Dispatch<React.SetStateAction<any[]>>;
+  negotiationUpdates: any[]
 }
 
 const DriverRideContext = createContext<DriverRideContextValue>({
@@ -35,6 +38,8 @@ const DriverRideContext = createContext<DriverRideContextValue>({
   arrive: () => { },
   startRide: () => { },
   toggleOnline: async () => { },
+  setNegotiationUpdates: () => { },
+  negotiationUpdates: []
 });
 
 export const useDriverRide = () => useContext(DriverRideContext);
@@ -50,6 +55,9 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
   const [isOnline, setIsOnline] = useState<boolean>(false);
   const { request } = useFetch();
   const { token } = useAuth();
+  const [triggerEffect, setTriggerEffect] = useState(0);
+  const [negotiationUpdates, setNegotiationUpdates] = useState([]);
+
 
   const toggleOnline = async () => {
     try {
@@ -61,43 +69,43 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
       console.log("✅ [DRIVER_RIDE] Toggle online response:", response);
       setIsOnline((prev) => !prev);
     } catch (error) {
-      console.error("❌ [DRIVER_RIDE] Failed to toggle online status:", error);
+      console.error("[DRIVER_RIDE] Failed to toggle online status:", error);
     }
   };
 
   // Load persistent state
   const loadPersisted = async () => {
     try {
-      const saved = await AsyncStorage.getItem("driverRideState");
-      console.log('💾 [DRIVER_RIDE] Saved state:', saved);
+      const saved = await api.get('rides/current/')
+      console.log('[DRIVER_RIDE] Saved state:', saved);
       if (!saved) return;
 
-      const parsed = JSON.parse(saved);
+      const parsed = saved.data;
       setStatus(parsed.status);
       setRideId(parsed.rideId);
       setRiderId(parsed.riderId);
-      console.log("🔥 [DRIVER_RIDE] Rehydrated ride state:", parsed);
+      console.log("[DRIVER_RIDE] Rehydrated ride state:", parsed);
     } catch (err) {
-      console.error("❌ [DRIVER_RIDE] Failed to load persisted state:", err);
+      console.error("[DRIVER_RIDE] Failed to load persisted state:", err);
     }
   };
 
   useEffect(() => {
     loadPersisted();
-  }, []);
+  }, [triggerEffect]);
 
-  const persist = async (data: {
-    status: DriverRideStatus;
-    rideId: string | null;
-    riderId: string | null;
-  }) => {
-    try {
-      await AsyncStorage.setItem("driverRideState", JSON.stringify(data));
-      console.log("💾 [DRIVER_RIDE] Persisted state:", data);
-    } catch (err) {
-      console.error("❌ [DRIVER_RIDE] Failed to persist state:", err);
-    }
-  };
+  // const persist = async (data: {
+  //   status: DriverRideStatus;
+  //   rideId: string | null;
+  //   riderId: string | null;
+  // }) => {
+  //   try {
+  //     await AsyncStorage.setItem("driverRideState", JSON.stringify(data));
+  //     console.log("💾 [DRIVER_RIDE] Persisted state:", data);
+  //   } catch (err) {
+  //     console.error("❌ [DRIVER_RIDE] Failed to persist state:", err);
+  //   }
+  // };
 
   const handleWsEvent = (msg: any) => {
     const rawEvent = msg.data?.type || msg.type || msg.event;
@@ -116,18 +124,25 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
         return;
       }
 
-      console.log("✅ [DRIVER_RIDE] Driver ride accepted!");
-      console.log("  - Ride ID:", ride_id);
-      console.log("  - Rider ID:", rider_id);
-
       setStatus("ride_created");
       setRideId(ride_id);
       setRiderId(rider_id);
 
-      persist({
-        status: "ride_created",
-        rideId: ride_id,
-        riderId: rider_id,
+    } else if (rawEvent === "ride_cancelled") {
+      console.log("resetting from driver context");
+      reset();
+
+    } else if (rawEvent === "negotiation_update") {
+      console.log("[DRIVER_RIDE] Negotiation update received:", msg.data);
+      setNegotiationUpdates((prev) => {
+        const prevArray = Array.isArray(prev) ? prev : [];
+        const exists = prevArray.findIndex((item) => item.ride_request_id === msg.data.ride_request_id);
+        if (exists !== -1) {
+          const updated = [...prevArray];
+          updated[exists] = msg.data;
+          return updated;
+        }
+        return [...prevArray, msg.data];
       });
     } else {
       console.log("[DRIVER_RIDE] Unhandled event type:", event);
@@ -142,12 +157,13 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
 
     console.log("[DRIVER_RIDE] Starting ride:", rideId);
     setStatus("ride_started");
+    setTriggerEffect((prev) => prev + 1)
 
-    persist({
-      status: "ride_started",
-      rideId,
-      riderId,
-    });
+    // persist({
+    //   status: "ride_started",
+    //   rideId,
+    //   riderId,
+    // });
   };
 
   const arrive = () => {
@@ -158,12 +174,14 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
 
     console.log("[DRIVER_RIDE] Driver arrived at pickup location");
     setStatus("arrived");
+    setTriggerEffect((prev) => prev + 1)
 
-    persist({
-      status: "arrived",
-      rideId,
-      riderId,
-    });
+
+    // persist({
+    //   status: "arrived",
+    //   rideId,
+    //   riderId,
+    // });
   };
 
   // Driver finishes the ride
@@ -172,17 +190,21 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
     setStatus("not_busy");
     setRideId(null);
     setRiderId(null);
+    setTriggerEffect((prev) => prev + 1)
 
-    persist({
-      status: "not_busy",
-      rideId: null,
-      riderId: null,
-    });
+
+
+    // persist({
+    //   status: "not_busy",
+    //   rideId: null,
+    //   riderId: null,
+    // });
   };
 
   const reset = () => {
     console.log("🔄 [DRIVER_RIDE] Resetting driver ride state");
     finishRide();
+
   };
 
   return (
@@ -199,6 +221,8 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
         arrive,
         startRide,
         toggleOnline,
+        setNegotiationUpdates,
+        negotiationUpdates
       }}
     >
       {children}

@@ -65,7 +65,6 @@ export default function Home() {
   const [selectedOffer, setSelectedOffer] = useState(null);
   const [arrivalErrorModalVisible, setArrivalErrorModalVisible] = useState(false);
   const [arrivalErrorMessage, setArrivalErrorMessage] = useState("");
-  const [negotiationUpdates, setNegotiationUpdates] = useState({});
   const [acceptedRide, setAcceptedRide] = useState(null);
   const [acceptedModalVisible, setAcceptedModalVisible] = useState(false);
   const [rideCancelledModalVisible, setRideCancelledModalVisible] = useState(false);
@@ -91,7 +90,9 @@ export default function Home() {
     finishRide,
     arrive,
     reset,
-    loadPersisted
+    loadPersisted,
+    setNegotiationUpdates,
+    negotiationUpdates
   } = useDriverRide();
 
   const {
@@ -275,6 +276,7 @@ export default function Home() {
   }, [rideId]);
 
   useEffect(() => {
+    console.log('current status', status)
     if (status === "ride_created") {
       setAcceptedModalVisible(true);
       setRideNotifications([]);
@@ -470,6 +472,8 @@ export default function Home() {
   const negotiationArray = Object.values(negotiationUpdates).sort(
     (a, b) => b.timestamp - a.timestamp
   );
+  console.log('nego arrayy', negotiationArray)
+  console.log('nego object', negotiationUpdates)
 
   // --- RENDER GUARDS ---
   if (profileLoading) {
@@ -624,7 +628,7 @@ export default function Home() {
                         <Text style={styles.ordersCount}>{rideNotifications.length} Active</Text>
                       </View>
 
-                      {rideNotifications.slice(0, 3).map((item) => (
+                      {rideNotifications.map((item) => (
                         <RideOfferCard
                           key={item.ride_request_id}
                           item={item}
@@ -803,8 +807,8 @@ export default function Home() {
             </View>
 
             <FlatList
-              data={negotiationArray}
-              keyExtractor={(item) => item.ride_request_view_id}
+              data={negotiationUpdates}
+              keyExtractor={(item) => item}
               renderItem={({ item }) => (
                 <CounterOfferItem
                   item={item}

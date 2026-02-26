@@ -14,6 +14,7 @@ import { MaterialIcons, FontAwesome, Entypo } from '@expo/vector-icons';
 import { banks } from '../../constants/banks';
 import { useFetch } from '../../utils/fetch-handler';
 import { useAuth } from '../../context/AuthContext';
+import CentralModal from './CentralModal';
 
 export default function BankWithdrawal() {
     const [amount, setAmount] = useState('');

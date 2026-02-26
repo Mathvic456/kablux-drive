@@ -78,7 +78,7 @@ export const useStartRide = () => {
     mutationFn: (rideId: string) => startRide(rideId),
     onSuccess: (data, rideId) => {
       console.log("✅ Ride started mutation successful");
-      
+
       // Invalidate and refetch ride details
       queryClient.invalidateQueries({ queryKey: rideKeys.details(rideId) });
     },
@@ -120,7 +120,7 @@ export const useFinishRide = () => {
     mutationFn: (rideId: string) => finishRide(rideId),
     onSuccess: (data, rideId) => {
       console.log("✅ Ride finished mutation successful");
-      
+
       // Invalidate queries
       queryClient.invalidateQueries({ queryKey: rideKeys.details(rideId) });
       queryClient.invalidateQueries({ queryKey: rideKeys.active() });

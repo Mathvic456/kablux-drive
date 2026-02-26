@@ -5,10 +5,10 @@ export default {
     version: "1.0.0",
     scheme: "kablux-drive",
     orientation: "portrait",
-    icon: "./assets/driver-logo4.png",
+    icon: "./assets/d-logo.png",
     userInterfaceStyle: "light",
     newArchEnabled: true,
-    owner: "agbaby",
+    owner: "agbaby02",
     splash: {
       image: "./assets/splash-icon.png",
       resizeMode: "contain",
@@ -55,6 +55,7 @@ export default {
       ],
       package: "com.crashingout.kabluxdrive",
       googleServicesFile: "./google-services.json",
+      versionCode: 30
     },
     web: {
       favicon: "./assets/favicon.png",
@@ -88,7 +89,7 @@ export default {
     ],
     extra: {
       eas: {
-        projectId: "07dff6e6-f4c1-4796-ad30-39fa35e57744",
+        projectId: "67453bc9-908b-4dea-8b94-d45f405b60d5",
       },
     },
   },

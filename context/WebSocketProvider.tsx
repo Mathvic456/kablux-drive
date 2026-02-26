@@ -370,7 +370,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         console.log("[WS_DRIVER] Full payload:", JSON.stringify(msg, null, 2));
 
         // Forward ALL notify events to DriverRideContext
-        if (msg.type === "notify" && msg.data) {
+        if ((msg.type === "notify" || "negotiation_update") && msg.data) {
           console.log("🔔 [WS_DRIVER] Forwarding to DriverRideContext:", msg.data.type);
           handleWsEvent(msg);
         }
@@ -426,6 +426,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
           }
         } else {
           console.log("⚠️ [WS_DRIVER] Unhandled message type:", msg.type);
+          console.log("⚠️ [WS_DRIVER] Unhandled message type:", msg);
         }
 
         console.log("📩 [WS_DRIVER] ================================");

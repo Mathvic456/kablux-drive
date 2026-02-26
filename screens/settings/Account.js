@@ -8,9 +8,12 @@ import {
   ScrollView,
   ActivityIndicator,
   useWindowDimensions,
-  Dimensions
+  Dimensions,
+  Modal,
+  TextInput,
+  TouchableWithoutFeedback,
 } from 'react-native';
-import { MaterialIcons, FontAwesome5, Feather, Entypo } from '@expo/vector-icons';
+import { MaterialIcons, FontAwesome5, Feather, Entypo, Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useLogoutEndPoint } from '../../services/auth.service';
 import { useProfile } from '../../services/profile.service';
@@ -19,6 +22,7 @@ import { useAuth } from '../../context/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import CentralModal from '../components/CentralModal';
 import Platform from 'react-native/Libraries/Utilities/Platform';
+import { api } from '../../services/api';
 
 
 export default function Account() {
@@ -28,94 +32,112 @@ export default function Account() {
   const isTablet = width > 768;
 
   const [modalVisible, setModalVisible] = useState(false);
+
+  // --- Delete Account State ---
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [dLoading, setDLoading] = useState(false);
+  const [deleteForm, setDeleteForm] = useState({ reason: '', password: '' });
+  const [deleteErrors, setDeleteErrors] = useState({});
+
   const navigation = useNavigation();
   const { data: profile, isPending, isError } = useProfile();
   const { clearTokens } = useAuth();
   const { mutate: logout, isPending: isLoggingOut } = useLogoutEndPoint(clearTokens);
   const { socket } = useContext(SocketContext);
 
-  const LoginAndSecurity = () => {
-    navigation.navigate('LoginAndSecurity');
-  }
-
-  const PersonalInfo = () => {
-    navigation.navigate('PersonalInfo');
-  }
-
-  const Settings = () => {
-    navigation.navigate('SettingsScreen');
-  }
-
-  const Safety = () => {
-    navigation.navigate('SafetyActions');
-  }
-
-  const City = () => {
-    navigation.navigate('City');
-  }
-
-  const ReferAndEarn = () => {
-    navigation.navigate('ReferAndEarn');
-  }
-
-  const HelpAndSupport = () => {
-    navigation.navigate('HelpAndSupport');
-  }
-
-  const Legal = () => {
-    navigation.navigate('Legal');
-  }
+  const LoginAndSecurity = () => navigation.navigate('LoginAndSecurity');
+  const PersonalInfo = () => navigation.navigate('PersonalInfo');
+  const Settings = () => navigation.navigate('SettingsScreen');
+  const Safety = () => navigation.navigate('SafetyActions');
+  const City = () => navigation.navigate('City');
+  const ReferAndEarn = () => navigation.navigate('ReferAndEarn');
+  const HelpAndSupport = () => navigation.navigate('HelpAndSupport');
+  const Legal = () => navigation.navigate('Legal');
 
   const handleLogout = async () => {
-    console.log("🚪 Starting logout process...");
+    console.log('🚪 Starting logout process...');
 
-    // Close WebSocket connection first
     if (socket) {
-      console.log("🔌 Closing WebSocket connection...");
-      socket.close(1000, "User logged out");
+      console.log('🔌 Closing WebSocket connection...');
+      socket.close(1000, 'User logged out');
     }
 
-    // Call logout mutation which will:
-    // 1. Clear tokens through AuthContext (both Context and AsyncStorage)
-    // 2. Clear other non-auth data (like userId, pendingEmail)
     logout(undefined, {
       onSuccess: () => {
-        console.log("✅ Logout successful");
+        console.log('✅ Logout successful');
         setModalVisible(false);
-
-        // Navigate to login screen
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Login' }],
-        });
+        navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
       },
       onError: async (error) => {
-        console.error("❌ Logout error:", error);
-
-        // Even if API fails, still clear local data and navigate
+        console.error('❌ Logout error:', error);
         try {
           await AsyncStorage.removeItem('userId');
           await AsyncStorage.removeItem('pendingEmail');
           setModalVisible(false);
-
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'Login' }],
-          });
+          navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
         } catch (cleanupError) {
-          console.error("❌ Cleanup failed:", cleanupError);
+          console.error('❌ Cleanup failed:', cleanupError);
         }
-      }
+      },
     });
+  };
+
+  // --- Delete Account Handlers ---
+  const validateDeleteForm = () => {
+    const errors = {};
+
+    if (!deleteForm.reason || deleteForm.reason.trim().length === 0) {
+      errors.reason = 'Reason is required to delete your account.';
+    }
+    if (!deleteForm.password || deleteForm.password.trim().length === 0) {
+      errors.password = 'Password is required to delete your account.';
+    } else if (deleteForm.password.length < 6) {
+      errors.password = 'Password must be at least 6 characters.';
+    }
+
+    setDeleteErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleDeleteAcct = async () => {
+    if (!validateDeleteForm()) return;
+
+    setDLoading(true);
+    try {
+      await api.post('auth/request_delete_account/', {
+        password: deleteForm.password,
+        reason: deleteForm.reason,
+      });
+
+      console.log('[Account] Delete account request successful');
+      setShowDeleteModal(false);
+      setDeleteForm({ reason: '', password: '' });
+      setDeleteErrors({});
+      navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+    } catch (error) {
+      console.log('actual err', error);
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Something went wrong. Please try again.';
+      console.error('[Account] Delete account error:', message);
+      setDeleteErrors({ password: message, reason: message });
+    } finally {
+      setDLoading(false);
+    }
+  };
+
+  const handleCloseDeleteModal = () => {
+    if (dLoading) return;
+    setShowDeleteModal(false);
+    setDeleteForm({ reason: '', password: '' });
+    setDeleteErrors({});
   };
 
   if (isPending) {
     return (
       <View style={[styles.loadingContainer, { height }]}>
-        <ActivityIndicator
-          size={isSmallScreen ? "large" : "large"}
-          color="#facc15"
-        />
+        <ActivityIndicator size="large" color="#facc15" />
       </View>
     );
   }
@@ -123,11 +145,13 @@ export default function Account() {
   if (isError) {
     return (
       <View style={[styles.errorContainer, { height }]}>
-        <Text style={[
-          styles.errorText,
-          isSmallScreen && styles.errorTextSmall,
-          isLargeScreen && styles.errorTextLarge
-        ]}>
+        <Text
+          style={[
+            styles.errorText,
+            isSmallScreen && styles.errorTextSmall,
+            isLargeScreen && styles.errorTextLarge,
+          ]}
+        >
           Error loading profile
         </Text>
       </View>
@@ -142,47 +166,57 @@ export default function Account() {
         contentContainerStyle={styles.scrollContent}
       >
         {/* Header */}
-        <Text style={[
-          styles.header,
-          isSmallScreen && styles.headerSmall,
-          isLargeScreen && styles.headerLarge,
-          isTablet && styles.headerTablet
-        ]}>
+        <Text
+          style={[
+            styles.header,
+            isSmallScreen && styles.headerSmall,
+            isLargeScreen && styles.headerLarge,
+            isTablet && styles.headerTablet,
+          ]}
+        >
           Account
         </Text>
 
         {/* Profile Section */}
-        <View style={[
-          styles.profileSection,
-          isSmallScreen && styles.profileSectionSmall,
-          isLargeScreen && styles.profileSectionLarge
-        ]}>
+        <View
+          style={[
+            styles.profileSection,
+            isSmallScreen && styles.profileSectionSmall,
+            isLargeScreen && styles.profileSectionLarge,
+          ]}
+        >
           <Image
             source={require('../../assets/Profileimg.png')}
             style={[
               styles.profileImage,
               isSmallScreen && styles.profileImageSmall,
-              isLargeScreen && styles.profileImageLarge
+              isLargeScreen && styles.profileImageLarge,
             ]}
           />
-          <View style={[
-            styles.profileInfo,
-            isSmallScreen && styles.profileInfoSmall,
-            isLargeScreen && styles.profileInfoLarge
-          ]}>
-            <Text style={[
-              styles.profileName,
-              isSmallScreen && styles.profileNameSmall,
-              isLargeScreen && styles.profileNameLarge
-            ]}>
+          <View
+            style={[
+              styles.profileInfo,
+              isSmallScreen && styles.profileInfoSmall,
+              isLargeScreen && styles.profileInfoLarge,
+            ]}
+          >
+            <Text
+              style={[
+                styles.profileName,
+                isSmallScreen && styles.profileNameSmall,
+                isLargeScreen && styles.profileNameLarge,
+              ]}
+            >
               {profile.first_name} {profile.last_name}
             </Text>
             <View style={styles.ratingRow}>
-              <Text style={[
-                styles.ratingText,
-                isSmallScreen && styles.ratingTextSmall,
-                isLargeScreen && styles.ratingTextLarge
-              ]}>
+              <Text
+                style={[
+                  styles.ratingText,
+                  isSmallScreen && styles.ratingTextSmall,
+                  isLargeScreen && styles.ratingTextLarge,
+                ]}
+              >
                 {profile.rating}
               </Text>
               <FontAwesome5
@@ -195,12 +229,14 @@ export default function Account() {
         </View>
 
         {/* First Box: Personal Info / Security */}
-        <View style={[
-          styles.box,
-          isSmallScreen && styles.boxSmall,
-          isLargeScreen && styles.boxLarge,
-          isTablet && styles.boxTablet
-        ]}>
+        <View
+          style={[
+            styles.box,
+            isSmallScreen && styles.boxSmall,
+            isLargeScreen && styles.boxLarge,
+            isTablet && styles.boxTablet,
+          ]}
+        >
           <MenuItem
             onPress={PersonalInfo}
             icon={<MaterialIcons name="person-outline" size={isSmallScreen ? 18 : 20} color="#FFC107" />}
@@ -219,12 +255,14 @@ export default function Account() {
         </View>
 
         {/* Second Box: Settings, Safety, etc. */}
-        <View style={[
-          styles.box,
-          isSmallScreen && styles.boxSmall,
-          isLargeScreen && styles.boxLarge,
-          isTablet && styles.boxTablet
-        ]}>
+        <View
+          style={[
+            styles.box,
+            isSmallScreen && styles.boxSmall,
+            isLargeScreen && styles.boxLarge,
+            isTablet && styles.boxTablet,
+          ]}
+        >
           <MenuItem
             onPress={Settings}
             icon={<Feather name="settings" size={isSmallScreen ? 18 : 20} color="#FFC107" />}
@@ -281,9 +319,19 @@ export default function Account() {
             isSmallScreen={isSmallScreen}
             isLargeScreen={isLargeScreen}
           />
+          <Divider isSmallScreen={isSmallScreen} isLargeScreen={isLargeScreen} />
+          <MenuItem
+            onPress={() => setShowDeleteModal(true)}
+            icon={<Feather name="trash-2" size={isSmallScreen ? 18 : 20} color="#ff4444" />}
+            label="Delete Account"
+            isLogout
+            isSmallScreen={isSmallScreen}
+            isLargeScreen={isLargeScreen}
+          />
         </View>
       </ScrollView>
 
+      {/* Logout Confirmation Modal */}
       <CentralModal
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
@@ -296,6 +344,110 @@ export default function Account() {
         confirmButtonColor="#ff4444"
         themeColor="#ff4444"
       />
+
+      {/* Delete Account Modal */}
+      <Modal
+        visible={showDeleteModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleCloseDeleteModal}
+      >
+        <TouchableWithoutFeedback onPress={handleCloseDeleteModal}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.deleteModal}>
+                {/* Header */}
+                <View style={styles.deleteModalHeader}>
+                  <Ionicons name="warning-outline" size={28} color="#FF4444" />
+                  <Text style={styles.deleteModalTitle}>Delete Account</Text>
+                </View>
+
+                <Text style={styles.deleteModalText}>
+                  This action is permanent and cannot be undone. All your data will be erased.
+                </Text>
+
+                {/* Reason Field */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>
+                    Reason for leaving<Text style={styles.requiredTag}> *</Text>
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.textArea,
+                      deleteErrors.reason ? styles.inputError : null,
+                    ]}
+                    placeholder="Tell us why you're leaving..."
+                    placeholderTextColor="#666"
+                    value={deleteForm.reason}
+                    onChangeText={(text) => {
+                      setDeleteForm((prev) => ({ ...prev, reason: text }));
+                      if (deleteErrors.reason) {
+                        setDeleteErrors((prev) => ({ ...prev, reason: undefined }));
+                      }
+                    }}
+                    multiline
+                    numberOfLines={3}
+                    editable={!dLoading}
+                  />
+                  {deleteErrors.reason ? (
+                    <Text style={styles.errorText}>{deleteErrors.reason}</Text>
+                  ) : null}
+                </View>
+
+                {/* Password Field */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>
+                    Confirm your password<Text style={styles.requiredTag}> *</Text>
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.textInput,
+                      deleteErrors.password ? styles.inputError : null,
+                    ]}
+                    placeholder="Enter your password"
+                    placeholderTextColor="#666"
+                    value={deleteForm.password}
+                    onChangeText={(text) => {
+                      setDeleteForm((prev) => ({ ...prev, password: text }));
+                      if (deleteErrors.password) {
+                        setDeleteErrors((prev) => ({ ...prev, password: undefined }));
+                      }
+                    }}
+                    secureTextEntry
+                    editable={!dLoading}
+                  />
+                  {deleteErrors.password ? (
+                    <Text style={styles.errorText}>{deleteErrors.password}</Text>
+                  ) : null}
+                </View>
+
+                {/* Buttons */}
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.cancelButton]}
+                    onPress={handleCloseDeleteModal}
+                    disabled={dLoading}
+                  >
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.deleteButton]}
+                    onPress={handleDeleteAcct}
+                    disabled={dLoading}
+                  >
+                    {dLoading ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Text style={styles.deleteButtonText}>Delete</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </>
   );
 }
@@ -306,35 +458,39 @@ const MenuItem = ({ icon, label, onPress, isLogout, isSmallScreen, isLargeScreen
     style={[
       styles.row,
       isSmallScreen && styles.rowSmall,
-      isLargeScreen && styles.rowLarge
+      isLargeScreen && styles.rowLarge,
     ]}
     onPress={onPress}
     activeOpacity={0.7}
   >
     {icon}
-    <Text style={[
-      styles.rowText,
-      isSmallScreen && styles.rowTextSmall,
-      isLargeScreen && styles.rowTextLarge,
-      isLogout && styles.logoutRowText
-    ]}>
+    <Text
+      style={[
+        styles.rowText,
+        isSmallScreen && styles.rowTextSmall,
+        isLargeScreen && styles.rowTextLarge,
+        isLogout && styles.logoutRowText,
+      ]}
+    >
       {label}
     </Text>
     <Entypo
       name="chevron-right"
       size={isSmallScreen ? 16 : 18}
-      color={isLogout ? "#ff4444" : "#FFC107"}
+      color={isLogout ? '#ff4444' : '#FFC107'}
       style={{ marginLeft: 'auto' }}
     />
   </TouchableOpacity>
 );
 
 const Divider = ({ isSmallScreen, isLargeScreen }) => (
-  <View style={[
-    styles.divider,
-    isSmallScreen && styles.dividerSmall,
-    isLargeScreen && styles.dividerLarge
-  ]} />
+  <View
+    style={[
+      styles.divider,
+      isSmallScreen && styles.dividerSmall,
+      isLargeScreen && styles.dividerLarge,
+    ]}
+  />
 );
 
 const { width, height } = Dimensions.get('window');
@@ -362,99 +518,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'black',
   },
-  errorText: {
-    color: 'red',
-    fontSize: width * 0.04,
-  },
-  errorTextSmall: {
-    fontSize: width * 0.038,
-  },
-  errorTextLarge: {
-    fontSize: width * 0.042,
-  },
+  errorText: { color: 'red', fontSize: width * 0.04 },
+  errorTextSmall: { fontSize: width * 0.038 },
+  errorTextLarge: { fontSize: width * 0.042 },
   header: {
     color: 'white',
     fontSize: width * 0.08,
     fontWeight: '700',
     marginBottom: height * 0.02,
   },
-  headerSmall: {
-    fontSize: width * 0.075,
-    marginBottom: height * 0.015,
-  },
-  headerLarge: {
-    fontSize: width * 0.085,
-    marginBottom: height * 0.025,
-  },
-  headerTablet: {
-    fontSize: width * 0.09,
-    textAlign: 'center',
-  },
-  profileSection: {
-    // marginBottom: height * 0.03,
-    // flexDirection: 'row',
-    // alignItems: 'center',
-    // alignSelf:'center',
-    // borderWidth: 1,
-    // borderColor: 'white',
-    padding: 10,
-    borderRadius: 12,
-  },
-  profileSectionSmall: {
-    marginBottom: height * 0.025,
-  },
-  profileSectionLarge: {
-    marginBottom: height * 0.035,
-  },
+  headerSmall: { fontSize: width * 0.075, marginBottom: height * 0.015 },
+  headerLarge: { fontSize: width * 0.085, marginBottom: height * 0.025 },
+  headerTablet: { fontSize: width * 0.09, textAlign: 'center' },
+  profileSection: { padding: 10, borderRadius: 12 },
+  profileSectionSmall: { marginBottom: height * 0.025 },
+  profileSectionLarge: { marginBottom: height * 0.035 },
   profileImage: {
     width: width * 0.2,
     height: width * 0.2,
     borderRadius: width * 0.1,
     marginRight: width * 0.04,
     alignSelf: 'center',
-    // borderWidth: 1,
-    // borderColor: 'white',
     padding: 10,
-    borderRadius: 12,
   },
-  profileInfo: {
-    flex: 1,
-    alignSelf: 'center',
-  },
-  profileInfoSmall: {
-    marginLeft: width * 0.03,
-  },
-  profileInfoLarge: {
-    marginLeft: width * 0.05,
-  },
+  profileImageSmall: {},
+  profileImageLarge: {},
+  profileInfo: { flex: 1, alignSelf: 'center' },
+  profileInfoSmall: { marginLeft: width * 0.03 },
+  profileInfoLarge: { marginLeft: width * 0.05 },
   profileName: {
     color: 'white',
     fontSize: width * 0.045,
     fontWeight: '600',
     marginBottom: height * 0.005,
   },
-  profileNameSmall: {
-    fontSize: width * 0.042,
-  },
-  profileNameLarge: {
-    fontSize: width * 0.048,
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+  profileNameSmall: { fontSize: width * 0.042 },
+  profileNameLarge: { fontSize: width * 0.048 },
+  ratingRow: { flexDirection: 'row', alignItems: 'center' },
   ratingText: {
     color: '#FFC107',
     fontSize: width * 0.038,
     fontWeight: '500',
     marginRight: width * 0.01,
   },
-  ratingTextSmall: {
-    fontSize: width * 0.036,
-  },
-  ratingTextLarge: {
-    fontSize: width * 0.04,
-  },
+  ratingTextSmall: { fontSize: width * 0.036 },
+  ratingTextLarge: { fontSize: width * 0.04 },
   box: {
     backgroundColor: '#04223A',
     borderWidth: 1,
@@ -463,18 +571,9 @@ const styles = StyleSheet.create({
     marginBottom: height * 0.025,
     width: '100%',
   },
-  boxSmall: {
-    borderRadius: width * 0.035,
-    marginBottom: height * 0.02,
-  },
-  boxLarge: {
-    borderRadius: width * 0.045,
-    marginBottom: height * 0.03,
-  },
-  boxTablet: {
-    maxWidth: 500,
-    alignSelf: 'center',
-  },
+  boxSmall: { borderRadius: width * 0.035, marginBottom: height * 0.02 },
+  boxLarge: { borderRadius: width * 0.045, marginBottom: height * 0.03 },
+  boxTablet: { maxWidth: 500, alignSelf: 'center' },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -499,98 +598,91 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     flex: 1,
   },
-  rowTextSmall: {
-    fontSize: width * 0.038,
-    marginLeft: width * 0.025,
-  },
-  rowTextLarge: {
-    fontSize: width * 0.042,
-    marginLeft: width * 0.035,
-  },
-  logoutRowText: {
-    color: '#ff4444',
-  },
+  rowTextSmall: { fontSize: width * 0.038, marginLeft: width * 0.025 },
+  rowTextLarge: { fontSize: width * 0.042, marginLeft: width * 0.035 },
+  logoutRowText: { color: '#ff4444' },
   divider: {
     height: 1,
     backgroundColor: '#FFC107',
     opacity: 0.5,
     marginHorizontal: width * 0.04,
   },
-  dividerSmall: {
-    marginHorizontal: width * 0.035,
-  },
-  dividerLarge: {
-    marginHorizontal: width * 0.045,
-  },
-  centeredView: {
+  dividerSmall: { marginHorizontal: width * 0.035 },
+  dividerLarge: { marginHorizontal: width * 0.045 },
+  // Delete Modal
+  modalOverlay: {
     flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
   },
-  modalView: {
-    margin: 20,
-    backgroundColor: '#1a1a1a',
-    borderRadius: 20,
-    padding: 30,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: '#333',
+  deleteModal: {
+    backgroundColor: '#2C2C2C',
+    borderRadius: 16,
+    padding: 24,
     width: '85%',
+    alignItems: 'center',
   },
-  modalIconContainer: {
-    marginBottom: 20,
-    padding: 15,
-    backgroundColor: 'rgba(255, 68, 68, 0.1)',
-    borderRadius: 50,
+  deleteModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
   },
-  modalTitle: {
-    fontSize: 24,
+  deleteModalTitle: {
+    color: '#FF4444',
+    fontSize: 20,
     fontWeight: 'bold',
-    color: 'white',
-    marginBottom: 10,
+    marginLeft: 8,
   },
-  modalText: {
-    fontSize: 16,
-    color: '#ccc',
+  deleteModalText: {
+    color: '#9CA3AF',
+    fontSize: 14,
     textAlign: 'center',
-    marginBottom: 30,
+    marginBottom: 20,
+    lineHeight: 20,
   },
+  inputGroup: { width: '100%', marginBottom: 14 },
+  inputLabel: { color: '#ccc', fontSize: 13, marginBottom: 6, fontWeight: '500' },
+  requiredTag: { color: '#FF4444' },
+  textInput: {
+    backgroundColor: '#1A1A1A',
+    borderWidth: 1,
+    borderColor: '#444',
+    borderRadius: 8,
+    color: '#fff',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+  },
+  textArea: {
+    backgroundColor: '#1A1A1A',
+    borderWidth: 1,
+    borderColor: '#444',
+    borderRadius: 8,
+    color: '#fff',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    textAlignVertical: 'top',
+    minHeight: 70,
+  },
+  inputError: { borderColor: '#FF4444' },
+  errorText: { color: '#FF4444', fontSize: 12, marginTop: 4 },
   modalButtons: {
     flexDirection: 'row',
-    gap: 12,
+    justifyContent: 'space-between',
     width: '100%',
+    marginTop: 8,
   },
-  button: {
+  modalButton: {
     flex: 1,
-    borderRadius: 10,
-    padding: 14,
+    padding: 12,
+    borderRadius: 8,
     alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
+    marginHorizontal: 5,
   },
-  buttonCancel: {
-    backgroundColor: '#333',
-  },
-  buttonLogout: {
-    backgroundColor: '#ff4444',
-  },
-  cancelText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  logoutText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
+  cancelButton: { backgroundColor: '#444' },
+  deleteButton: { backgroundColor: '#FF4444' },
+  cancelButtonText: { color: '#fff', fontWeight: '600' },
+  deleteButtonText: { color: '#fff', fontWeight: '600' },
 });

@@ -7,13 +7,18 @@ import {
   StyleSheet,
   Modal,
   FlatList,
-  ScrollView
+  ScrollView,
+  Dimensions
 } from 'react-native';
 import { MaterialIcons, FontAwesome, Entypo } from '@expo/vector-icons';
 import { banks } from '../../constants/banks';
 import { useFetch } from '../../utils/fetch-handler';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
+import useSearch from '../../hooks/useSearch';
+
+const { width, height } = Dimensions.get('window');
+
 
 export default function TransferForm() {
   const [accountNumber, setAccountNumber] = useState('');
@@ -25,6 +30,14 @@ export default function TransferForm() {
   const { request } = useFetch();
   const { token } = useAuth();
   const navigation = useNavigation();
+  const [searchText, setSearchText] = useState()
+
+  const { filteredMessages, handleSearch } = useSearch(banks);
+
+  const displayMessages =
+    searchText && searchText.trim().length > 0
+      ? filteredMessages
+      : banks;
 
   const getAccounts = async () => {
     try {
@@ -88,6 +101,17 @@ export default function TransferForm() {
     }
   };
 
+  // Responsive scaling functions
+  const scaleFont = (size) => {
+    const scaleFactor = width / 375;
+    return Math.round(size * Math.min(scaleFactor, 1.3));
+  };
+
+  const scaleSize = (size) => {
+    const scaleFactor = width / 375;
+    return Math.round(size * Math.min(scaleFactor, 1.2));
+  };
+
   const handleProceed = async () => {
     // Validate form before proceeding
     if (!accountNumber || !selectedBank || !accountName) {
@@ -99,6 +123,7 @@ export default function TransferForm() {
       alert('Please enter a valid 10-digit account number');
       return;
     }
+
 
     // Proceed with transfer logic
     console.log('Transfer details:', {
@@ -150,7 +175,7 @@ export default function TransferForm() {
         {/* Bank Dropdown */}
         <TouchableOpacity
           style={styles.inputButton}
-          onPress={() => setShowBankDropdown(true)}
+          onPress={() => { setShowBankDropdown(true); setSearchText(''); handleSearch('') }}
         >
           <View style={styles.iconLabel}>
             <FontAwesome name="bank" size={18} color="#FFC107" />
@@ -244,8 +269,42 @@ export default function TransferForm() {
                 </TouchableOpacity>
               </View>
 
+
+              <View style={[
+                styles.inputContainerS,
+                {
+                  height: scaleSize(50),
+                  marginTop: scaleSize(10)
+                }
+              ]}>
+                <MaterialIcons
+                  name="search"
+                  size={scaleSize(20)}
+                  color="#aaa"
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={[
+                    styles.inputS,
+                    { fontSize: scaleFont(14) }
+                  ]}
+                  placeholder="Search"
+                  placeholderTextColor="#aaa"
+                  keyboardType="Search for bank"
+                  autoCapitalize="none"
+                  value={searchText}
+                  onChangeText={(text) => {
+                    setSearchText(text)
+                    handleSearch(text)
+                  }}
+                  // editable={!isPending}
+                  returnKeyType="next"
+                />
+              </View>
+
+
               <FlatList
-                data={banks}
+                data={displayMessages}
                 keyExtractor={(item) => item.id}
                 renderItem={({ item }) => (
                   <TouchableOpacity
@@ -459,5 +518,20 @@ const styles = StyleSheet.create({
   bankCode: {
     color: '#FFC107',
     fontSize: 14,
+  },
+  inputContainerS: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#111",
+    borderRadius: 10,
+    marginBottom: 5,
+    paddingHorizontal: Math.max(12, width * 0.03),
+    borderWidth: 1,
+    borderColor: '#222',
+  },
+  inputS: {
+    flex: 1,
+    color: "#fff",
+    paddingHorizontal: Math.max(8, width * 0.02),
   },
 });

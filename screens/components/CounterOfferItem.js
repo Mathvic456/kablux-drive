@@ -7,16 +7,21 @@ import {
   StyleSheet,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useDriverRide } from "../../context/DriverRideContext";
 
 const CounterOfferItem = ({ item, onClose, socket, onCounterSubmit }) => {
-  const [counterAmount, setCounterAmount] = useState(item.counter_offer);
+  console.log('counter thing----', item);
+
+  const [counterAmount, setCounterAmount] = useState(Number(item.counter_offer));
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const originalOffer = item.counter_offer;
+  const { setNegotiationUpdates } = useDriverRide()
+
+  const originalOffer = Number(item.counter_offer);
   const difference = counterAmount - originalOffer;
   const hasAdjusted = counterAmount !== originalOffer;
 
-  const handleIncrease = () => setCounterAmount((prev) => prev + 100);
-  const handleDecrease = () => setCounterAmount((prev) => Math.max(0, prev - 100));
+  const handleIncrease = () => setCounterAmount((prev) => Number(prev) + 100);
+  const handleDecrease = () => setCounterAmount((prev) => Math.max(100, Number(prev) - 100));
 
   const handleSubmitCounter = async () => {
     if (counterAmount <= 0) {
@@ -40,11 +45,12 @@ const CounterOfferItem = ({ item, onClose, socket, onCounterSubmit }) => {
       };
       socket.send(JSON.stringify(message));
       console.log("✅ Counter offer sent:", message);
-      
+      setNegotiationUpdates((prev) => prev.filter((note) => note.ride_request_id !== item.ride_request_id));
+
       if (onCounterSubmit) {
         onCounterSubmit(item.ride_request_view_id);
       }
-      
+
       setTimeout(() => onClose(), 300);
     } catch (err) {
       console.error("❌ Failed to submit counter offer:", err);
@@ -60,7 +66,7 @@ const CounterOfferItem = ({ item, onClose, socket, onCounterSubmit }) => {
       <View style={styles.headerSection}>
         <Ionicons name="person-circle" size={40} color="#facc15" />
         <View style={styles.riderInfo}>
-          <Text style={styles.riderName}>{item.rider_name}</Text>
+          <Text style={styles.riderName}>{item.rider || "N/A"}</Text>
           {item.rider_rating && (
             <View style={styles.ratingContainer}>
               <Ionicons name="star" size={14} color="#facc15" />
@@ -74,28 +80,28 @@ const CounterOfferItem = ({ item, onClose, socket, onCounterSubmit }) => {
 
       {/* Title */}
       <Text style={styles.titleText}>
-        {item.rider_name}'s Counter Offer
+        {item.rider}'s Counter Offer
       </Text>
 
       {/* Price & Controls (+ / -) */}
       <View style={styles.priceControlRow}>
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={handleDecrease}
-          style={styles.circleButton}
-          disabled={isSubmitting || counterAmount <= 0}
+          style={[styles.circleButton, (isSubmitting || counterAmount <= 100) && styles.disabledButton]}
+          disabled={isSubmitting || counterAmount <= 100}
         >
           <Ionicons name="remove" size={24} color="white" />
         </TouchableOpacity>
 
         <View style={styles.priceContainer}>
           <Text style={styles.mainPrice}>
-            ₦{counterAmount.toLocaleString()}
+            ₦{counterAmount?.toLocaleString()}
           </Text>
         </View>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={handleIncrease}
-          style={styles.circleButton}
+          style={[styles.circleButton, isSubmitting && styles.disabledButton]}
           disabled={isSubmitting}
         >
           <Ionicons name="add" size={24} color="white" />
@@ -108,24 +114,24 @@ const CounterOfferItem = ({ item, onClose, socket, onCounterSubmit }) => {
           styles.differenceText,
           difference > 0 ? styles.higher : styles.lower
         ]}>
-          {difference > 0 ? '+' : ''}₦{Math.abs(difference).toLocaleString()} from rider's offer
+          {difference > 0 ? '+' : ''}₦{Math.abs(difference)?.toLocaleString()} from rider's offer
         </Text>
       )}
 
       {/* Submit Button */}
       <TouchableOpacity
         onPress={handleSubmitCounter}
-        disabled={isSubmitting || counterAmount <= 0 || !hasAdjusted}
+        disabled={isSubmitting || counterAmount <= 0}
         style={[
           styles.submitButton,
-          (isSubmitting || counterAmount <= 0 || !hasAdjusted) && styles.disabledButton,
+          (isSubmitting || counterAmount <= 0) && styles.disabledButton,
         ]}
       >
         {isSubmitting ? (
           <ActivityIndicator color="black" />
         ) : (
           <Text style={styles.submitButtonText}>
-            Submit New Counter Offer
+            {hasAdjusted ? 'Submit New Counter Offer' : 'Accept Offer'}
           </Text>
         )}
       </TouchableOpacity>
@@ -134,7 +140,7 @@ const CounterOfferItem = ({ item, onClose, socket, onCounterSubmit }) => {
       <TouchableOpacity
         onPress={onClose}
         disabled={isSubmitting}
-        style={styles.cancelButton}
+        style={[styles.cancelButton, isSubmitting && styles.disabledButton]}
       >
         <Text style={styles.cancelButtonText}>Cancel</Text>
       </TouchableOpacity>
@@ -151,7 +157,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#333",
   },
-  
+
   // --- Header Section ---
   headerSection: {
     flexDirection: "row",
