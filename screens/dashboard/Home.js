@@ -79,6 +79,8 @@ export default function Home() {
   // FIX: Single source of truth for the "is toggling" guard - prevents flicker
   const isTogglingOnlineRef = React.useRef(false);
 
+  // console.log('selected', selectedOffer)
+
   const { token } = useAuth();
 
   const {
@@ -116,6 +118,8 @@ export default function Home() {
     isPending: profileLoading,
     isError: profileError,
   } = useProfile(token);
+
+  console.log('ride notessss===========', rideNotifications)
 
   const { data: kycData, isLoading } = useDriverKycStatus();
   const { data: balanceData, refetch: refetchBalance } = useGetMyBalance();
@@ -212,6 +216,7 @@ export default function Home() {
 
       const response = await api.get(`rides/${id}/details/`);
       const rideData = response.data?.data || response.data;
+      console.log('ride data data', rideData)
 
       const mappedDetails = {
         id: rideData.id,
@@ -246,18 +251,18 @@ export default function Home() {
     }
   };
 
-  const handleForceSetState = async ({ status, rideId, riderId }) => {
-    try {
-      const stateData = { status, rideId, riderId };
-      await AsyncStorage.setItem("driverRideState", JSON.stringify(stateData));
-      await loadPersisted();
-      setAlertData({ title: "Success", message: `State set to: ${status}`, isError: false });
-      setAlertModalVisible(true);
-    } catch (error) {
-      setAlertData({ title: "Error", message: "Failed to set state", isError: true });
-      setAlertModalVisible(true);
-    }
-  };
+  // const handleForceSetState = async ({ status, rideId, riderId }) => {
+  //   try {
+  //     const stateData = { status, rideId, riderId };
+  //     await AsyncStorage.setItem("driverRideState", JSON.stringify(stateData));
+  //     await loadPersisted();
+  //     setAlertData({ title: "Success", message: `State set to: ${status}`, isError: false });
+  //     setAlertModalVisible(true);
+  //   } catch (error) {
+  //     setAlertData({ title: "Error", message: "Failed to set state", isError: true });
+  //     setAlertModalVisible(true);
+  //   }
+  // };
 
   // --- EFFECTS ---
 
@@ -934,14 +939,23 @@ export default function Home() {
                         <View style={[styles.dropoffDot, { width: scaleSize(12), height: scaleSize(12) }]} />
                       </View>
                       <View style={{ flex: 1 }}>
-                        <View style={{ marginBottom: 20 }}>
-                          <Text style={styles.locationLabel}>PICKUP</Text>
-                          <Text style={[styles.locationText, { fontSize: scaleFont(16), lineHeight: scaleFont(22) }]}>
-                            {selectedOffer.address || "Pickup location"}
-                          </Text>
-                          <Text style={styles.timeToPickup}>
-                            ~{selectedOffer.time_to_pickup ? Math.round(parseFloat(selectedOffer.time_to_pickup) / 60) : 0} mins away
-                          </Text>
+                        <View style={{ marginBottom: 20, flexDirection: 'column', justifyContent: 'space-between', gap: 10 }}>
+                          <View>
+                            <Text style={styles.locationLabel}>PICKUP</Text>
+                            <Text style={[styles.locationText, { fontSize: scaleFont(16), lineHeight: scaleFont(22) }]}>
+                              {selectedOffer.pickup || "Pickup location"}
+                            </Text>
+                            <Text style={styles.timeToPickup}>
+                              ~{selectedOffer.time_to_pickup ? Math.round(parseFloat(selectedOffer.time_to_pickup) / 60) : 0} mins away
+                            </Text>
+                          </View>
+                          <View>
+                            <Text style={styles.locationLabel}>DROPOFF</Text>
+                            <Text style={[styles.locationText, { fontSize: scaleFont(16), lineHeight: scaleFont(22) }]}>
+                              {selectedOffer.dropoff || "Pickup location"}
+                            </Text>
+                          </View>
+
                         </View>
                       </View>
                     </View>

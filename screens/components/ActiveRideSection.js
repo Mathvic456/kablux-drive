@@ -17,6 +17,7 @@ const ActiveRideSection = ({
 }) => {
 
   const navigation = useNavigation();
+  console.log('start trip err', status, rideDetails)
 
   const isPickupPhase = status === 'ride_created' || status === 'driver_on_way';
 
@@ -137,7 +138,7 @@ const ActiveRideSection = ({
           </TouchableOpacity>
         )}
 
-        {status === 'ride_started' && (
+        {(status === 'ride_started' || 'start') && (
           <TouchableOpacity
             style={[styles.actionButton, styles.finishButton, isFinishing && styles.buttonDisabled]}
             onPress={onFinishRide}
@@ -160,7 +161,7 @@ const ActiveRideSection = ({
         {/* Map Button */}
         <TouchableOpacity
           style={styles.mapButton}
-          onPress={() => navigation.navigate('DriverMapScreen', { rideDetails })}
+          onPress={() => { console.log('ride detsss', rideDetails); navigation.navigate('DriverMapScreen', { rideDetails }) }}
         >
           <Ionicons name="map-outline" size={24} color="white" />
         </TouchableOpacity>

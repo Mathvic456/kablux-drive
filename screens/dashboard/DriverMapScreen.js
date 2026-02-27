@@ -39,7 +39,7 @@ export default function DriverMapScreen({ navigation }) {
   const { rideDetails } = route.params;
   const { status } = useDriverRide();
   // console.log('api key', GOOGLE_API_KEY)
-  // console.log('ride dets------------', rideDetails)
+  console.log('ride dets------------', rideDetails)
 
   const [slideAnim] = useState(new Animated.Value(height * 0.25));
   const [currentDriverLocation, setCurrentDriverLocation] = useState(null);
@@ -160,7 +160,7 @@ export default function DriverMapScreen({ navigation }) {
       } else {
         console.error("❌ Invalid pickup coordinates");
       }
-    } else if (status === "ride_started") {
+    } else if (status === "ride_started" || "started") {
       const dropoffLat = parseFloat(raw.dropoff_lat);
       const dropoffLng = parseFloat(raw.dropoff_lng);
 
@@ -400,19 +400,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   driverMarkerContainer: {
-    height: 40,
-    width: 40,
-    borderRadius: 20,
-    backgroundColor: "#facc15",
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    borderWidth: 3,
-    borderColor: 'white',
+    // height: 20,
+    // width: 20,
+    // borderRadius: 20,
+    // backgroundColor: "#facc15",
+    // alignItems: 'center',
+    // justifyContent: 'center',
+    // elevation: 6,
+    // shadowColor: '#000',
+    // shadowOffset: { width: 0, height: 4 },
+    // shadowOpacity: 0.3,
+    // shadowRadius: 6,
+    // borderWidth: 3,
+    // borderColor: 'white',
   },
   destinationMarkerContainer: {
     width: 20,

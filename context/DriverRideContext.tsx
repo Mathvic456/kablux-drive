@@ -77,13 +77,13 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
   const loadPersisted = async () => {
     try {
       const saved = await api.get('rides/current/')
-      console.log('[DRIVER_RIDE] Saved state:', saved);
+      console.log('[DRIVER_RIDE] Saved state:', saved?.data);
       if (!saved) return;
 
-      const parsed = saved.data;
-      setStatus(parsed.status);
-      setRideId(parsed.rideId);
-      setRiderId(parsed.riderId);
+      const parsed = saved?.data;
+      setStatus(parsed?.status);
+      setRideId(parsed?.id);
+      setRiderId(parsed.rider?.user_id);
       console.log("[DRIVER_RIDE] Rehydrated ride state:", parsed);
     } catch (err) {
       console.error("[DRIVER_RIDE] Failed to load persisted state:", err);

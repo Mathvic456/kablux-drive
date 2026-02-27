@@ -17,7 +17,8 @@ interface RideNotification {
   rider_name?: string;
   rider_rating?: string;
   time_to_pickup?: string;
-  address?: string;
+  pickup?: string;
+  dropoff?: string;
   offer_amount?: number;
   estimated_fare?: number;
   distance_km?: number;
@@ -220,12 +221,14 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         rider_name: data.rider_name || "Unknown Rider",
         rider_rating: data.rider_rating || "4.5",
         time_to_pickup: timeCalc,
-        address: data.pickup || data.pickup_address || data.address || "Address not provided",
+        pickup: data.pickup || data.pickup_address || data.address || "Unknown pickup",
+        dropoff: data.destination || data.dropoff_address || "Unknown dropoff",
         offer_amount: offerMatch
           ? parseFloat(offerMatch[1])
           : data.offer_amount ?? data.fare ?? 0,
         estimated_fare: data.estimated_fare ?? data.fare,
         distance_km: distanceVal,
+
       };
 
       console.log("✅ [PARSED] Notification ready:", parsed.ride_request_id);
