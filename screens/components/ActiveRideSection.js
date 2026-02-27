@@ -17,7 +17,16 @@ const ActiveRideSection = ({
 }) => {
 
   const navigation = useNavigation();
-  console.log('start trip err', status, rideDetails)
+  console.log('start trip err:', status, rideDetails)
+  // console.log('everythingggggg', status, rideId,
+  //   rideDetails,
+  //   onStartRide,
+  //   onFinishRide,
+  //   isStarting = false,
+  //   isFinishing = false,
+  //   isLoadingDetails = false,
+  //   onArrived,
+  //   isArriving)
 
   const isPickupPhase = status === 'ride_created' || status === 'driver_on_way';
 
@@ -138,7 +147,7 @@ const ActiveRideSection = ({
           </TouchableOpacity>
         )}
 
-        {(status === 'ride_started' || 'start') && (
+        {(status === 'ride_started' || status === 'start') && (
           <TouchableOpacity
             style={[styles.actionButton, styles.finishButton, isFinishing && styles.buttonDisabled]}
             onPress={onFinishRide}

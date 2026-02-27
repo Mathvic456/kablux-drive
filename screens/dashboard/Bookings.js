@@ -337,61 +337,27 @@ export default function Bookings() {
       setIsDownloading(true);
 
       const html = generateReceiptHTML(ride);
-      const safeId = String(ride.id || Date.now()).replace(/[^a-zA-Z0-9]/g, "_");
-      const fileName = `Kablux_Trip_${safeId}.pdf`;
 
-      // Generate PDF
+      // Generate PDF to temp file
       const { uri } = await Print.printToFileAsync({
         html,
         base64: false,
       });
 
-      if (Platform.OS === "android") {
-        // ✅ Get Download folder URI
-        const downloadsDir =
-          FileSystem.StorageAccessFramework.getUriForDirectoryInRoot("Download");
-
-        // ✅ Ask permission specifically for Downloads folder
-        const permission =
-          await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(
-            downloadsDir
-          );
-
-        if (!permission.granted) {
-          Alert.alert("Permission required", "Allow access to Downloads folder.");
-          return;
-        }
-
-        const base64 = await FileSystem.readAsStringAsync(uri, {
-          encoding: FileSystem.EncodingType.Base64,
+      // Share directly from the temp uri — no copy needed
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (isAvailable) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: 'Save or Share Receipt',
+          UTI: 'com.adobe.pdf',
         });
-
-        const fileUri =
-          await FileSystem.StorageAccessFramework.createFileAsync(
-            permission.directoryUri,
-            fileName,
-            "application/pdf"
-          );
-
-        await FileSystem.writeAsStringAsync(fileUri, base64, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-
-        Alert.alert("✅ Downloaded", "Receipt saved to Downloads folder.");
       } else {
-        // iOS fallback
-        const finalUri = FileSystem.documentDirectory + fileName;
-
-        await FileSystem.copyAsync({
-          from: uri,
-          to: finalUri,
-        });
-
-        Alert.alert("✅ Downloaded", "Receipt saved to Files app.");
+        Alert.alert('Error', 'Sharing is not available on this device.');
       }
     } catch (error) {
-      console.error("Download error:", error);
-      Alert.alert("Error", "Could not download receipt.");
+      console.error('Download error:', error);
+      Alert.alert('Error', 'Could not download receipt.');
     } finally {
       setIsDownloading(false);
     }

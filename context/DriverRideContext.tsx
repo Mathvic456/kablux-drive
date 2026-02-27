@@ -75,6 +75,7 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
 
   // Load persistent state
   const loadPersisted = async () => {
+
     try {
       const saved = await api.get('rides/current/')
       console.log('[DRIVER_RIDE] Saved state:', saved?.data);
@@ -92,6 +93,11 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
 
   useEffect(() => {
     loadPersisted();
+    return () => {
+      setStatus('not_busy');
+      setRideId(null);
+      setRiderId(null);
+    }
   }, [triggerEffect]);
 
   // const persist = async (data: {

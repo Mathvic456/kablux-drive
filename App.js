@@ -16,7 +16,7 @@ import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 const queryClient = new QueryClient();
 export default function App() {
-
+  // const { token } = useAuth()
   useEffect(() => {
     GoogleSignin.configure({
       webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
@@ -25,11 +25,11 @@ export default function App() {
   }, []);
 
   function ApiAuthConnector() {
-    const { getValidToken } = useAuth();
+    const { getValidToken, token } = useAuth();
 
     useEffect(() => {
       setAuthTokenGetter(getValidToken);
-      console.log("✅ API layer connected to AuthContext");
+      console.log("✅ API layer connected to AuthContext", token);
     }, [getValidToken]);
 
 
