@@ -230,7 +230,7 @@ export default function TransferForm() {
               (!account) && styles.payButtonDisabled
             ]}
             disabled={!account}
-            onPress={() => navigation.navigate('BankTransfer', { recipient: account })}
+            onPress={() => navigation.navigate('BankTransfer')}
           >
             <Text style={styles.payText}>Pay</Text>
           </TouchableOpacity>

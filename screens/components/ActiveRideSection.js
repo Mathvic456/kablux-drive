@@ -147,7 +147,7 @@ const ActiveRideSection = ({
           </TouchableOpacity>
         )}
 
-        {(status === 'ride_started' || status === 'start') && (
+        {(status === 'ride_started' || status === 'started') && (
           <TouchableOpacity
             style={[styles.actionButton, styles.finishButton, isFinishing && styles.buttonDisabled]}
             onPress={onFinishRide}
