@@ -16,8 +16,11 @@ import { useFetch } from '../../utils/fetch-handler';
 import { useAuth } from '../../context/AuthContext';
 import CentralModal from './CentralModal';
 import { api } from '../../services/api';
+import { useNavigation } from '@react-navigation/native';
 
 export default function BankWithdrawal() {
+    const navigation = useNavigation();
+
     const [amount, setAmount] = useState('');
     const [reason, setReason] = useState('');
     const [account, setAccount] = useState();
@@ -25,6 +28,11 @@ export default function BankWithdrawal() {
     const { token } = useAuth();
     const [loading, setLoading] = useState(false);
     const [errState, setErrState] = useState({ errMessage: '', showModal: false })
+    const [isSuccess, setIsSuccess] = useState(false)
+
+    const goToDashboard = () => {
+        navigation.replace('Mainapp')
+    }
 
     const getAccounts = async () => {
         try {
@@ -60,6 +68,7 @@ export default function BankWithdrawal() {
                 reason: reason,
             });
             console.log('withdrawal response', res.data)
+            setIsSuccess(true)
             clearForm();
         } catch (error) {
             console.error('Withdrawal error', error)
@@ -96,7 +105,7 @@ export default function BankWithdrawal() {
                                 styles.beneficiaryNumber,
                                 (!account) && styles.placeholderText
                             ]}>
-                                {account?.account_number} • {account?.bank_code}
+                                {account?.account_number}
                             </Text>
                         </View>
                     </View>
@@ -154,6 +163,18 @@ export default function BankWithdrawal() {
                 onConfirm={() => setErrState((prev) => { return { ...prev, showModal: false } })}
                 confirmButtonColor="#F44336"
                 themeColor="#F44336"
+            />
+            <CentralModal
+                visible={isSuccess}
+                onClose={() => setIsSuccess(false)}
+                title="Success!"
+                subText={'Your withdrawal is being proccessed'}
+                icon="alert-circle"
+                confirmText="Go to dashboard"
+                closeText=""
+                onConfirm={() => goToDashboard()}
+                confirmButtonColor="#4CAF50"
+                themeColor="#4CAF50"
             />
         </View>
     );
