@@ -220,7 +220,7 @@ export default function TransferForm() {
                 styles.beneficiaryNumber,
                 (!account) && styles.placeholderText
               ]}>
-                {account?.account_number} • {account?.bank_code}
+                {account?.account_number}
               </Text>
             </View>
           </View>
