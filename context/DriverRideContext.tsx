@@ -92,13 +92,14 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
   };
 
   useEffect(() => {
+    if (!token) return;
     loadPersisted();
     return () => {
       setStatus('not_busy');
       setRideId(null);
       setRiderId(null);
     }
-  }, [triggerEffect]);
+  }, [triggerEffect, token]);
 
   // const persist = async (data: {
   //   status: DriverRideStatus;
