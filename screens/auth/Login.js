@@ -103,14 +103,13 @@ const Login = ({ navigation }) => {
         }
       }
 
+      const payload = { email, password, role: 'driver', type: 'android' };
+      if (fcmToken) {
+        payload.fcm_token = fcmToken;
+      }
+
       login(
-        {
-          email,
-          password,
-          role: 'driver',
-          fcm_token: fcmToken,
-          type: "android"
-        },
+        payload,
         {
           onSuccess: () => {
             // setActiveStatus({ is_online: true });

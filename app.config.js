@@ -5,7 +5,7 @@ export default {
     version: "1.0.0",
     scheme: "kablux-drive",
     orientation: "portrait",
-    icon: "./assets/d-logo.png",
+    icon: "./assets/r-logo.png",
     userInterfaceStyle: "light",
     newArchEnabled: true,
     owner: "agbaby02",
@@ -18,6 +18,7 @@ export default {
       color: "#ffffff",
     },
     ios: {
+      buildNumber: "5",
       supportsTablet: true,
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
@@ -27,8 +28,9 @@ export default {
         UIBackgroundModes: ["audio"],
       },
       config: {
-        googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_API_KEY,
+        googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_IOS_API_KEY,
       },
+      "bundleIdentifier": "com.kablux.kabluxdriver",
     },
     android: {
       adaptiveIcon: {
