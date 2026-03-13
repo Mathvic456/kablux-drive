@@ -8,7 +8,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # Only run if commit message contains 'build-android'
     if: contains(github.event.head_commit.message, 'build-android') || github.event_name == 'workflow_dispatch'
     
     steps:
@@ -26,11 +25,11 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
       
-      - name: Install Expo CLI
-        run: npm install -g expo-cli eas-cli
-      
       - name: Install dependencies
         run: npm install
+
+      - name: Generate native Android project
+        run: npx expo prebuild --platform android --non-interactive
       
       - name: Setup Android signing
         run: |
@@ -39,18 +38,9 @@ jobs:
           echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" >> android/key.properties
           echo "storePassword=${{ secrets.ANDROID_STORE_PASSWORD }}" >> android/key.properties
           echo "keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}" >> android/key.properties
-      
-      # Option 1: Using EAS Build (Recommended for Expo)
-      - name: Build with EAS
-        run: eas build --platform android --non-interactive
-        env:
-          EAS_BUILD_RUNNER_DIST_ID: ${{ secrets.EAS_BUILD_RUNNER_DIST_ID }}
-      
-      # Option 2: Local Gradle build (uncomment if preferring local build)
-      # - name: Build Android APK locally
-      #   run: cd android && ./gradlew assembleRelease
-      # - name: Build Android Bundle locally
-      #   run: cd android && ./gradlew bundleRelease
+
+      - name: Build Android Bundle
+        run: cd android && ./gradlew bundleRelease
       
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -61,7 +51,6 @@ jobs:
       
       - name: Upload to S3
         run: |
-          # Determine build artifact path based on build method used
           BUILD_FILE="android/app/build/outputs/bundle/release/app-release.aab"
           
           if [ ! -f "$BUILD_FILE" ]; then
@@ -69,14 +58,11 @@ jobs:
           fi
           
           if [ -f "$BUILD_FILE" ]; then
-            # Upload with fixed names (overwrites previous versions)
             aws s3 cp "$BUILD_FILE" s3://${{ secrets.S3_BUCKET_NAME }}/expo-app/mobile/app-latest.aab
             
-            # Also upload with timestamp for backup
             TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
             aws s3 cp "$BUILD_FILE" s3://${{ secrets.S3_BUCKET_NAME }}/expo-app/mobile/backups/app-$TIMESTAMP.aab
             
-            # Generate public URLs
             echo "📦 App URL (Latest): https://${{ secrets.S3_BUCKET_NAME }}.s3.amazonaws.com/expo-app/mobile/app-latest.aab"
             echo "📦 App URL (Backup): https://${{ secrets.S3_BUCKET_NAME }}.s3.amazonaws.com/expo-app/mobile/backups/app-$TIMESTAMP.aab"
           else
