@@ -17,12 +17,6 @@ import { GoogleSignin } from '@react-native-google-signin/google-signin';
 const queryClient = new QueryClient();
 export default function App() {
   // const { token } = useAuth()
-  useEffect(() => {
-    GoogleSignin.configure({
-      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-      offlineAccess: true, // required for idToken to be non-null
-    });
-  }, []);
 
   function ApiAuthConnector() {
     const { getValidToken, token } = useAuth();
