@@ -2,7 +2,7 @@ export default {
   expo: {
     name: "kablux-drive",
     slug: "kablux-drive",
-    version: "1.0.0",
+    version: "1.0.1",
     scheme: "kablux-drive",
     orientation: "portrait",
     icon: "./assets/r-logo.png",
@@ -10,7 +10,7 @@ export default {
     newArchEnabled: true,
     owner: "agbaby02",
     splash: {
-      image: "./assets/splash-icon.png",
+      image: "./assets/adaptive-icon.png",
       resizeMode: "contain",
       backgroundColor: "#ffffff",
     },
@@ -57,7 +57,7 @@ export default {
       ],
       package: "com.crashingout.kabluxdrive",
       googleServicesFile: "./google-services.json",
-      versionCode: 35
+      versionCode: 40
     },
     web: {
       favicon: "./assets/favicon.png",

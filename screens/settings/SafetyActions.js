@@ -28,7 +28,7 @@ export default function SafetyActions() {
   const sendEmail = async (subject, body = '') => {
     try {
       const isAvailable = await MailComposer.isAvailableAsync();
-      
+
       if (!isAvailable) {
         Alert.alert(
           'Email Not Available',
@@ -68,8 +68,8 @@ export default function SafetyActions() {
       'Do you want to call the emergency police line?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Call', 
+        {
+          text: 'Call',
           onPress: () => {
             const phoneNumber = '+2347062391997';
             const phoneUrl = Platform.select({
@@ -77,7 +77,7 @@ export default function SafetyActions() {
               android: `tel:${phoneNumber}`,
               default: `tel:${phoneNumber}`
             });
-            
+
             Linking.openURL(phoneUrl).catch(err => {
               console.error('Error making call:', err);
               Alert.alert('Error', 'Failed to make phone call. Please try again.');
@@ -92,7 +92,7 @@ export default function SafetyActions() {
   const handleShareLocation = async () => {
     try {
       let { status } = await Location.requestForegroundPermissionsAsync();
-      
+
       if (status !== 'granted') {
         Alert.alert(
           'Permission Denied',
@@ -107,7 +107,7 @@ export default function SafetyActions() {
       });
 
       const { latitude, longitude } = location.coords;
-      
+
       const mapsUrl = Platform.select({
         ios: `https://maps.apple.com/?ll=${latitude},${longitude}&q=My+Location`,
         android: `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`,
@@ -118,7 +118,7 @@ export default function SafetyActions() {
       const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
 
       const canOpen = await Linking.canOpenURL(whatsappUrl);
-      
+
       if (canOpen) {
         await Linking.openURL(whatsappUrl);
       } else {
@@ -126,8 +126,8 @@ export default function SafetyActions() {
           'Share Location',
           `WhatsApp is not installed. Copy this link to share:\n\n${mapsUrl}`,
           [
-            { 
-              text: 'Copy', 
+            {
+              text: 'Copy',
               onPress: async () => {
                 try {
                   // Using expo-clipboard if available
@@ -183,7 +183,7 @@ export default function SafetyActions() {
 
       setRecording(newRecording);
       setIsRecording(true);
-      
+
       // Start duration timer
       recordingDurationRef.current = 0;
       setRecordingDuration(0);
@@ -205,26 +205,26 @@ export default function SafetyActions() {
       }
 
       await recording.stopAndUnloadAsync();
-      
+
       // Get the recording URI
       const uri = recording.getURI();
       setRecordingUri(uri);
-      
+
       // Save to device storage using the new Filesystem API
       await saveRecordingToStorage(uri);
-      
+
       // Reset states
       setRecording(null);
       setIsRecording(false);
       setRecordingDuration(0);
       recordingDurationRef.current = 0;
-      
+
       Alert.alert(
         'Recording Saved',
         'Audio recording has been saved to your device storage.',
         [{ text: 'OK' }]
       );
-      
+
     } catch (error) {
       console.error('Failed to stop recording:', error);
       Alert.alert('Error', 'Failed to stop recording. Please try again.');
@@ -235,56 +235,56 @@ export default function SafetyActions() {
     try {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const fileName = `kablux_recording_${timestamp}.m4a`;
-      
+
       if (Platform.OS === 'android' || Platform.OS === 'ios') {
         try {
           // Get the document directory - FIXED: using proper FileSystem API
           const baseDirectory =
-  FileSystem.documentDirectory ?? FileSystem.cacheDirectory;
+            FileSystem.documentDirectory ?? FileSystem.cacheDirectory;
           if (!documentDirectory) {
             console.error('Document directory not available');
             return;
           }
-          
+
           const directoryUri = `${documentDirectory}kablux_recordings/`;
           const newFileUri = `${directoryUri}${fileName}`;
-          
+
           // Check if directory exists
           const dirInfo = await FileSystem.getInfoAsync(directoryUri);
-          
+
           if (!dirInfo.exists) {
             // Create directory
             await FileSystem.makeDirectoryAsync(directoryUri, { intermediates: true });
           }
-          
+
           // Move the recording to the new location
           await FileSystem.moveAsync({
             from: uri,
             to: newFileUri,
           });
-          
+
           console.log('Recording saved to:', newFileUri);
         } catch (fsError) {
           console.error('Filesystem error:', fsError);
           // Fallback: Try using copyAsync instead
           try {
             const baseDirectory =
-  FileSystem.documentDirectory ?? FileSystem.cacheDirectory;
+              FileSystem.documentDirectory ?? FileSystem.cacheDirectory;
             const directoryUri = `${documentDirectory}kablux_recordings/`;
             const newFileUri = `${directoryUri}${fileName}`;
-            
+
             // Create directory if it doesn't exist
             const dirInfo = await FileSystem.getInfoAsync(directoryUri);
             if (!dirInfo.exists) {
               await FileSystem.makeDirectoryAsync(directoryUri, { intermediates: true });
             }
-            
+
             // Copy the file
             await FileSystem.copyAsync({
               from: uri,
               to: newFileUri,
             });
-            
+
             console.log('Recording copied to:', newFileUri);
           } catch (copyError) {
             console.error('Copy error:', copyError);
@@ -315,15 +315,15 @@ export default function SafetyActions() {
         'You are currently recording. Do you want to stop and save?',
         [
           { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Stop & Save', 
+          {
+            text: 'Stop & Save',
             onPress: async () => {
               await stopRecording();
               setRecordingModalVisible(false);
             }
           },
-          { 
-            text: 'Discard', 
+          {
+            text: 'Discard',
             style: 'destructive',
             onPress: async () => {
               if (recording) {
@@ -397,30 +397,30 @@ export default function SafetyActions() {
             </View>
 
             <View style={styles.recordingInfo}>
-              <Feather 
-                name={isRecording ? "mic" : "mic-off"} 
-                size={60} 
-                color={isRecording ? "#FF4B4B" : "#FFC107"} 
+              <Feather
+                name={isRecording ? "mic" : "mic-off"}
+                size={60}
+                color={isRecording ? "#FF4B4B" : "#FFC107"}
               />
-              
+
               <Text style={styles.recordingStatus}>
                 {isRecording ? 'Recording...' : 'Ready to Record'}
               </Text>
-              
+
               <Text style={styles.recordingTimer}>
                 {formatTime(recordingDuration)}
               </Text>
-              
+
               <Text style={styles.recordingHint}>
-                {isRecording 
-                  ? 'Recording in progress. Click stop when finished.' 
+                {isRecording
+                  ? 'Recording in progress. Click stop when finished.'
                   : 'Click the record button to start recording.'}
               </Text>
             </View>
 
             <View style={styles.recordingControls}>
               {isRecording ? (
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[styles.controlButton, styles.stopButton]}
                   onPress={stopRecording}
                 >
@@ -428,7 +428,7 @@ export default function SafetyActions() {
                   <Text style={styles.controlButtonText}>Stop Recording</Text>
                 </TouchableOpacity>
               ) : (
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[styles.controlButton, styles.recordButton]}
                   onPress={startRecording}
                 >

@@ -25,6 +25,16 @@ import CentralModal from "../components/CentralModal";
 
 const { width, height } = Dimensions.get('window');
 
+const scaleFont = (size) => {
+  const scaleFactor = width / 375;
+  return Math.round(size * Math.min(scaleFactor, 1.3));
+};
+
+const scaleSize = (size) => {
+  const scaleFactor = width / 375;
+  return Math.round(size * Math.min(scaleFactor, 1.2));
+};
+
 const SignUp = ({ navigation }) => {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -44,17 +54,6 @@ const SignUp = ({ navigation }) => {
     password: "",
     referral: "",
   });
-
-  // Responsive scaling functions
-  const scaleFont = (size) => {
-    const scaleFactor = width / 375;
-    return Math.round(size * Math.min(scaleFactor, 1.3));
-  };
-
-  const scaleSize = (size) => {
-    const scaleFactor = width / 375;
-    return Math.round(size * Math.min(scaleFactor, 1.2));
-  };
 
   const validateForm = () => {
     let valid = true;
@@ -190,14 +189,19 @@ const SignUp = ({ navigation }) => {
     <SafeAreaView style={styles.mainContainer}>
       <StatusBar barStyle="light-content" backgroundColor="#0B2633" />
 
+      {/* Top Banner */}
+
       <KeyboardAvoidingView
         style={styles.container}
+        removeClippedSubviews={false}   // prevents clipping glitches
+        scrollEventThrottle={16}
+        overScrollMode="never"          // Android
+        bounces={false}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+        scrollIndicatorInsets={{ right: 1 }}
       >
-        {/* Top Banner */}
         <View style={styles.banner} />
-
         {/* Scrollable Card */}
         <ScrollView
           style={styles.scrollView}

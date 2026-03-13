@@ -193,9 +193,7 @@ const Login = ({ navigation }) => {
                 lineHeight: scaleFont(20)
               }
             ]}>
-              Need a ride? Skip the stress and rent a car in minutes. Whether
-              it's a quick trip, a business ride or a family vacation, we got
-              you covered.
+              Earn more with structured support and transparent payouts.
             </Text>
 
             {/* Email Input */}

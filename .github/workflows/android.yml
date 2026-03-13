@@ -1,0 +1,93 @@
+name: Build Android Expo
+
+on:
+  push:
+    branches: []
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # Only run if commit message contains 'build-android'
+    if: contains(github.event.head_commit.message, 'build-android') || github.event_name == 'workflow_dispatch'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+      
+      - name: Install Expo CLI
+        run: npm install -g expo-cli eas-cli
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Setup Android signing
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
+          echo "storeFile=keystore.jks" >> android/key.properties
+          echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" >> android/key.properties
+          echo "storePassword=${{ secrets.ANDROID_STORE_PASSWORD }}" >> android/key.properties
+          echo "keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}" >> android/key.properties
+      
+      # Option 1: Using EAS Build (Recommended for Expo)
+      - name: Build with EAS
+        run: eas build --platform android --non-interactive
+        env:
+          EAS_BUILD_RUNNER_DIST_ID: ${{ secrets.EAS_BUILD_RUNNER_DIST_ID }}
+      
+      # Option 2: Local Gradle build (uncomment if preferring local build)
+      # - name: Build Android APK locally
+      #   run: cd android && ./gradlew assembleRelease
+      # - name: Build Android Bundle locally
+      #   run: cd android && ./gradlew bundleRelease
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-north-1
+      
+      - name: Upload to S3
+        run: |
+          # Determine build artifact path based on build method used
+          BUILD_FILE="android/app/build/outputs/bundle/release/app-release.aab"
+          
+          if [ ! -f "$BUILD_FILE" ]; then
+            BUILD_FILE="android/app/build/outputs/apk/release/app-release.apk"
+          fi
+          
+          if [ -f "$BUILD_FILE" ]; then
+            # Upload with fixed names (overwrites previous versions)
+            aws s3 cp "$BUILD_FILE" s3://${{ secrets.S3_BUCKET_NAME }}/expo-app/mobile/app-latest.aab
+            
+            # Also upload with timestamp for backup
+            TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+            aws s3 cp "$BUILD_FILE" s3://${{ secrets.S3_BUCKET_NAME }}/expo-app/mobile/backups/app-$TIMESTAMP.aab
+            
+            # Generate public URLs
+            echo "📦 App URL (Latest): https://${{ secrets.S3_BUCKET_NAME }}.s3.amazonaws.com/expo-app/mobile/app-latest.aab"
+            echo "📦 App URL (Backup): https://${{ secrets.S3_BUCKET_NAME }}.s3.amazonaws.com/expo-app/mobile/backups/app-$TIMESTAMP.aab"
+          else
+            echo "❌ Build artifact not found"
+            exit 1
+          fi
+      
+      - name: Upload build artifacts to GitHub
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build
+          path: android/app/build/outputs/
+          retention-days: 30
