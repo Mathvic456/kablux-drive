@@ -44,6 +44,9 @@ jobs:
           keytool -list -v -keystore android/app/keystore.jks \
             -storepass ${{ secrets.ANDROID_STORE_PASSWORD }} | grep SHA1
 
+      - name: Verify build.gradle uses key.properties
+        run: cat android/app/build.gradle
+
       - name: Build Android Bundle
         run: cd android && ./gradlew bundleRelease
       
