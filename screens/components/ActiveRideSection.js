@@ -119,7 +119,7 @@ const ActiveRideSection = ({
 
       {rideDetails?.fare !== undefined && (
         <View style={styles.fareContainer}>
-          <Text style={styles.fareLabel}>Est. Fare</Text>
+          <Text style={styles.fareLabel}>Est. Fare.</Text>
           <Text style={styles.fareValue}>{formatCurrency(rideDetails.fare)}</Text>
         </View>
       )}
