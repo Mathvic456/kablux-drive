@@ -39,6 +39,11 @@ jobs:
           echo "storePassword=${{ secrets.ANDROID_STORE_PASSWORD }}" >> android/key.properties
           echo "keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}" >> android/key.properties
 
+      - name: Verify keystore SHA1
+        run: |
+          keytool -list -v -keystore android/app/keystore.jks \
+            -storepass ${{ secrets.ANDROID_STORE_PASSWORD }} | grep SHA1
+
       - name: Build Android Bundle
         run: cd android && ./gradlew bundleRelease
       
