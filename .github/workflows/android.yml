@@ -39,13 +39,31 @@ jobs:
           echo "storePassword=${{ secrets.ANDROID_STORE_PASSWORD }}" >> android/key.properties
           echo "keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}" >> android/key.properties
 
+      - name: Fix release signing config
+        run: |
+          python3 - <<'EOF'
+          content = open('android/app/build.gradle').read()
+          
+          release_config = '''        release {
+                  def keystoreProperties = new Properties()
+                  keystoreProperties.load(new FileInputStream(rootProject.file("key.properties")))
+                  storeFile file(keystoreProperties["storeFile"])
+                  storePassword keystoreProperties["storePassword"]
+                  keyAlias keystoreProperties["keyAlias"]
+                  keyPassword keystoreProperties["keyPassword"]
+              }'''
+          
+          content = content.replace('signingConfigs {\n        debug {', 'signingConfigs {\n' + release_config + '\n        debug {')
+          content = content.replace('signingConfig signingConfigs.debug\n            def enableShrinkResources', 'signingConfig signingConfigs.release\n            def enableShrinkResources')
+          
+          open('android/app/build.gradle', 'w').write(content)
+          print("Done! Release signing config added.")
+          EOF
+
       - name: Verify keystore SHA1
         run: |
           keytool -list -v -keystore android/app/keystore.jks \
             -storepass ${{ secrets.ANDROID_STORE_PASSWORD }} | grep SHA1
-
-      - name: Verify build.gradle uses key.properties
-        run: cat android/app/build.gradle
 
       - name: Build Android Bundle
         run: cd android && ./gradlew bundleRelease
