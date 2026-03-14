@@ -421,7 +421,7 @@ const Login = ({ navigation }) => {
                 styles.footerText,
                 { fontSize: scaleFont(12) }
               ]}>
-                Don't have an account?{" "}
+                Don't have an account ?{" "}
                 <Text style={styles.signup}>Sign up</Text>
               </Text>
             </TouchableOpacity>
