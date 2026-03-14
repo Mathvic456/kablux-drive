@@ -30,7 +30,7 @@ export default {
       config: {
         googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_IOS_API_KEY,
       },
-      "bundleIdentifier": "com.kablux.kabluxdriver",
+      bundleIdentifier: "com.kablux.kabluxdriver",
     },
     android: {
       adaptiveIcon: {
@@ -50,24 +50,30 @@ export default {
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.CALL_PHONE",
         "android.permission.MODIFY_AUDIO_SETTINGS",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE",
       ],
       package: "com.crashingout.kabluxdrive",
       googleServicesFile: "./google-services.json",
-      versionCode: 40
+      versionCode: 40,
     },
     web: {
       favicon: "./assets/favicon.png",
     },
     plugins: [
       [
+        "expo-image-picker",
+        {
+          photosPermission:
+            "Allow $(PRODUCT_NAME) to access your photos for document upload.",
+        },
+      ],
+      [
         "expo-camera",
         {
           cameraPermission: "Allow $(PRODUCT_NAME) to access your camera",
-          microphonePermission: "Allow $(PRODUCT_NAME) to access your microphone",
+          microphonePermission:
+            "Allow $(PRODUCT_NAME) to access your microphone",
           recordAudioAndroid: true,
         },
       ],
@@ -75,15 +81,18 @@ export default {
       [
         "expo-location",
         {
-          locationAlwaysAndWhenInUsePermission: "Allow $(PRODUCT_NAME) to use your location.",
-          locationAlwaysPermission: "Allow $(PRODUCT_NAME) to use your location.",
-          locationWhenInUsePermission: "Allow $(PRODUCT_NAME) to use your location.",
+          locationAlwaysAndWhenInUsePermission:
+            "Allow $(PRODUCT_NAME) to use your location.",
+          locationAlwaysPermission:
+            "Allow $(PRODUCT_NAME) to use your location.",
+          locationWhenInUsePermission:
+            "Allow $(PRODUCT_NAME) to use your location.",
         },
       ],
       [
         "expo-notifications",
         {
-          sound: "./assets/sounds/kablux-sound.wav"
+          sound: "./assets/sounds/kablux-sound.wav",
         },
       ],
       [

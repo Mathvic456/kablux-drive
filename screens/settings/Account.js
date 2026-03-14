@@ -186,7 +186,7 @@ export default function Account() {
           ]}
         >
           <Image
-            source={require('../../assets/Profileimg.png')}
+            source={require('../../assets/images/placeholder.png')}
             style={[
               styles.profileImage,
               isSmallScreen && styles.profileImageSmall,
@@ -530,7 +530,7 @@ const styles = StyleSheet.create({
   headerSmall: { fontSize: width * 0.075, marginBottom: height * 0.015 },
   headerLarge: { fontSize: width * 0.085, marginBottom: height * 0.025 },
   headerTablet: { fontSize: width * 0.09, textAlign: 'center' },
-  profileSection: { padding: 10, borderRadius: 12, flexDirection: 'column', gap: 10, alignItems: 'center' , justifyContent: 'center'},
+  profileSection: { padding: 10, borderRadius: 12, flexDirection: 'column', gap: 10, alignItems: 'center', justifyContent: 'center' },
   profileSectionSmall: { marginBottom: height * 0.025 },
   profileSectionLarge: { marginBottom: height * 0.035 },
   profileImage: {

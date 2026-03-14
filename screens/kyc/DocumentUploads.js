@@ -57,27 +57,17 @@ const DocumentUpload = ({ navigation }) => {
 
   const pickDocument = async (docType) => {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (status !== "granted") {
-        setErrorMessage("Please grant permission to access your photos");
-        setShowErrorModal(true);
-        return;
-      }
-
+      // ✅ Remove the permission request entirely
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         quality: 1,
+        // This tells Expo to use the system picker (no permission needed)
       });
 
       if (!result.canceled) {
         const asset = result.assets[0];
-        setDocuments((prev) => ({
-          ...prev,
-          [docType]: asset.uri,
-        }));
-
+        setDocuments((prev) => ({ ...prev, [docType]: asset.uri }));
         await uploadDocument(docType, asset.uri);
       }
     } catch (error) {
