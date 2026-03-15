@@ -43,6 +43,19 @@ export default {
         },
       },
       edgeToEdgeEnabled: false,
+      blockedPermissions: [
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_CONTACTS",
+        "android.permission.WRITE_CONTACTS",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+      ],
       permissions: [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
@@ -55,7 +68,7 @@ export default {
       ],
       package: "com.crashingout.kabluxdrive",
       googleServicesFile: "./google-services.json",
-      versionCode: 40,
+      versionCode: 41,
     },
     web: {
       favicon: "./assets/favicon.png",
