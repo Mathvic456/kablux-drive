@@ -6,6 +6,7 @@ import { useDriverRide } from "./DriverRideContext";
 import { useAuth } from "./AuthContext";
 import { playMessageSound } from "../utils/PlayMessageSound";
 import { authEvents } from "../utils/authEvents";
+import { fetchProfileStatus } from "../services/profile.service";
 
 const WSS_URL = process.env.EXPO_PUBLIC_WSS_URL;
 
@@ -375,7 +376,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         console.log("[WS_DRIVER] Full payload:", JSON.stringify(msg, null, 2));
 
         // Forward ALL notify events to DriverRideContext
-        if ((msg.type === "notify" || "negotiation_update") && msg.data) {
+        if ((msg.type === "notify" || msg.type === "negotiation_update") && msg.data) {
           console.log("🔔 [WS_DRIVER] Forwarding to DriverRideContext:", msg.data.type);
           handleWsEvent(msg);
         }
@@ -495,6 +496,14 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
     }, delay);
   };
 
+  // --- LOGOUT EVENT LISTENER ---
+  useEffect(() => {
+    authEvents.onLogout(handleLogout);
+    return () => {
+      authEvents.offLogout();
+    };
+  }, [handleLogout]);
+
   // --- MOUNT / UNMOUNT ---
   useEffect(() => {
     console.log("🎬 [LIFECYCLE] Driver WebSocketProvider Mounted");
@@ -503,24 +512,35 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
       const { status } = await Location.getForegroundPermissionsAsync();
       setLocationPermission(status);
 
-      if (status === 'granted') {
-        console.log("✅ [INIT] Permission already granted, auto-connecting...");
-        isOnlineRef.current = true;
-        shouldReconnect.current = true;
-        await startLocationTracking();
-        const validToken = await getValidToken();
-        if (validToken) connectWebSocket(validToken);
-      } else {
+      if (status !== 'granted') {
         console.log("⏸️ [INIT] No permission yet, waiting for user action");
+        return;
+      }
+
+      // Check server-side online status before auto-connecting
+      const validToken = await getValidToken();
+      if (!validToken) {
+        console.log("⏸️ [INIT] No valid token, waiting for auth");
+        return;
+      }
+
+      try {
+        const { is_online } = await fetchProfileStatus();
+        console.log(`📡 [INIT] Server online status: ${is_online}`);
+
+        if (is_online) {
+          console.log("✅ [INIT] Server says online, reconnecting...");
+          isOnlineRef.current = true;
+          shouldReconnect.current = true;
+          await startLocationTracking();
+          connectWebSocket(validToken);
+        } else {
+          console.log("⏸️ [INIT] Server says offline, staying offline");
+        }
+      } catch (err) {
+        console.error("❌ [INIT] Failed to fetch profile status, staying offline:", err);
       }
     })();
-
-    useEffect(() => {
-      authEvents.onLogout(handleLogout);
-      return () => {
-        authEvents.offLogout();
-      };
-    }, []);
 
     return () => {
       console.log("🧹 [LIFECYCLE] WebSocketProvider Unmounting");

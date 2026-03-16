@@ -9,20 +9,16 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SocketContext } from "../../context/WebSocketProvider";
-import { useDriverRide } from "../../context/DriverRideContext";
 
-const StatusBadge = () => {
-  const { isConnected, currentLocation, locationPermission, toggleOnlineStatus } = useContext(SocketContext);
+const StatusBadge = ({ onToggleOnline }) => {
+  const { isConnected, currentLocation, locationPermission } = useContext(SocketContext);
   const [isLoading, setIsLoading] = useState(false);
-  const { toggleOnline } = useDriverRide();
   const [badgeHeight, setBadgeHeight] = useState(56);
-
 
   const handleToggle = async () => {
     setIsLoading(true);
     try {
-      await toggleOnlineStatus();
-      await toggleOnline();
+      await onToggleOnline();
     } catch (error) {
       console.error("Failed to toggle online status:", error);
     } finally {

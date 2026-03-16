@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AxiosResponse } from "axios";
 import { api } from "./api";
 import { CREATEACCOUNT_TYPE } from "./type";
@@ -79,11 +79,14 @@ type ActiveStatusPayload = {
 };
 
 export const useActiveStatusEndPoint = () => {
+  const queryClient = useQueryClient();
+
   return useMutation<AxiosResponse<any>, any, ActiveStatusPayload>({
     mutationFn: (data) => api.post("users/active_status/", data),
 
     onSuccess: (res) => {
       console.log("🟢 Active status updated:", res.data);
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
     },
 
     onError: (error: any) => {

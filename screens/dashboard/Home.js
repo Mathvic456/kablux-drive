@@ -517,7 +517,7 @@ export default function Home() {
           isConnected={isConnected}
         />
 
-        <StatusBadge />
+        <StatusBadge onToggleOnline={handleToggleOnline} />
         <ScrollView
           style={styles.scrollContainer}
           contentContainerStyle={styles.scrollContentContainer}
