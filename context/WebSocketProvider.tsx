@@ -1,10 +1,11 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import * as Location from "expo-location";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { navigationRef } from "../screens/context/NavigationContext";
 import { useDriverRide } from "./DriverRideContext";
 import { useAuth } from "./AuthContext";
 import { playMessageSound } from "../utils/PlayMessageSound";
+import { authEvents } from "../utils/authEvents";
 
 const WSS_URL = process.env.EXPO_PUBLIC_WSS_URL;
 
@@ -86,7 +87,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
   }, [rideId]);
 
   // --- LOGOUT LOGIC ---
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     console.log("🚪 [LOGOUT] Session expired - cleaning up everything...");
     isOnlineRef.current = false;
     shouldReconnect.current = false;
@@ -110,7 +111,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         navigationRef.reset({ index: 0, routes: [{ name: 'Login' as never }] });
       }
     }, 100);
-  };
+  }, [clearTokens]); // only clearTokens is external; everything else is refs/local state
 
   // --- SERVER STATUS HELPERS ---
   // These are intentionally no-ops here; Home wires them to activeStatusMutation.
@@ -513,6 +514,13 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         console.log("⏸️ [INIT] No permission yet, waiting for user action");
       }
     })();
+
+    useEffect(() => {
+      authEvents.onLogout(handleLogout);
+      return () => {
+        authEvents.offLogout();
+      };
+    }, []);
 
     return () => {
       console.log("🧹 [LIFECYCLE] WebSocketProvider Unmounting");
