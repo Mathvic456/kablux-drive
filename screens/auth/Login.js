@@ -146,9 +146,6 @@ const Login = ({ navigation }) => {
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       >
         {/* Top Banner */}
-        <View style={[styles.banner, {
-          height: Math.max(200, height * 0.25)
-        }]} />
 
         {/* Scrollable Card */}
         <ScrollView
@@ -157,6 +154,9 @@ const Login = ({ navigation }) => {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          <View style={[styles.banner, {
+            height: Math.max(200, height * 0.25)
+          }]} />
           <View style={[
             styles.card,
             {

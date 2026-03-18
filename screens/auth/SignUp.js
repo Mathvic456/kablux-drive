@@ -201,7 +201,6 @@ const SignUp = ({ navigation }) => {
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
         scrollIndicatorInsets={{ right: 1 }}
       >
-        <View style={styles.banner} />
         {/* Scrollable Card */}
         <ScrollView
           style={styles.scrollView}
@@ -209,6 +208,7 @@ const SignUp = ({ navigation }) => {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          <View style={styles.banner} />
           <View style={styles.card}>
             <View style={styles.logoContainer}>
               <Image

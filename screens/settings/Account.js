@@ -23,6 +23,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import CentralModal from '../components/CentralModal';
 import Platform from 'react-native/Libraries/Utilities/Platform';
 import { api } from '../../services/api';
+import * as ImagePicker from "expo-image-picker";
 
 
 export default function Account() {
@@ -53,6 +54,37 @@ export default function Account() {
   const ReferAndEarn = () => navigation.navigate('ReferAndEarn');
   const HelpAndSupport = () => navigation.navigate('HelpAndSupport');
   const Legal = () => navigation.navigate('Legal');
+
+  console.log('PROFILE======', profile)
+
+  const pickProfileImages = async () => {
+    console.log("🔵 PROFILE IMAGE PICKER TRIGGERED");
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      alert('Sorry, we need camera roll permissions!');
+      return;
+    }
+
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: false,
+      quality: 1,
+    });
+
+    if (!result.canceled && result.assets.length > 0) {
+      const uri = result.assets[0];
+      console.log("Profile image selected:", uri);
+      const formData = new FormData();
+      formData.append('image', {
+        uri: uri.uri,
+        name: 'profile.jpg',
+        type: 'image/jpeg'
+      });
+      console.log("FormData prepared for upload:", formData);
+      const res = await api.post('uploads/', { ...formData });
+      console.log('api req redsponse:', res);
+    }
+  };
 
   const handleLogout = async () => {
     console.log('🚪 Starting logout process...');
@@ -185,14 +217,16 @@ export default function Account() {
             isLargeScreen && styles.profileSectionLarge,
           ]}
         >
-          <Image
-            source={require('../../assets/images/placeholder.png')}
-            style={[
-              styles.profileImage,
-              isSmallScreen && styles.profileImageSmall,
-              isLargeScreen && styles.profileImageLarge,
-            ]}
-          />
+          <TouchableOpacity onPress={pickProfileImages}>
+            <Image
+              source={require('../../assets/images/placeholder.png')}
+              style={[
+                styles.profileImage,
+                isSmallScreen && styles.profileImageSmall,
+                isLargeScreen && styles.profileImageLarge,
+              ]}
+            />
+          </TouchableOpacity>
           <View
             style={[
               styles.profileInfo,

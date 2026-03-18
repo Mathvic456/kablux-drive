@@ -69,6 +69,44 @@ export default function PersonalInfo() {
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
               <Ionicons
+                name="call"
+                size={scaleSize(22)}
+                color="#f7b731"
+              />
+              <Text style={styles.text2}>{user?.first_name || 'N/A'}</Text>
+            </View>
+
+            <TouchableOpacity>
+              <Ionicons
+                name="pencil"
+                size={scaleSize(22)}
+                color="#f7b731"
+              />
+            </TouchableOpacity>
+
+          </View>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <Ionicons
+                name="call"
+                size={scaleSize(22)}
+                color="#f7b731"
+              />
+              <Text style={styles.text2}>{user?.last_name || 'N/A'}</Text>
+            </View>
+
+            <TouchableOpacity>
+              <Ionicons
+                name="pencil"
+                size={scaleSize(22)}
+                color="#f7b731"
+              />
+            </TouchableOpacity>
+
+          </View>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <Ionicons
                 name="mail"
                 size={scaleSize(22)}
                 color="#f7b731"
@@ -105,6 +143,27 @@ export default function PersonalInfo() {
 
           </View>
 
+
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <Ionicons
+                name="call"
+                size={scaleSize(22)}
+                color="#f7b731"
+              />
+              <Text style={styles.text2}>{user?.address || 'N/A'}</Text>
+            </View>
+
+            <TouchableOpacity>
+              <Ionicons
+                name="pencil"
+                size={scaleSize(22)}
+                color="#f7b731"
+              />
+            </TouchableOpacity>
+
+          </View>
+
         </View>
 
         {/* section 2 */}
@@ -128,7 +187,7 @@ export default function PersonalInfo() {
               source={require('../../assets/images/car-red.png')}
             />
 
-            
+
 
           </View>
         </View>

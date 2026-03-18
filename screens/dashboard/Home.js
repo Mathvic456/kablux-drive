@@ -546,10 +546,7 @@ export default function Home() {
             isLoadingDetails={loadingRideDetails}
           />
 
-          {/* Chart */}
-          <View style={styles.chartContainer}>
-            <DonutChart />
-          </View>
+
 
           {/* KYC */}
           {kycData?.kyc_status !== "APPROVED" && kycData?.kyc_status !== "IN_REVIEW" && (
@@ -693,6 +690,10 @@ export default function Home() {
               </TouchableOpacity>
             </View>
           )}
+          {/* Chart */}
+          <View style={styles.chartContainer}>
+            <DonutChart />
+          </View>
         </ScrollView>
       </View>
 
