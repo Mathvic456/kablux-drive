@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export interface ProfileResponse {
   id: string;
@@ -38,50 +37,13 @@ export const useProfile = (token?: string) => {
   });
 };
 
-interface ImageAsset {
-  uri: string;
-  fileName?: string | null;
-}
-
-export const useUpdateProfileImage = () => {
+export const useUpdateProfile = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (asset: ImageAsset) => {
-      // Step 1: Upload file to uploads/
-      const formData = new FormData();
-      const filename = asset.fileName || asset.uri.split("/").pop() || "profile.jpg";
-      formData.append("files", {
-        uri: asset.uri,
-        type: "image/jpeg",
-        name: filename,
-      } as any);
-      formData.append("name", "profile_image");
-
-      const token = await AsyncStorage.getItem("token");
-      const headers: Record<string, string> = {
-        "Content-Type": "multipart/form-data",
-      };
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
-
-      const uploadRes = await api.post("uploads/", formData, {
-        headers,
-        transformRequest: (data: any) => data,
-      });
-
-      const fileId = uploadRes.data?.results?.[0]?.id;
-      if (!fileId) {
-        throw new Error("Upload succeeded but no file ID returned");
-      }
-
-      // Step 2: Update profile with file ID
-      const updateRes = await api.patch("users/me/", {
-        profile_image: fileId,
-      });
-
-      return updateRes.data;
+    mutationFn: async (data: Partial<ProfileResponse>) => {
+      const response = await api.patch("users/me/", data);
+      return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["profile"] });

@@ -16,7 +16,8 @@ import {
 import { MaterialIcons, FontAwesome5, Feather, Entypo, Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useLogoutEndPoint } from '../../services/auth.service';
-import { useProfile, useUpdateProfileImage } from '../../services/profile.service';
+import { useProfile, useUpdateProfile } from '../../services/profile.service';
+import { useUploadFile } from '../../services/fileUpload.service';
 import { SocketContext } from '../../context/WebSocketProvider';
 import { useAuth } from '../../context/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -45,7 +46,9 @@ export default function Account() {
   const { clearTokens } = useAuth();
   const { mutate: logout, isPending: isLoggingOut } = useLogoutEndPoint(clearTokens);
   const { socket } = useContext(SocketContext);
-  const { mutate: updateProfileImage, isPending: isUploadingImage } = useUpdateProfileImage();
+  const { mutateAsync: uploadFile, isPending: isUploading } = useUploadFile();
+  const { mutateAsync: updateProfile, isPending: isUpdating } = useUpdateProfile();
+  const isUploadingImage = isUploading || isUpdating;
 
   const LoginAndSecurity = () => navigation.navigate('LoginAndSecurity');
   const PersonalInfo = () => navigation.navigate('PersonalInfo');
@@ -73,16 +76,27 @@ export default function Account() {
     });
 
     if (!result.canceled && result.assets.length > 0) {
-      const asset = result.assets[0];
-      updateProfileImage(
-        { uri: asset.uri, fileName: asset.fileName },
-        {
-          onError: (error) => {
-            console.error("Profile image upload failed:", error);
-            alert("Failed to update profile image. Please try again.");
-          },
-        }
-      );
+      try {
+        const asset = result.assets[0];
+        const filename = asset.fileName || asset.uri.split('/').pop() || 'profile.jpg';
+
+        const formData = new FormData();
+        formData.append('files', {
+          uri: asset.uri,
+          type: 'image/jpeg',
+          name: filename,
+        });
+        formData.append('name', 'profile_image');
+
+        const uploadRes = await uploadFile(formData);
+        const fileId = uploadRes.data?.results?.[0]?.id;
+        if (!fileId) throw new Error('Upload succeeded but no file ID returned');
+
+        await updateProfile({ profile_image: fileId });
+      } catch (error) {
+        console.error('Profile image upload failed:', error);
+        alert('Failed to update profile image. Please try again.');
+      }
     }
   };
 
