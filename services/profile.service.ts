@@ -1,5 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export interface ProfileResponse {
   id: string;
@@ -26,7 +27,7 @@ export const fetchProfileStatus = async (): Promise<{ is_online: boolean }> => {
   return { is_online: data?.is_online ?? false };
 };
 
-export const useProfile = (token: string) => {
+export const useProfile = (token?: string) => {
   return useQuery({
     queryKey: ["profile"],
     queryFn: async () => {
@@ -34,5 +35,56 @@ export const useProfile = (token: string) => {
       return response.data.data;
     },
     enabled: !!token,
+  });
+};
+
+interface ImageAsset {
+  uri: string;
+  fileName?: string | null;
+}
+
+export const useUpdateProfileImage = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (asset: ImageAsset) => {
+      // Step 1: Upload file to uploads/
+      const formData = new FormData();
+      const filename = asset.fileName || asset.uri.split("/").pop() || "profile.jpg";
+      formData.append("files", {
+        uri: asset.uri,
+        type: "image/jpeg",
+        name: filename,
+      } as any);
+      formData.append("name", "profile_image");
+
+      const token = await AsyncStorage.getItem("token");
+      const headers: Record<string, string> = {
+        "Content-Type": "multipart/form-data",
+      };
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      const uploadRes = await api.post("uploads/", formData, {
+        headers,
+        transformRequest: (data: any) => data,
+      });
+
+      const fileId = uploadRes.data?.results?.[0]?.id;
+      if (!fileId) {
+        throw new Error("Upload succeeded but no file ID returned");
+      }
+
+      // Step 2: Update profile with file ID
+      const updateRes = await api.patch("users/me/", {
+        profile_image: fileId,
+      });
+
+      return updateRes.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+    },
   });
 };

@@ -16,7 +16,7 @@ import {
 import { MaterialIcons, FontAwesome5, Feather, Entypo, Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useLogoutEndPoint } from '../../services/auth.service';
-import { useProfile } from '../../services/profile.service';
+import { useProfile, useUpdateProfileImage } from '../../services/profile.service';
 import { SocketContext } from '../../context/WebSocketProvider';
 import { useAuth } from '../../context/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -45,6 +45,7 @@ export default function Account() {
   const { clearTokens } = useAuth();
   const { mutate: logout, isPending: isLoggingOut } = useLogoutEndPoint(clearTokens);
   const { socket } = useContext(SocketContext);
+  const { mutate: updateProfileImage, isPending: isUploadingImage } = useUpdateProfileImage();
 
   const LoginAndSecurity = () => navigation.navigate('LoginAndSecurity');
   const PersonalInfo = () => navigation.navigate('PersonalInfo');
@@ -65,24 +66,23 @@ export default function Account() {
       return;
     }
 
-    let result = await ImagePicker.launchImageLibraryAsync({
+    const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: false,
-      quality: 1,
+      quality: 0.8,
     });
 
     if (!result.canceled && result.assets.length > 0) {
-      const uri = result.assets[0];
-      console.log("Profile image selected:", uri);
-      const formData = new FormData();
-      formData.append('image', {
-        uri: uri.uri,
-        name: 'profile.jpg',
-        type: 'image/jpeg'
-      });
-      console.log("FormData prepared for upload:", formData);
-      const res = await api.post('uploads/', { ...formData });
-      console.log('api req redsponse:', res);
+      const asset = result.assets[0];
+      updateProfileImage(
+        { uri: asset.uri, fileName: asset.fileName },
+        {
+          onError: (error) => {
+            console.error("Profile image upload failed:", error);
+            alert("Failed to update profile image. Please try again.");
+          },
+        }
+      );
     }
   };
 
@@ -217,15 +217,31 @@ export default function Account() {
             isLargeScreen && styles.profileSectionLarge,
           ]}
         >
-          <TouchableOpacity onPress={pickProfileImages}>
-            <Image
-              source={require('../../assets/images/placeholder.png')}
-              style={[
-                styles.profileImage,
-                isSmallScreen && styles.profileImageSmall,
-                isLargeScreen && styles.profileImageLarge,
-              ]}
-            />
+          <TouchableOpacity onPress={pickProfileImages} disabled={isUploadingImage}>
+            <View style={{ position: 'relative' }}>
+              <Image
+                source={
+                  profile?.profile_image
+                    ? { uri: profile.profile_image }
+                    : require('../../assets/images/placeholder.png')
+                }
+                style={[
+                  styles.profileImage,
+                  isSmallScreen && styles.profileImageSmall,
+                  isLargeScreen && styles.profileImageLarge,
+                ]}
+              />
+              {isUploadingImage && (
+                <View style={styles.imageLoadingOverlay}>
+                  <ActivityIndicator size="small" color="#FFC107" />
+                </View>
+              )}
+              {!isUploadingImage && (
+                <View style={styles.cameraIconOverlay}>
+                  <Ionicons name="camera" size={12} color="white" />
+                </View>
+              )}
+            </View>
           </TouchableOpacity>
           <View
             style={[
@@ -576,6 +592,30 @@ const styles = StyleSheet.create({
   },
   profileImageSmall: {},
   profileImageLarge: {},
+  imageLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: width * 0.1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cameraIconOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#FFC107',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'black',
+  },
   profileInfo: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   profileInfoSmall: { marginLeft: width * 0.03 },
   profileInfoLarge: { marginLeft: width * 0.05 },
