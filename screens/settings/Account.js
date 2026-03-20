@@ -90,9 +90,10 @@ export default function Account() {
 
         const uploadRes = await uploadFile(formData);
         const fileId = uploadRes.data?.results?.[0]?.id;
+        console.log("IMAGE UPLOADEDD", uploadRes, fileId);
         if (!fileId) throw new Error('Upload succeeded but no file ID returned');
 
-        await updateProfile({ profile_image: fileId });
+        await updateProfile({ upload_id: fileId });
       } catch (error) {
         console.error('Profile image upload failed:', error);
         alert('Failed to update profile image. Please try again.');
@@ -231,7 +232,7 @@ export default function Account() {
             isLargeScreen && styles.profileSectionLarge,
           ]}
         >
-          <TouchableOpacity onPress={pickProfileImages} disabled={isUploadingImage}>
+          <View>
             <View style={{ position: 'relative' }}>
               <Image
                 source={
@@ -251,12 +252,12 @@ export default function Account() {
                 </View>
               )}
               {!isUploadingImage && (
-                <View style={styles.cameraIconOverlay}>
+                <TouchableOpacity onPress={pickProfileImages} disabled={isUploadingImage} style={styles.cameraIconOverlay}>
                   <Ionicons name="camera" size={12} color="white" />
-                </View>
+                </TouchableOpacity>
               )}
             </View>
-          </TouchableOpacity>
+          </View>
           <View
             style={[
               styles.profileInfo,

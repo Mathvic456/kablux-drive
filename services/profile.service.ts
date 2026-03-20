@@ -42,7 +42,7 @@ export const useUpdateProfile = () => {
 
   return useMutation({
     mutationFn: async (data: Partial<ProfileResponse>) => {
-      const response = await api.patch("users/me/", data);
+      const response = await api.post("users/set-profile-picture/", data);
       return response.data;
     },
     onSuccess: () => {
