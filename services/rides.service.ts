@@ -39,6 +39,13 @@ const finishRide = async (rideId: string) => {
   return data;
 };
 
+const updateFare = async (rideId: string, fare: number) => {
+  console.log(`💰 Updating fare for ride ${rideId}: ${fare}`);
+  const { data } = await api.patch(`rides/${rideId}/update_fare/`, { fare });
+  console.log("✅ Fare updated successfully");
+  return data;
+};
+
 // ==================== Hooks ====================
 
 /**
@@ -127,6 +134,22 @@ export const useFinishRide = () => {
     },
     onError: (error: any) => {
       console.error("❌ Error finishing ride:", error);
+    },
+  });
+};
+
+export const useUpdateFare = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ rideId, fare }: { rideId: string; fare: number }) =>
+      updateFare(rideId, fare),
+    onSuccess: (data, { rideId }) => {
+      console.log("✅ Fare update mutation successful");
+      queryClient.invalidateQueries({ queryKey: rideKeys.details(rideId) });
+    },
+    onError: (error: any) => {
+      console.error("❌ Error updating fare:", error);
     },
   });
 };
