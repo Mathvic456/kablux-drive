@@ -136,6 +136,7 @@ const Login = ({ navigation }) => {
   };
 
 
+
   return (
     <SafeAreaView style={styles.mainContainer}>
       <StatusBar barStyle="light-content" backgroundColor="#0B2633" />

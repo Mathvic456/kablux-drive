@@ -10,7 +10,9 @@ import {
   SafeAreaView,
   StatusBar,
   Dimensions,
-  Platform
+  Platform,
+  KeyboardAvoidingView,
+  ScrollView,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -28,7 +30,7 @@ const OTP = ({ navigation }) => {
   const [showResendModal, setShowResendModal] = useState(false);
   const [resendModalMessage, setResendModalMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
-  
+
   const [resendTimer, setResendTimer] = useState(0);
 
   const inputRefs = useRef([]);
@@ -83,7 +85,7 @@ const OTP = ({ navigation }) => {
   const handleResend = async () => {
     if (!email) return;
     setErrorMessage("");
-    
+
     try {
       await otpResend.mutateAsync({ email });
       setResendModalMessage("A new code has been sent to your email.");
@@ -131,10 +133,12 @@ const OTP = ({ navigation }) => {
   };
 
   const handleVerify = async (otpArray = otp) => {
+    // navigation.navigate('Login');
+
     if (otpVerify.isPending) return;
 
     const code = otpArray.join('');
-    
+
     if (code.length !== 6) {
       console.log("❌ OTP must be 6 digits");
       return;
@@ -167,230 +171,220 @@ const OTP = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.mainContainer}>
       <StatusBar barStyle="light-content" backgroundColor="#0B2633" />
-      
-      <View style={styles.container}>
-        <View style={[styles.banner, { 
-          height: Math.max(200, height * 0.25) 
-        }]} />
 
-        <View style={[
-          styles.card,
-          { 
-            paddingHorizontal: Math.max(20, width * 0.05),
-            paddingTop: Math.max(20, height * 0.02),
-            paddingBottom: Math.max(30, height * 0.03)
-          }
-        ]}>
-          <View style={styles.logoContainer}>
-            <Image 
-              source={Logo} 
-              style={[
-                styles.logoIcon,
-                {
-                  width: scaleSize(130),
-                  height: scaleSize(100)
-                }
-              ]} 
-            />
-          </View>
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoid}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+      >
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          bounces={false}
+          overScrollMode="never"
+        >
+          {/* Top Banner */}
+          <View style={styles.banner} />
 
+          {/* Card */}
           <View style={[
-            styles.iconContainer,
+            styles.card,
             {
-              width: scaleSize(50),
-              height: scaleSize(50),
-              borderRadius: scaleSize(25),
-              padding: scaleSize(10)
+              paddingHorizontal: Math.max(20, width * 0.05),
+              paddingTop: Math.max(20, height * 0.02),
+              paddingBottom: Math.max(30, height * 0.03),
             }
           ]}>
-            <Feather 
-              name="mail" 
-              size={scaleSize(24)} 
-              color="#fcbf24" 
-            />
-          </View>
-
-          <Text style={[
-            styles.title,
-            { fontSize: scaleFont(24) }
-          ]}>
-            OTP Authentication
-          </Text>
-          
-          <Text style={[
-            styles.subtitle,
-            { 
-              fontSize: scaleFont(14),
-              marginBottom: scaleSize(30)
-            }
-          ]}>
-            Check your email for the verification code
-          </Text>
-
-          <View style={[
-            styles.progressContainer,
-            { marginBottom: scaleSize(30) }
-          ]}>
-            <View style={[
-              styles.progressBar,
-              { height: scaleSize(8) }
-            ]}>
-              <View 
+            <View style={styles.logoContainer}>
+              <Image
+                source={Logo}
                 style={[
-                  styles.progressFill, 
-                  { width: `${progress}%` }
-                ]} 
-              />
-            </View>
-            <Text style={[
-              styles.progressText,
-              { fontSize: scaleFont(12) }
-            ]}>
-              {Math.round(progress)}% Complete
-            </Text>
-          </View>
-
-          <View style={[
-            styles.otpContainer,
-            { 
-              marginBottom: scaleSize(40),
-              gap: Math.max(8, width * 0.02)
-            }
-          ]}>
-            {[0, 1, 2, 3, 4, 5].map((index) => (
-              <TextInput
-                key={index}
-                ref={(ref) => (inputRefs.current[index] = ref)}
-                style={[
-                  styles.otpInput,
-                  otp[index] && styles.otpInputFilled,
-                  otpVerify.isPending && styles.otpInputDisabled,
-                  { 
-                    height: scaleSize(60),
-                    borderRadius: scaleSize(10),
-                    borderWidth: 2,
-                    fontSize: scaleFont(20)
+                  styles.logoIcon,
+                  {
+                    width: scaleSize(130),
+                    height: scaleSize(100),
                   }
                 ]}
-                placeholder="0"
-                placeholderTextColor="#555"
-                keyboardType="number-pad"
-                maxLength={1}
-                textAlign="center"
-                value={otp[index]}
-                onChangeText={(text) => handleOtpChange(text, index)}
-                onKeyPress={(e) => handleKeyPress(e, index)}
-                editable={!otpVerify.isPending}
-                selectTextOnFocus
               />
-            ))}
-          </View>
-          
-          {errorMessage ? (
-            <Text style={[
-              styles.errorText,
-              { 
-                fontSize: scaleFont(13),
-                marginBottom: scaleSize(10)
+            </View>
+
+            <View style={[
+              styles.iconContainer,
+              {
+                width: scaleSize(50),
+                height: scaleSize(50),
+                borderRadius: scaleSize(25),
+                padding: scaleSize(10),
               }
             ]}>
-              {errorMessage}
-            </Text>
-          ) : null}
+              <Feather
+                name="mail"
+                size={scaleSize(24)}
+                color="#fcbf24"
+              />
+            </View>
 
-          <TouchableOpacity
-            style={[
-              styles.verifyBtn,
-              (!isOtpComplete || otpVerify.isPending) && styles.verifyBtnDisabled,
-              { 
-                paddingVertical: scaleSize(14),
-                minHeight: scaleSize(50)
+            <Text style={[styles.title, { fontSize: scaleFont(24) }]}>
+              OTP Authentication
+            </Text>
+
+            <Text style={[
+              styles.subtitle,
+              {
+                fontSize: scaleFont(14),
+                marginBottom: scaleSize(30),
               }
-            ]}
-            onPress={() => handleVerify()}
-            disabled={!isOtpComplete || otpVerify.isPending}
-            activeOpacity={0.8}
-          >
-            {otpVerify.isPending ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color="#000" />
-                <Text style={[
-                  styles.verifyText, 
-                  { 
-                    marginLeft: scaleSize(8),
-                    fontSize: scaleFont(16)
-                  }
-                ]}>
-                  Verifying...
-                </Text>
+            ]}>
+              Check your email for the verification code
+            </Text>
+
+            <View style={[
+              styles.progressContainer,
+              { marginBottom: scaleSize(30) }
+            ]}>
+              <View style={[styles.progressBar, { height: scaleSize(8) }]}>
+                <View style={[styles.progressFill, { width: `${progress}%` }]} />
               </View>
-            ) : (
-              <Text style={[
-                styles.verifyText,
-                { fontSize: scaleFont(16) }
-              ]}>
-                Verify
+              <Text style={[styles.progressText, { fontSize: scaleFont(12) }]}>
+                {Math.round(progress)}% Complete
               </Text>
-            )}
-          </TouchableOpacity>
+            </View>
 
-          {/* Resend Section */}
-          <View style={[
-            styles.resendContainer,
-            { marginTop: scaleSize(25) }
-          ]}>
-            <Text style={[
-              styles.resendLabel,
-              { fontSize: scaleFont(14) }
+            <View style={[
+              styles.otpContainer,
+              {
+                marginBottom: scaleSize(40),
+                gap: Math.max(8, width * 0.02),
+              }
             ]}>
-              Didn't receive code?{" "}
-            </Text>
-            <TouchableOpacity 
-              onPress={handleResend}
-              disabled={resendTimer > 0 || otpResend.isPending}
-              activeOpacity={0.7}
+              {[0, 1, 2, 3, 4, 5].map((index) => (
+                <TextInput
+                  key={index}
+                  ref={(ref) => (inputRefs.current[index] = ref)}
+                  style={[
+                    styles.otpInput,
+                    otp[index] && styles.otpInputFilled,
+                    otpVerify.isPending && styles.otpInputDisabled,
+                    {
+                      height: scaleSize(60),
+                      borderRadius: scaleSize(10),
+                      borderWidth: 2,
+                      fontSize: scaleFont(20),
+                    }
+                  ]}
+                  placeholder="0"
+                  placeholderTextColor="#555"
+                  keyboardType="number-pad"
+                  maxLength={1}
+                  textAlign="center"
+                  value={otp[index]}
+                  onChangeText={(text) => handleOtpChange(text, index)}
+                  onKeyPress={(e) => handleKeyPress(e, index)}
+                  editable={!otpVerify.isPending}
+                  selectTextOnFocus
+                />
+              ))}
+            </View>
+
+            {errorMessage ? (
+              <Text style={[
+                styles.errorText,
+                {
+                  fontSize: scaleFont(13),
+                  marginBottom: scaleSize(10),
+                }
+              ]}>
+                {errorMessage}
+              </Text>
+            ) : null}
+
+            <TouchableOpacity
+              style={[
+                styles.verifyBtn,
+                (!isOtpComplete || otpVerify.isPending) && styles.verifyBtnDisabled,
+                {
+                  paddingVertical: scaleSize(14),
+                  minHeight: scaleSize(50),
+                }
+              ]}
+              onPress={() => handleVerify()}
+              disabled={!isOtpComplete || otpVerify.isPending}
+              activeOpacity={0.8}
             >
-              {otpResend.isPending ? (
-                <ActivityIndicator size="small" color="#fcbf24" />
+              {otpVerify.isPending ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color="#000" />
+                  <Text style={[
+                    styles.verifyText,
+                    {
+                      marginLeft: scaleSize(8),
+                      fontSize: scaleFont(16),
+                    }
+                  ]}>
+                    Verifying...
+                  </Text>
+                </View>
               ) : (
-                <Text style={[
-                  styles.resendLink,
-                  resendTimer > 0 && styles.resendLinkDisabled,
-                  { fontSize: scaleFont(14) }
-                ]}>
-                  {resendTimer > 0 ? `Resend in ${resendTimer}s` : "Resend"}
+                <Text style={[styles.verifyText, { fontSize: scaleFont(16) }]}>
+                  Verify
                 </Text>
               )}
             </TouchableOpacity>
+
+            {/* Resend Section */}
+            <View style={[styles.resendContainer, { marginTop: scaleSize(25) }]}>
+              <Text style={[styles.resendLabel, { fontSize: scaleFont(14) }]}>
+                Didn't receive code?{" "}
+              </Text>
+              <TouchableOpacity
+                onPress={handleResend}
+                disabled={resendTimer > 0 || otpResend.isPending}
+                activeOpacity={0.7}
+              >
+                {otpResend.isPending ? (
+                  <ActivityIndicator size="small" color="#fcbf24" />
+                ) : (
+                  <Text style={[
+                    styles.resendLink,
+                    resendTimer > 0 && styles.resendLinkDisabled,
+                    { fontSize: scaleFont(14) },
+                  ]}>
+                    {resendTimer > 0 ? `Resend in ${resendTimer}s` : "Resend"}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
-        <CentralModal
-          visible={showSuccessModal}
-          onClose={handleSuccessModalClose}
-          title="Success!"
-          subText="OTP verification successful"
-          icon="checkmark-circle"
-          confirmText="Login"
-          closeText=""
-          onConfirm={handleSuccessModalClose}
-          confirmButtonColor="#fcbf24"
-          themeColor="#fcbf24"
-        />
+      <CentralModal
+        visible={showSuccessModal}
+        onClose={handleSuccessModalClose}
+        title="Success!"
+        subText="OTP verification successful"
+        icon="checkmark-circle"
+        confirmText="Login"
+        closeText=""
+        onConfirm={handleSuccessModalClose}
+        confirmButtonColor="#fcbf24"
+        themeColor="#fcbf24"
+      />
 
-        <CentralModal
-          visible={showResendModal}
-          onClose={() => setShowResendModal(false)}
-          title="Sent!"
-          subText={resendModalMessage}
-          icon="mail"
-          confirmText="Got it"
-          closeText=""
-          onConfirm={() => setShowResendModal(false)}
-          confirmButtonColor="#fcbf24"
-          themeColor="#4CAF50"
-        />
-      </View>
+      <CentralModal
+        visible={showResendModal}
+        onClose={() => setShowResendModal(false)}
+        title="Sent!"
+        subText={resendModalMessage}
+        icon="mail"
+        confirmText="Got it"
+        closeText=""
+        onConfirm={() => setShowResendModal(false)}
+        confirmButtonColor="#fcbf24"
+        themeColor="#4CAF50"
+      />
     </SafeAreaView>
   );
 };
@@ -400,17 +394,24 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#000",
   },
-  container: { 
-    flex: 1, 
-    backgroundColor: "#000" 
+  keyboardAvoid: {
+    flex: 1,
+    backgroundColor: "#000",
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
   },
   banner: {
+    height: Math.max(200, height * 0.25),
     backgroundColor: "#0B2633",
     borderBottomLeftRadius: 40,
     borderBottomRightRadius: 40,
   },
   card: {
-    flex: 1,
     marginTop: -40,
     backgroundColor: "#000",
     borderTopLeftRadius: 40,
@@ -506,8 +507,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  verifyText: { 
-    color: "#000", 
+  verifyText: {
+    color: "#000",
     fontWeight: "bold",
   },
   resendContainer: {
