@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import React from 'react';
-import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 const ActiveRideSection = ({
   status,
@@ -14,21 +14,76 @@ const ActiveRideSection = ({
   isLoadingDetails = false,
   onArrived,
   isArriving,
+  rideAcceptedAt = null,
+  expectedArrivalMinutes = 15,
+  onUpdateFare,
+  isUpdatingFare = false,
 }) => {
 
   const navigation = useNavigation();
-  console.log('start trip err:', status, rideDetails)
-  // console.log('everythingggggg', status, rideId,
-  //   rideDetails,
-  //   onStartRide,
-  //   onFinishRide,
-  //   isStarting = false,
-  //   isFinishing = false,
-  //   isLoadingDetails = false,
-  //   onArrived,
-  //   isArriving)
 
   const isPickupPhase = status === 'ride_created' || status === 'driver_on_way';
+
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  useEffect(() => {
+    if (!rideAcceptedAt || !isPickupPhase) {
+      setElapsedSeconds(0);
+      return;
+    }
+
+    // Calculate elapsed immediately
+    const calcElapsed = () => Math.floor((Date.now() - rideAcceptedAt) / 1000);
+    setElapsedSeconds(calcElapsed());
+
+    const interval = setInterval(() => {
+      setElapsedSeconds(calcElapsed());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [rideAcceptedAt, isPickupPhase]);
+
+  const [manualFare, setManualFare] = useState('');
+  const [showFareInput, setShowFareInput] = useState(false);
+
+  const handleFareSubmit = () => {
+    const fareValue = parseFloat(manualFare);
+    if (isNaN(fareValue) || fareValue <= 0) {
+      Alert.alert("Invalid Fare", "Please enter a valid positive amount.");
+      return;
+    }
+    if (fareValue > 999999) {
+      Alert.alert("Invalid Fare", "Fare amount is too high.");
+      return;
+    }
+
+    Alert.alert(
+      "Confirm Fare Update",
+      `Set ride fare to ₦${fareValue.toLocaleString()}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Confirm",
+          onPress: () => {
+            onUpdateFare?.(fareValue);
+            setShowFareInput(false);
+            setManualFare('');
+          },
+        },
+      ]
+    );
+  };
+
+  const expectedSeconds = expectedArrivalMinutes * 60;
+  const remainingSeconds = Math.max(0, expectedSeconds - elapsedSeconds);
+  const isLate = elapsedSeconds > expectedSeconds && isPickupPhase;
+  const overtimeSeconds = isLate ? elapsedSeconds - expectedSeconds : 0;
+
+  const formatTime = (totalSeconds) => {
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   if (status === 'not_busy') return null;
 
@@ -62,6 +117,25 @@ const ActiveRideSection = ({
         </View>
         <Text style={styles.rideId}>#{rideId ? rideId.slice(0, 5) : '...'}</Text>
       </View>
+
+      {/* Late Arrival Timer */}
+      {isPickupPhase && rideAcceptedAt && (
+        <View style={[styles.timerContainer, isLate && styles.timerContainerLate]}>
+          <Ionicons
+            name={isLate ? "warning" : "time-outline"}
+            size={18}
+            color={isLate ? "#f44336" : "#facc15"}
+          />
+          <View style={styles.timerTextContainer}>
+            <Text style={[styles.timerLabel, isLate && styles.timerLabelLate]}>
+              {isLate ? 'LATE BY' : 'ARRIVE WITHIN'}
+            </Text>
+            <Text style={[styles.timerValue, isLate && styles.timerValueLate]}>
+              {isLate ? formatTime(overtimeSeconds) : formatTime(remainingSeconds)}
+            </Text>
+          </View>
+        </View>
+      )}
 
       {isLoadingDetails && (
         <View style={styles.loadingContainer}>
@@ -122,6 +196,60 @@ const ActiveRideSection = ({
           <Text style={styles.fareLabel}>Est. Fare.</Text>
           <Text style={styles.fareValue}>{formatCurrency(rideDetails.fare)}</Text>
         </View>
+      )}
+
+      {/* Manual Fare Input */}
+      {(status === 'ride_started' || status === 'started') && onUpdateFare && (
+        <>
+          {showFareInput ? (
+            <View style={styles.fareInputContainer}>
+              <View style={styles.fareInputRow}>
+                <Text style={styles.fareInputPrefix}>₦</Text>
+                <TextInput
+                  style={styles.fareInput}
+                  placeholder="Enter fare"
+                  placeholderTextColor="#666"
+                  keyboardType="numeric"
+                  value={manualFare}
+                  onChangeText={(text) => {
+                    // Allow digits and one decimal point, max 2 decimal places
+                    const cleaned = text.replace(/[^0-9.]/g, '');
+                    const parts = cleaned.split('.');
+                    if (parts.length > 2) return;
+                    if (parts[1] && parts[1].length > 2) return;
+                    setManualFare(cleaned);
+                  }}
+                  maxLength={10}
+                />
+                <TouchableOpacity
+                  style={[styles.fareSubmitButton, isUpdatingFare && styles.buttonDisabled]}
+                  onPress={handleFareSubmit}
+                  disabled={isUpdatingFare || !manualFare}
+                >
+                  {isUpdatingFare ? (
+                    <ActivityIndicator size="small" color="black" />
+                  ) : (
+                    <Ionicons name="checkmark" size={20} color="black" />
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.fareCancelButton}
+                  onPress={() => { setShowFareInput(false); setManualFare(''); }}
+                >
+                  <Ionicons name="close" size={20} color="#666" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.setFareButton}
+              onPress={() => setShowFareInput(true)}
+            >
+              <Ionicons name="create-outline" size={16} color="#facc15" style={{ marginRight: 6 }} />
+              <Text style={styles.setFareButtonText}>Set Manual Fare</Text>
+            </TouchableOpacity>
+          )}
+        </>
       )}
 
       <View style={styles.actionsContainer}>
@@ -227,6 +355,44 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 12,
     fontFamily: 'monospace',
+  },
+
+  /* TIMER */
+  timerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#252525',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#facc15',
+  },
+  timerContainerLate: {
+    backgroundColor: '#2a1a1a',
+    borderColor: '#f44336',
+  },
+  timerTextContainer: {
+    marginLeft: 10,
+    flex: 1,
+  },
+  timerLabel: {
+    color: '#facc15',
+    fontSize: 10,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  timerLabelLate: {
+    color: '#f44336',
+  },
+  timerValue: {
+    color: '#facc15',
+    fontSize: 20,
+    fontWeight: 'bold',
+    fontFamily: 'monospace',
+  },
+  timerValueLate: {
+    color: '#f44336',
   },
 
   /* LOADING */
@@ -340,6 +506,60 @@ const styles = StyleSheet.create({
     color: '#facc15',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+
+  /* FARE INPUT */
+  fareInputContainer: {
+    marginBottom: 16,
+  },
+  fareInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#252525',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#facc15',
+    paddingHorizontal: 12,
+  },
+  fareInputPrefix: {
+    color: '#facc15',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginRight: 4,
+  },
+  fareInput: {
+    flex: 1,
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+    height: 48,
+    paddingHorizontal: 4,
+  },
+  fareSubmitButton: {
+    backgroundColor: '#facc15',
+    borderRadius: 6,
+    padding: 8,
+    marginLeft: 8,
+  },
+  fareCancelButton: {
+    padding: 8,
+    marginLeft: 4,
+  },
+  setFareButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    marginBottom: 12,
+    backgroundColor: 'rgba(250, 204, 21, 0.1)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(250, 204, 21, 0.3)',
+  },
+  setFareButtonText: {
+    color: '#facc15',
+    fontSize: 13,
+    fontWeight: '600',
   },
 
   /* BUTTONS */

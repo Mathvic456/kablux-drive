@@ -61,6 +61,18 @@ export const useLoginEndPoint = (
 
       // Navigate to Mainapp
       navigation.replace("Mainapp");
+
+      try {
+        const pendingRes = await api.get("rides/pending_requests/");
+        const pendingRequests = pendingRes.data?.results || pendingRes.data || [];
+        if (pendingRequests.length > 0) {
+          console.log(`🔔 [LOGIN] Found ${pendingRequests.length} pending ride request(s)`);
+          // Pending requests will be picked up by WebSocket on connect
+        }
+      } catch (pendingErr) {
+        // Non-critical — don't block login if pending requests endpoint fails
+        console.log("ℹ️ [LOGIN] No pending requests or endpoint unavailable");
+      }
     },
 
     onError: (error: any) => {

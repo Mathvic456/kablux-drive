@@ -145,6 +145,7 @@ const SignUp = ({ navigation }) => {
     const last_name = rest.length > 0 ? rest.join(" ") : "";
 
     await AsyncStorage.setItem("pendingEmail", email);
+    await AsyncStorage.setItem("pendingPassword", password);
 
     try {
       register(

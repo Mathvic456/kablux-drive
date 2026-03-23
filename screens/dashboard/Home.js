@@ -34,7 +34,7 @@ import CentralModal from "../components/CentralModal";
 // Context & Services
 import { useProfile } from "../../services/profile.service";
 import { useDriverKycStatus } from "../../services/checkKyc.service";
-import { useStartRide, useFinishRide } from "../../services/rides.service";
+import { useStartRide, useFinishRide, useUpdateFare } from "../../services/rides.service";
 import { useGetMyBalance } from "../../services/funding.service";
 import { SocketContext } from "../../context/WebSocketProvider";
 import { useDriverRide } from "../../context/DriverRideContext";
@@ -76,7 +76,6 @@ export default function Home() {
   const [lowBalanceWarningVisible, setLowBalanceWarningVisible] = useState(false);
   const [showLowBalanceBanner, setShowLowBalanceBanner] = useState(true);
 
-  // FIX: Single source of truth for the "is toggling" guard - prevents flicker
   const isTogglingOnlineRef = React.useRef(false);
 
   // console.log('selected', selectedOffer)
@@ -94,7 +93,9 @@ export default function Home() {
     reset,
     loadPersisted,
     setNegotiationUpdates,
-    negotiationUpdates
+    negotiationUpdates,
+    rideAcceptedAt,
+    expectedArrivalMinutes,
   } = useDriverRide();
 
   const {
@@ -110,7 +111,7 @@ export default function Home() {
     saveSentOffer,
     sentOffers,
     getSentOffer,
-    toggleOnlineStatus,  // FIX: pulled from context
+    toggleOnlineStatus,
   } = useContext(SocketContext);
 
   const {
@@ -128,12 +129,12 @@ export default function Home() {
   const finishRideMutation = useFinishRide();
   const arriveRideMutation = useArriveRide();
   const activeStatusMutation = useActiveStatusEndPoint();
+  const updateFareMutation = useUpdateFare();
 
   // Responsive scaling
   const scaleFont = (size) => Math.round(size * Math.min(width / 375, 1.3));
   const scaleSize = (size) => Math.round(size * Math.min(width / 375, 1.2));
 
-  // FIX: Guard against undefined balanceData - don't block offers while loading
   const hasSufficientBalance = () => {
     if (balanceData === undefined || balanceData === null) return true; // loading - don't block
     return (balanceData?.balance ?? 0) >= 1001;
@@ -163,11 +164,7 @@ export default function Home() {
     return null;
   };
 
-  // --- MERGED TOGGLE HANDLER ---
-  // FIX: This is the single function that handles BOTH the WebSocket toggle
-  // AND the server-side status update. Previously these were split across two
-  // functions (toggleOnlineStatus in context, handleToggleOnline in Home),
-  // causing them to get out of sync. Now there is one call path.
+  // Handles both WebSocket toggle and server-side status update
   const handleToggleOnline = useCallback(async () => {
     if (isTogglingOnlineRef.current) {
       console.log("⚠️ [TOGGLE] Already toggling, ignoring");
@@ -289,25 +286,7 @@ export default function Home() {
     }
   }, [status]);
 
-  // FIX: REMOVED the second socket.addEventListener from Home entirely.
-  //
-  // Previously this added a second onmessage listener that duplicated what
-  // WebSocketProvider already handled. Problems this caused:
-  //   1. Double-firing handleWsEvent
-  //   2. Binding to a stale socket reference after reconnects (the ref ws.current
-  //      updates but the socket variable captured in context only updates on re-render,
-  //      so addEventListener could be bound to a dead socket)
-  //
-  // All WebSocket message handling now lives exclusively in WebSocketProvider.
-  // Home only reacts to state changes (rideNotifications, status, etc.) via context.
-  //
-  // The negotiation_update and other Home-specific events are handled below
-  // by having WebSocketProvider forward ALL notify events via handleWsEvent,
-  // and DriverRideContext/the context chain surfaces the results as state.
-  //
-  // If you need Home-specific handling of WS messages beyond what context
-  // already provides, add it inside WebSocketProvider's onmessage handler
-  // and expose the result as context state — never add a second listener here.
+  // All WS message handling lives in WebSocketProvider; Home reacts via context state.
 
   // --- HANDLERS ---
 
@@ -466,6 +445,29 @@ export default function Home() {
     }
   };
 
+  const handleUpdateFare = async (fare) => {
+    if (!rideId || typeof rideId !== 'string') {
+      setAlertData({ title: "Error", message: "No valid ride ID found", isError: true });
+      setAlertModalVisible(true);
+      return;
+    }
+    try {
+      await updateFareMutation.mutateAsync({ rideId, fare });
+      // Refresh ride details to show updated fare
+      await fetchRideDetails(rideId);
+      setAlertData({ title: "Fare Updated", message: `Fare set to ₦${fare.toLocaleString()}`, isError: false });
+      setAlertModalVisible(true);
+    } catch (error) {
+      console.error("❌ handleUpdateFare:", error);
+      setAlertData({
+        title: "Error",
+        message: error?.response?.data?.message || "Failed to update fare",
+        isError: true
+      });
+      setAlertModalVisible(true);
+    }
+  };
+
   const clearNegotiationUpdate = (viewId) => {
     setNegotiationUpdates(prev => {
       const updated = { ...prev };
@@ -511,8 +513,6 @@ export default function Home() {
           profile={profile}
           notificationCount={rideNotifications.length + negotiationArray.length}
           onMenuPress={handleOpenDrawer}
-          // FIX: Pass the merged toggle down so HomeHeader/StatusBadge
-          // only ever calls ONE function to change online state
           onToggleOnline={handleToggleOnline}
           isConnected={isConnected}
         />
@@ -544,6 +544,10 @@ export default function Home() {
             isStarting={startRideMutation.isPending}
             isFinishing={finishRideMutation.isPending}
             isLoadingDetails={loadingRideDetails}
+            rideAcceptedAt={rideAcceptedAt}
+            expectedArrivalMinutes={expectedArrivalMinutes}
+            onUpdateFare={handleUpdateFare}
+            isUpdatingFare={updateFareMutation.isPending}
           />
 
 
@@ -1064,9 +1068,9 @@ export default function Home() {
         title="Cannot Go Online"
         subText={onlineErrorMessage}
         icon="alert-circle"
-        confirmText="Upload Documents"
+        confirmText="Proceed"
         closeText="Later"
-        onConfirm={() => { setOnlineErrorModalVisible(false); navigation.navigate("DocumentUploads"); }}
+        onConfirm={() => { setOnlineErrorModalVisible(false); navigation.navigate("IDVerify"); }}
         onCancel={() => setOnlineErrorModalVisible(false)}
         confirmButtonColor="#facc15"
         themeColor="#ff9800"

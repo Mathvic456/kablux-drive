@@ -19,6 +19,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import Logo from "../../assets/Logo.png";
 import { useVerifyOtpEndPoint, useResendOtpEndPoint } from "../../services/otpVerification.service";
+import { api } from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
 import CentralModal from "../components/CentralModal";
 
 const { width, height } = Dimensions.get('window');
@@ -32,10 +34,12 @@ const OTP = ({ navigation }) => {
   const [errorMessage, setErrorMessage] = useState("");
 
   const [resendTimer, setResendTimer] = useState(0);
+  const [isAutoLogging, setIsAutoLogging] = useState(false);
 
   const inputRefs = useRef([]);
   const otpVerify = useVerifyOtpEndPoint();
   const otpResend = useResendOtpEndPoint();
+  const { setTokens } = useAuth();
 
   // Responsive scaling functions
   const scaleFont = (size) => {
@@ -159,9 +163,48 @@ const OTP = ({ navigation }) => {
     }
   };
 
-  const handleSuccessModalClose = () => {
+  // Auto-login after OTP verification
+  const handleSuccessModalClose = async () => {
     setShowSuccessModal(false);
-    navigation.navigate('Login');
+
+    try {
+      setIsAutoLogging(true);
+      const savedEmail = await AsyncStorage.getItem("pendingEmail");
+      const savedPassword = await AsyncStorage.getItem("pendingPassword");
+
+      if (savedEmail && savedPassword) {
+        // Auto-login with stored credentials
+        const res = await api.post("auth/login/", {
+          email: savedEmail,
+          password: savedPassword,
+        });
+
+        const accessToken = res.data?.data?.access;
+        const refreshToken = res.data?.data?.refresh;
+        const userId = res.data?.data?.user?.id;
+
+        if (accessToken && refreshToken) {
+          await setTokens(accessToken, refreshToken, true);
+          if (userId) await AsyncStorage.setItem("userId", userId);
+
+          // Clean up stored credentials
+          await AsyncStorage.multiRemove(["pendingPassword"]);
+
+          console.log("✅ Auto-login after signup successful");
+          navigation.reset({ index: 0, routes: [{ name: "Mainapp" }] });
+          return;
+        }
+      }
+
+      // Fallback: go to Login if auto-login fails
+      console.log("⚠️ Auto-login not possible, redirecting to Login");
+      navigation.navigate("Login");
+    } catch (error) {
+      console.error("❌ Auto-login failed:", error);
+      navigation.navigate("Login");
+    } finally {
+      setIsAutoLogging(false);
+    }
   };
 
   const filledCount = otp.filter(digit => digit !== '').length;
@@ -367,6 +410,18 @@ const OTP = ({ navigation }) => {
         subText="OTP verification successful"
         icon="checkmark-circle"
         confirmText="Login"
+        closeText=""
+        onConfirm={handleSuccessModalClose}
+        confirmButtonColor="#fcbf24"
+        themeColor="#fcbf24"
+      />
+      <CentralModal
+        visible={showSuccessModal}
+        onClose={handleSuccessModalClose}
+        title="Success!"
+        subText={isAutoLogging ? "Signing you in..." : "OTP verification successful"}
+        icon="checkmark-circle"
+        confirmText={isAutoLogging ? "Please wait..." : "Continue"}
         closeText=""
         onConfirm={handleSuccessModalClose}
         confirmButtonColor="#fcbf24"

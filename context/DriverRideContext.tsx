@@ -19,7 +19,9 @@ interface DriverRideContextValue {
   loadPersisted: () => Promise<void>;
   reset: () => void;
   setNegotiationUpdates: React.Dispatch<React.SetStateAction<any[]>>;
-  negotiationUpdates: any[]
+  negotiationUpdates: any[];
+  rideAcceptedAt: number | null;
+  expectedArrivalMinutes: number;
 }
 
 const DriverRideContext = createContext<DriverRideContextValue>({
@@ -33,7 +35,9 @@ const DriverRideContext = createContext<DriverRideContextValue>({
   arrive: () => { },
   startRide: () => { },
   setNegotiationUpdates: () => { },
-  negotiationUpdates: []
+  negotiationUpdates: [],
+  rideAcceptedAt: null,
+  expectedArrivalMinutes: 15,
 });
 
 export const useDriverRide = () => useContext(DriverRideContext);
@@ -49,6 +53,8 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
   const { token } = useAuth();
   const [triggerEffect, setTriggerEffect] = useState(0);
   const [negotiationUpdates, setNegotiationUpdates] = useState([]);
+  const [rideAcceptedAt, setRideAcceptedAt] = useState<number | null>(null);
+  const expectedArrivalMinutes = 15; // Default ETA threshold in minutes
 
   // Load persistent state
   const loadPersisted = async () => {
@@ -111,6 +117,7 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
       setStatus("ride_created");
       setRideId(ride_id);
       setRiderId(rider_id);
+      setRideAcceptedAt(Date.now());
 
     } else if (rawEvent === "ride_cancelled") {
       console.log("resetting from driver context");
@@ -174,6 +181,7 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
     setStatus("not_busy");
     setRideId(null);
     setRiderId(null);
+    setRideAcceptedAt(null);
     setTriggerEffect((prev) => prev + 1)
 
 
@@ -204,7 +212,9 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
         arrive,
         startRide,
         setNegotiationUpdates,
-        negotiationUpdates
+        negotiationUpdates,
+        rideAcceptedAt,
+        expectedArrivalMinutes,
       }}
     >
       {children}
