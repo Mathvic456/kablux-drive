@@ -1,4 +1,5 @@
-import { Feather, FontAwesome5 } from '@expo/vector-icons';
+import { getDirectionsGeometry } from "@/utils/googleDirections";
+import { Feather, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -11,18 +12,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import MapViewDirections from "react-native-maps-directions";
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { darkMapStyle } from '../../styles/darkMapStyle';
 import { useRoute } from '@react-navigation/native';
 import { useDriverRide } from '../../context/DriverRideContext';
 import CentralModal from '../components/CentralModal';
-
-const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
-
-if (!GOOGLE_API_KEY) {
-  console.error("EXPO_PUBLIC_GOOGLE_API_KEY is missing in environment variables.");
-}
 
 const { width, height } = Dimensions.get('window');
 
@@ -38,14 +32,16 @@ export default function DriverMapScreen({ navigation }) {
   const route = useRoute();
   const { rideDetails } = route.params;
   const { status } = useDriverRide();
-  // console.log('api key', GOOGLE_API_KEY)
-  console.log('ride dets------------', rideDetails)
+
+  console.log('ride dets------------', rideDetails);
 
   const [slideAnim] = useState(new Animated.Value(height * 0.25));
   const [currentDriverLocation, setCurrentDriverLocation] = useState(null);
   const [destination, setDestination] = useState(null);
+  const [routeCoordinates, setRouteCoordinates] = useState([]);
   const [routeDistance, setRouteDistance] = useState(null);
   const [routeDuration, setRouteDuration] = useState(null);
+  const [loadingRoute, setLoadingRoute] = useState(false);
   const [permissionModalVisible, setPermissionModalVisible] = useState(false);
   const [locating, setLocating] = useState(true);
 
@@ -63,7 +59,6 @@ export default function DriverMapScreen({ navigation }) {
   // Request location permissions and start tracking
   useEffect(() => {
     (async () => {
-      // Renamed to avoid shadowing the context `status`
       let { status: permStatus } = await Location.requestForegroundPermissionsAsync();
       if (permStatus !== 'granted') {
         setPermissionModalVisible(true);
@@ -92,13 +87,56 @@ export default function DriverMapScreen({ navigation }) {
     };
   }, []);
 
+  // Fetch route using getDirectionsGeometry (same pattern as RideMapView)
+  useEffect(() => {
+    if (currentDriverLocation && destination) {
+      setLoadingRoute(true);
+
+      getDirectionsGeometry(
+        currentDriverLocation.longitude,
+        currentDriverLocation.latitude,
+        destination.longitude,
+        destination.latitude
+      )
+        .then((geometry) => {
+          if (geometry && geometry.coordinates) {
+            const coords = geometry.coordinates.map(([lng, lat]) => ({
+              latitude: lat,
+              longitude: lng,
+            }));
+            setRouteCoordinates(coords);
+
+            // Derive distance & duration from the geometry if available
+            if (geometry.distance != null) setRouteDistance(geometry.distance / 1000); // metres → km
+            if (geometry.duration != null) setRouteDuration(geometry.duration / 60);   // seconds → minutes
+          } else {
+            setRouteCoordinates([]);
+          }
+          setLoadingRoute(false);
+        })
+        .catch((error) => {
+          console.error('Error fetching route:', error);
+          setRouteCoordinates([]);
+          setLoadingRoute(false);
+        });
+    } else {
+      setRouteCoordinates([]);
+    }
+  }, [currentDriverLocation, destination]);
+
   // Animate map to fit driver + destination whenever either changes
   useEffect(() => {
     if (!currentDriverLocation) return;
 
     if (destination) {
-      const allLatitudes = [currentDriverLocation.latitude, destination.latitude];
-      const allLongitudes = [currentDriverLocation.longitude, destination.longitude];
+      // Prefer route coordinates for a tighter fit, fall back to endpoints
+      const points =
+        routeCoordinates.length > 0
+          ? routeCoordinates
+          : [currentDriverLocation, destination];
+
+      const allLatitudes = points.map((c) => c.latitude);
+      const allLongitudes = points.map((c) => c.longitude);
 
       const minLat = Math.min(...allLatitudes);
       const maxLat = Math.max(...allLatitudes);
@@ -135,19 +173,18 @@ export default function DriverMapScreen({ navigation }) {
         mapRef.current?.animateToRegion(newRegion, 1000);
       }, 600);
     }
-  }, [currentDriverLocation, destination]);
+  }, [currentDriverLocation, destination, routeCoordinates]);
 
   // Set destination based on ride status
   useEffect(() => {
-
     if (!rideDetails?.raw) {
-      console.warn("⚠️ No ride details found");
+      console.warn('⚠️ No ride details found');
       return;
     }
 
     const raw = rideDetails.raw;
 
-    if (status === "ride_created" || status === "driver_on_way" || status === "arrived") {
+    if (status === 'ride_created' || status === 'driver_on_way' || status === 'arrived') {
       const pickupLat = parseFloat(raw.pickup_lat);
       const pickupLng = parseFloat(raw.pickup_lng);
 
@@ -155,12 +192,12 @@ export default function DriverMapScreen({ navigation }) {
         setDestination({
           latitude: pickupLat,
           longitude: pickupLng,
-          address: raw.pickup_address || "Pickup Location",
+          address: raw.pickup_address || 'Pickup Location',
         });
       } else {
-        console.error("❌ Invalid pickup coordinates");
+        console.error('❌ Invalid pickup coordinates');
       }
-    } else if (status === "ride_started" || "started") {
+    } else if (status === 'ride_started' || status === 'started') {
       const dropoffLat = parseFloat(raw.dropoff_lat);
       const dropoffLng = parseFloat(raw.dropoff_lng);
 
@@ -168,42 +205,36 @@ export default function DriverMapScreen({ navigation }) {
         setDestination({
           latitude: dropoffLat,
           longitude: dropoffLng,
-          address: raw.dropoff_address || "Drop-off Location",
+          address: raw.dropoff_address || 'Drop-off Location',
         });
       } else {
-        console.error("❌ Invalid dropoff coordinates");
+        console.error('❌ Invalid dropoff coordinates');
       }
     }
   }, [status, rideDetails]);
 
+  const isHeadingToPickup =
+    status === 'ride_created' || status === 'driver_on_way' || status === 'arrived';
+
   const getStatusText = () => {
     switch (status) {
-      case "ride_created":
-      case "driver_on_way":
-        return "Heading to Pickup";
-      case "arrived":
-        return "Arrived at Pickup";
-      case "ride_started":
-        return "Ride in Progress";
+      case 'ride_created':
+      case 'driver_on_way':
+        return 'Heading to Pickup';
+      case 'arrived':
+        return 'Arrived at Pickup';
+      case 'ride_started':
+        return 'Ride in Progress';
       default:
-        return "Active Ride";
+        return 'Active Ride';
     }
   };
 
-  const getDestinationLabel = () => {
-    if (status === "ride_created" || status === "driver_on_way" || status === "arrived") {
-      return "Pickup Location";
-    }
-    return "Drop-off Location";
-  };
+  const getDestinationLabel = () =>
+    isHeadingToPickup ? 'Pickup Location' : 'Drop-off Location';
 
   return (
     <View style={styles.container}>
-
-      {/* MapView with explicit pixel width/height — this is the most reliable
-          way to guarantee the map renders on both iOS and Android. No wrapper
-          View, no absoluteFillObject ambiguity. All overlays use position
-          'absolute' to float above it. */}
       <MapView
         ref={mapRef}
         style={styles.map}
@@ -212,79 +243,92 @@ export default function DriverMapScreen({ navigation }) {
         showsUserLocation={false}
         showsMyLocationButton={false}
         showsCompass={false}
-        customMapStyle={darkMapStyle}
+      // customMapStyle={darkMapStyle}
       >
+        {/* Route polyline — thinner stroke, same dual-layer shadow/fill trick */}
+        {routeCoordinates.length > 0 && (
+          <>
+            {/* Shadow layer */}
+            <Polyline
+              coordinates={routeCoordinates}
+              strokeColor="rgba(0,0,0,0.4)"
+              strokeWidth={4}
+              lineCap="round"
+              lineJoin="round"
+              zIndex={1}
+            />
+            {/* Main route line */}
+            <Polyline
+              coordinates={routeCoordinates}
+              strokeColor="#facc15"
+              strokeWidth={2.5}
+              lineCap="round"
+              lineJoin="round"
+              zIndex={2}
+            />
+          </>
+        )}
+
+        {/* Driver (current location) marker */}
         {currentDriverLocation && (
           <Marker
             coordinate={currentDriverLocation}
             title="You"
             anchor={{ x: 0.5, y: 0.5 }}
           >
-            <View style={styles.driverMarkerContainer}>
+            <View style={styles.driverMarker}>
               <Image
                 source={require('../../assets/curr-location.png')}
-                style={{ width: 20, height: 20 }}
+                style={{ width: 18, height: 18 }}
                 resizeMode="contain"
               />
             </View>
           </Marker>
         )}
 
+        {/* Destination marker — pin for pickup, flag for drop-off */}
         {destination && (
           <Marker
             coordinate={destination}
             title={getDestinationLabel()}
             description={destination.address}
           >
-            <View style={styles.destinationMarkerContainer}>
-              <FontAwesome5
-                name={status === "ride_started" ? "flag-checkered" : "map-pin"}
-                size={20}
-                color="#1c1c1c"
-              />
-            </View>
+            {isHeadingToPickup ? (
+              // Pickup: green-ringed circle with a person/navigation icon
+              <View style={styles.pickupMarker}>
+                <Ionicons name="navigate" size={16} color="#facc15" />
+              </View>
+            ) : (
+              // Drop-off: yellow-ringed circle with a flag icon
+              <View style={styles.dropoffMarker}>
+                <MaterialIcons name="flag" size={18} color="#facc15" />
+              </View>
+            )}
           </Marker>
-        )}
-
-        {currentDriverLocation && destination && GOOGLE_API_KEY && (
-          <MapViewDirections
-            origin={currentDriverLocation}
-            destination={destination}
-            apikey={GOOGLE_API_KEY}
-            strokeWidth={5}
-            strokeColor="#facc15"
-            optimizeWaypoints={true}
-            onReady={(result) => {
-              setRouteDistance(result.distance);
-              setRouteDuration(result.duration);
-            }}
-            onError={(errorMessage) => {
-              console.warn("MapViewDirections Error:", errorMessage);
-            }}
-          />
         )}
       </MapView>
 
-      {/* Locating indicator — outside MapView to avoid Fabric/JSI crash */}
-      {locating && (
+      {/* Loading overlay — outside MapView to avoid Fabric/JSI crash */}
+      {(locating || loadingRoute) && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="small" color="#facc15" />
-          <Text style={styles.loadingText}>Locating…</Text>
+          <Text style={styles.loadingText}>
+            {locating ? 'Locating…' : 'Loading route…'}
+          </Text>
         </View>
       )}
 
-      {/* Top Navigation */}
+      {/* Top navigation bar */}
       <View style={styles.topBar}>
         <TouchableOpacity style={styles.iconContainer} onPress={() => navigation.goBack()}>
           <Feather name="arrow-left" size={24} color="white" />
         </TouchableOpacity>
         <View style={styles.statusBadge}>
           <Text style={styles.statusText}>{getStatusText()}</Text>
-          {/* <ActivityIndicator size="small" color="white" style={{ marginLeft: 5 }} /> */}
         </View>
       </View>
 
-      {/* Bottom Panel */}
+      {/* Bottom panel */}
       <Animated.View style={[styles.bottomPanel, { transform: [{ translateY: slideAnim }] }]}>
         <View style={styles.dragHandle} />
 
@@ -292,47 +336,39 @@ export default function DriverMapScreen({ navigation }) {
           <View style={styles.infoBox}>
             <Text style={styles.infoLabel}>Distance</Text>
             <Text style={styles.infoValue}>
-              {routeDistance ? `${routeDistance.toFixed(1)} km` : '...'}
+              {routeDistance != null ? `${routeDistance.toFixed(1)} km` : '—'}
             </Text>
           </View>
           <View style={styles.separator} />
           <View style={styles.infoBox}>
             <Text style={styles.infoLabel}>ETA</Text>
             <Text style={styles.infoValue}>
-              {routeDuration ? `${Math.round(routeDuration)} min` : '...'}
+              {routeDuration != null ? `${Math.round(routeDuration)} min` : '—'}
             </Text>
           </View>
         </View>
 
         <View style={styles.destinationDisplay}>
-          <Feather name="map-pin" size={18} color="#facc15" style={{ marginRight: 10 }} />
+          {isHeadingToPickup ? (
+            <Ionicons name="navigate" size={18} color="#facc15" style={{ marginRight: 10 }} />
+          ) : (
+            <MaterialIcons name="flag" size={18} color="#facc15" style={{ marginRight: 10 }} />
+          )}
           <View style={{ flex: 1 }}>
             <Text style={styles.destinationTitle}>{getDestinationLabel()}</Text>
             <Text style={styles.destinationAddress} numberOfLines={2}>
-              {destination?.address || "Loading..."}
+              {destination?.address || 'Loading...'}
             </Text>
           </View>
         </View>
-
-        {/* <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => {
-            if (destination) {
-              setPermissionModalVisible(true);
-            }
-          }}
-        >
-          <Text style={styles.actionButtonText}>Open Navigation</Text>
-          <Feather name="navigation" size={20} color="white" style={{ marginLeft: 10 }} />
-        </TouchableOpacity> */}
       </Animated.View>
 
       <CentralModal
         visible={permissionModalVisible}
         onClose={() => setPermissionModalVisible(false)}
-        title="Navigation"
-        subText="This would open Google Maps for turn-by-turn navigation"
-        icon="navigation"
+        title="Location Permission"
+        subText="Location access is required to show your position and calculate routes."
+        icon="map-pin"
         confirmText="OK"
         closeText=""
         onConfirm={() => setPermissionModalVisible(false)}
@@ -348,20 +384,70 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000',
   },
-  // Explicit pixel dimensions are the most reliable way to size a MapView.
-  // flex:1 and absoluteFillObject both depend on the parent having a resolved
-  // size before the map mounts, which isn't guaranteed on Android/Fabric.
   map: {
     width,
     height,
   },
+
+  // ── Markers ────────────────────────────────────────────────────────────────
+
+  driverMarker: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#1c1c1c',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#facc15',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 6,
+  },
+  // Matches RideMapView pickupMarker style, adapted to dark theme
+  pickupMarker: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#1c1c1c',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2.5,
+    borderColor: '#4CAF50',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  // Matches RideMapView dropoffMarker style, adapted to dark theme
+  dropoffMarker: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#1c1c1c',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2.5,
+    borderColor: '#facc15',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+
+  // ── Overlays ───────────────────────────────────────────────────────────────
+
   loadingOverlay: {
     position: 'absolute',
     top: 10,
     right: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
@@ -371,6 +457,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginLeft: 6,
   },
+
+  // ── Top bar ────────────────────────────────────────────────────────────────
+
   topBar: {
     position: 'absolute',
     top: 50,
@@ -395,34 +484,13 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   statusText: {
-    color: 'white',
+    color: '#1c1c1c',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
-  driverMarkerContainer: {
-    // height: 20,
-    // width: 20,
-    // borderRadius: 20,
-    // backgroundColor: "#facc15",
-    // alignItems: 'center',
-    // justifyContent: 'center',
-    // elevation: 6,
-    // shadowColor: '#000',
-    // shadowOffset: { width: 0, height: 4 },
-    // shadowOpacity: 0.3,
-    // shadowRadius: 6,
-    // borderWidth: 3,
-    // borderColor: 'white',
-  },
-  destinationMarkerContainer: {
-    width: 20,
-    height: 20,
-    borderRadius: '50%',
-    backgroundColor: "#f0d46d",
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 6,
-  },
+
+  // ── Bottom panel ───────────────────────────────────────────────────────────
+
   bottomPanel: {
     position: 'absolute',
     bottom: 0,
@@ -482,27 +550,14 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   destinationTitle: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#aaa',
     fontWeight: '500',
     marginBottom: 4,
   },
   destinationAddress: {
-    fontSize: 16,
+    fontSize: 15,
     color: 'white',
     fontWeight: '600',
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#facc15',
-    padding: 15,
-    borderRadius: 12,
-  },
-  actionButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
   },
 });
