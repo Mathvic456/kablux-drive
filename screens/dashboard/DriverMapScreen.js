@@ -3,6 +3,7 @@ import * as Location from 'expo-location';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Dimensions,
   Image,
@@ -11,18 +12,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import MapViewDirections from "react-native-maps-directions";
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { darkMapStyle } from '../../styles/darkMapStyle';
 import { useRoute } from '@react-navigation/native';
 import { useDriverRide } from '../../context/DriverRideContext';
 import CentralModal from '../components/CentralModal';
-
-const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
-
-if (!GOOGLE_API_KEY) {
-  console.error("EXPO_PUBLIC_GOOGLE_API_KEY is missing in environment variables.");
-}
+import { getDirections } from '../../utils/googleDirections';
 
 const { width, height } = Dimensions.get('window');
 
@@ -48,6 +43,8 @@ export default function DriverMapScreen({ navigation }) {
   const [routeDuration, setRouteDuration] = useState(null);
   const [permissionModalVisible, setPermissionModalVisible] = useState(false);
   const [locating, setLocating] = useState(true);
+  const [routeCoordinates, setRouteCoordinates] = useState([]);
+  const [loadingRoute, setLoadingRoute] = useState(false);
 
   const locationSubscription = useRef(null);
 
@@ -92,13 +89,76 @@ export default function DriverMapScreen({ navigation }) {
     };
   }, []);
 
+  // Fetch route from Google Directions API
+  useEffect(() => {
+    if (currentDriverLocation && destination) {
+      setLoadingRoute(true);
+      console.log('Fetching route from Google Directions API...');
+
+      getDirections(
+        currentDriverLocation.longitude,
+        currentDriverLocation.latitude,
+        destination.longitude,
+        destination.latitude
+      ).then(result => {
+        if (result && result.coordinates) {
+          console.log('Route fetched, points:', result.coordinates.length);
+          const coords = result.coordinates.map(([lat, lng]) => ({
+            latitude: lat,
+            longitude: lng,
+          }));
+          setRouteCoordinates(coords);
+          setRouteDistance(result.distance / 1000); // convert meters to km
+          setRouteDuration(result.duration / 60);   // convert seconds to min
+        } else {
+          console.warn('No route geometry returned');
+          setRouteCoordinates([]);
+        }
+        setLoadingRoute(false);
+      }).catch((error) => {
+        console.error('Error fetching route:', error);
+        setRouteCoordinates([]);
+        setLoadingRoute(false);
+
+        if (error.message?.includes('API key') || error.message?.includes('billing')) {
+          Alert.alert(
+            'Route Error',
+            'Unable to calculate route. Please check your Google Maps API configuration.',
+            [{ text: 'OK' }]
+          );
+        } else if (error.message?.includes('No route found')) {
+          Alert.alert(
+            'No Route Found',
+            'Could not find a route between the selected locations.',
+            [{ text: 'OK' }]
+          );
+        } else {
+          Alert.alert(
+            'Route Error',
+            'Unable to calculate route. Please try again.',
+            [{ text: 'OK' }]
+          );
+        }
+      });
+    } else {
+      setRouteCoordinates([]);
+    }
+  }, [currentDriverLocation, destination]);
+
   // Animate map to fit driver + destination whenever either changes
   useEffect(() => {
     if (!currentDriverLocation) return;
 
     if (destination) {
-      const allLatitudes = [currentDriverLocation.latitude, destination.latitude];
-      const allLongitudes = [currentDriverLocation.longitude, destination.longitude];
+      let allLatitudes, allLongitudes;
+
+      if (routeCoordinates.length > 0) {
+        allLatitudes = routeCoordinates.map(c => c.latitude);
+        allLongitudes = routeCoordinates.map(c => c.longitude);
+      } else {
+        allLatitudes = [currentDriverLocation.latitude, destination.latitude];
+        allLongitudes = [currentDriverLocation.longitude, destination.longitude];
+      }
 
       const minLat = Math.min(...allLatitudes);
       const maxLat = Math.max(...allLatitudes);
@@ -135,7 +195,7 @@ export default function DriverMapScreen({ navigation }) {
         mapRef.current?.animateToRegion(newRegion, 1000);
       }, 600);
     }
-  }, [currentDriverLocation, destination]);
+  }, [currentDriverLocation, destination, routeCoordinates]);
 
   // Set destination based on ride status
   useEffect(() => {
@@ -246,22 +306,28 @@ export default function DriverMapScreen({ navigation }) {
           </Marker>
         )}
 
-        {currentDriverLocation && destination && GOOGLE_API_KEY && (
-          <MapViewDirections
-            origin={currentDriverLocation}
-            destination={destination}
-            apikey={GOOGLE_API_KEY}
-            strokeWidth={5}
-            strokeColor="#facc15"
-            optimizeWaypoints={true}
-            onReady={(result) => {
-              setRouteDistance(result.distance);
-              setRouteDuration(result.duration);
-            }}
-            onError={(errorMessage) => {
-              console.warn("MapViewDirections Error:", errorMessage);
-            }}
-          />
+        {/* Route Polyline */}
+        {routeCoordinates.length > 0 && (
+          <>
+            {/* Route outline/shadow */}
+            <Polyline
+              coordinates={routeCoordinates}
+              strokeColor="#000"
+              strokeWidth={6}
+              lineCap="round"
+              lineJoin="round"
+              zIndex={1}
+            />
+            {/* Main route line */}
+            <Polyline
+              coordinates={routeCoordinates}
+              strokeColor="#facc15"
+              strokeWidth={4}
+              lineCap="round"
+              lineJoin="round"
+              zIndex={2}
+            />
+          </>
         )}
       </MapView>
 
@@ -270,6 +336,14 @@ export default function DriverMapScreen({ navigation }) {
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="small" color="#facc15" />
           <Text style={styles.loadingText}>Locating…</Text>
+        </View>
+      )}
+
+      {/* Route loading indicator */}
+      {loadingRoute && !locating && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="small" color="#facc15" />
+          <Text style={styles.loadingText}>Calculating route…</Text>
         </View>
       )}
 
