@@ -1,4 +1,4 @@
-import { getDirectionsGeometry } from "@/utils/googleDirections";
+import { getDirectionsGeometry } from "../../utils/googleDirections";
 import { Feather, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import React, { useEffect, useRef, useState } from 'react';
