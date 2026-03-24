@@ -220,7 +220,7 @@ export default function TransferForm() {
                 styles.beneficiaryNumber,
                 (!account) && styles.placeholderText
               ]}>
-                {account?.account_number} • {account?.bank_code}
+                {account?.account_number}
               </Text>
             </View>
           </View>
@@ -230,7 +230,7 @@ export default function TransferForm() {
               (!account) && styles.payButtonDisabled
             ]}
             disabled={!account}
-            onPress={() => navigation.navigate('BankTransfer', { recipient: account })}
+            onPress={() => navigation.navigate('BankTransfer')}
           >
             <Text style={styles.payText}>Pay</Text>
           </TouchableOpacity>

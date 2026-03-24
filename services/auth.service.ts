@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AxiosResponse } from "axios";
 import { api } from "./api";
 import { CREATEACCOUNT_TYPE } from "./type";
@@ -61,6 +61,18 @@ export const useLoginEndPoint = (
 
       // Navigate to Mainapp
       navigation.replace("Mainapp");
+
+      try {
+        const pendingRes = await api.get("rides/pending_requests/");
+        const pendingRequests = pendingRes.data?.results || pendingRes.data || [];
+        if (pendingRequests.length > 0) {
+          console.log(`🔔 [LOGIN] Found ${pendingRequests.length} pending ride request(s)`);
+          // Pending requests will be picked up by WebSocket on connect
+        }
+      } catch (pendingErr) {
+        // Non-critical — don't block login if pending requests endpoint fails
+        console.log("ℹ️ [LOGIN] No pending requests or endpoint unavailable");
+      }
     },
 
     onError: (error: any) => {
@@ -79,11 +91,14 @@ type ActiveStatusPayload = {
 };
 
 export const useActiveStatusEndPoint = () => {
+  const queryClient = useQueryClient();
+
   return useMutation<AxiosResponse<any>, any, ActiveStatusPayload>({
     mutationFn: (data) => api.post("users/active_status/", data),
 
     onSuccess: (res) => {
       console.log("🟢 Active status updated:", res.data);
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
     },
 
     onError: (error: any) => {

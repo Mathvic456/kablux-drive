@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, RawAxiosRequestHeaders } from "axios";
 import { API_URL } from "../constants/api";
+import { authEvents } from "../utils/authEvents";
 
 console.log("🔧 [API Config] Base URL:", API_URL);
 
@@ -91,6 +92,9 @@ api.interceptors.response.use(
 
       if (error.response.status === 401) {
         console.error(`🔐 [API Error ${requestId}] AUTHENTICATION ERROR - Invalid or missing token`);
+        if (!error.config?.url?.includes("auth/")) {
+          authEvents.emitLogout();
+        }
       } else if (error.response.status === 404) {
         console.error(`🔍 [API Error ${requestId}] ENDPOINT NOT FOUND`);
       } else if (error.response.status === 500) {

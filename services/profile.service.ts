@@ -1,7 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api";
-import axios from "axios";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export interface ProfileResponse {
   id: string;
@@ -18,44 +16,37 @@ export interface ProfileResponse {
   is_online?: boolean;
 }
 
+/**
+ * Standalone fetch for use outside React components (e.g. WebSocketProvider init).
+ * Returns the server's current online status for the authenticated driver.
+ */
+export const fetchProfileStatus = async (): Promise<{ is_online: boolean }> => {
+  const response = await api.get("users/me/");
+  const data = response.data?.data ?? response.data;
+  return { is_online: data?.is_online ?? false };
+};
 
-export const useProfile = (token: string) => {
+export const useProfile = (token?: string) => {
   return useQuery({
     queryKey: ["profile"],
     queryFn: async () => {
-      console.log("enter");
-      console.log("tokennnnnnnnnn", token);
-
-      const storedToken = await AsyncStorage.getItem("token")
-      console.log(storedToken, " stored token -------------------c")
-      try {
-        const response = await axios.get(
-          `${process.env.EXPO_PUBLIC_API_URL}users/me/`,
-          {
-            headers: {
-              Authorization: `Bearer ${storedToken}`,
-            },
-          }
-        );
-
-        console.log("from profile service=====", response);
-        return response.data.data;
-      } catch (error: any) {
-        console.log("AXIOS ERROR:", error.message);
-        console.log("AXIOS RESPONSE:", error.response);
-        throw error;
-      }
-    }
+      const response = await api.get("users/me/");
+      return response.data.data;
+    },
+    enabled: !!token,
   });
 };
-// export const useProfile = () => {
-//   return useQuery({
-//     queryKey: ["profile"],
-//     queryFn: () =>
-//       api
-//         .get<{ data: ProfileResponse }>("users/me")
-//         .then((res) => res.data.data),
-//   });
-// };
 
-//Check123check**
+export const useUpdateProfile = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: Partial<ProfileResponse>) => {
+      const response = await api.post("users/set-profile-picture/", data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+    },
+  });
+};

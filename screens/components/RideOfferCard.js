@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef } from "react";
 import {
   View,
   Text,
@@ -11,21 +11,21 @@ import { Ionicons } from "@expo/vector-icons";
 
 const RideOfferCard = ({ item, onAccept, onCounter, onDecline }) => {
   const opacity = useRef(new Animated.Value(1)).current;
-  const [visible, setVisible] = useState(true);
+  const isDecliningRef = useRef(false);
 
   const handleDecline = () => {
+    if (isDecliningRef.current) return; // prevent double-tap during animation
+    isDecliningRef.current = true;
+
+    onDecline?.(item);
+
     Animated.timing(opacity, {
       toValue: 0,
       duration: 220,
       easing: Easing.out(Easing.ease),
       useNativeDriver: true,
-    }).start(() => {
-      setVisible(false);     // 🔥 Remove from UI
-      onDecline?.(item);     // Optional callback
-    });
+    }).start();
   };
-
-  if (!visible) return null;
 
   return (
     <Animated.View style={[styles.container, { opacity }]}>

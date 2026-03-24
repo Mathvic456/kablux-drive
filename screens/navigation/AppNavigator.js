@@ -18,6 +18,7 @@ import DynamicPayStackWebViewScreen from '../dashboard/PaystackWebView';
 import DrawerNavigator from './DrawerNavigator';
 import PriceDetails from '../ride/PriceDetails';
 import RideDetails from '../ride/RideDetails';
+import Terms from '../auth/Terms';
 
 const Stack = createStackNavigator();
 
@@ -39,6 +40,7 @@ const AppNavigator = () => {
       <Stack.Screen name="ResetCredentials" component={ResetCredentialsScreen} />
       <Stack.Screen name="Signup" component={SignUp} />
       <Stack.Screen name="OTP" component={OTP} />
+      <Stack.Screen name="Terms" component={Terms} />
       <Stack.Screen name='KycScreenOne' component={KycScreenOne} />
       <Stack.Screen name="PhotoUpload" component={PhotoUpload} />
       <Stack.Screen name="PaymentInformation" component={PaymentInformation} />

@@ -34,7 +34,7 @@ import CentralModal from "../components/CentralModal";
 // Context & Services
 import { useProfile } from "../../services/profile.service";
 import { useDriverKycStatus } from "../../services/checkKyc.service";
-import { useStartRide, useFinishRide } from "../../services/rides.service";
+import { useStartRide, useFinishRide, useUpdateFare } from "../../services/rides.service";
 import { useGetMyBalance } from "../../services/funding.service";
 import { SocketContext } from "../../context/WebSocketProvider";
 import { useDriverRide } from "../../context/DriverRideContext";
@@ -42,7 +42,7 @@ import { useArriveRide } from "../../services/rides.service";
 import { useActiveStatusEndPoint } from "../../services/auth.service";
 import { api } from "../../services/api";
 import { navigationRef } from '../context/NavigationContext';
-import { DrawerActions } from "@react-navigation/native";
+
 import { useAuth } from "../../context/AuthContext";
 
 const { width, height } = Dimensions.get('window');
@@ -76,7 +76,6 @@ export default function Home() {
   const [lowBalanceWarningVisible, setLowBalanceWarningVisible] = useState(false);
   const [showLowBalanceBanner, setShowLowBalanceBanner] = useState(true);
 
-  // FIX: Single source of truth for the "is toggling" guard - prevents flicker
   const isTogglingOnlineRef = React.useRef(false);
 
   // console.log('selected', selectedOffer)
@@ -94,7 +93,9 @@ export default function Home() {
     reset,
     loadPersisted,
     setNegotiationUpdates,
-    negotiationUpdates
+    negotiationUpdates,
+    rideAcceptedAt,
+    expectedArrivalMinutes,
   } = useDriverRide();
 
   const {
@@ -110,7 +111,7 @@ export default function Home() {
     saveSentOffer,
     sentOffers,
     getSentOffer,
-    toggleOnlineStatus,  // FIX: pulled from context
+    toggleOnlineStatus,
   } = useContext(SocketContext);
 
   const {
@@ -128,12 +129,12 @@ export default function Home() {
   const finishRideMutation = useFinishRide();
   const arriveRideMutation = useArriveRide();
   const activeStatusMutation = useActiveStatusEndPoint();
+  const updateFareMutation = useUpdateFare();
 
   // Responsive scaling
   const scaleFont = (size) => Math.round(size * Math.min(width / 375, 1.3));
   const scaleSize = (size) => Math.round(size * Math.min(width / 375, 1.2));
 
-  // FIX: Guard against undefined balanceData - don't block offers while loading
   const hasSufficientBalance = () => {
     if (balanceData === undefined || balanceData === null) return true; // loading - don't block
     return (balanceData?.balance ?? 0) >= 1001;
@@ -163,11 +164,7 @@ export default function Home() {
     return null;
   };
 
-  // --- MERGED TOGGLE HANDLER ---
-  // FIX: This is the single function that handles BOTH the WebSocket toggle
-  // AND the server-side status update. Previously these were split across two
-  // functions (toggleOnlineStatus in context, handleToggleOnline in Home),
-  // causing them to get out of sync. Now there is one call path.
+  // Handles both WebSocket toggle and server-side status update
   const handleToggleOnline = useCallback(async () => {
     if (isTogglingOnlineRef.current) {
       console.log("⚠️ [TOGGLE] Already toggling, ignoring");
@@ -289,29 +286,11 @@ export default function Home() {
     }
   }, [status]);
 
-  // FIX: REMOVED the second socket.addEventListener from Home entirely.
-  //
-  // Previously this added a second onmessage listener that duplicated what
-  // WebSocketProvider already handled. Problems this caused:
-  //   1. Double-firing handleWsEvent
-  //   2. Binding to a stale socket reference after reconnects (the ref ws.current
-  //      updates but the socket variable captured in context only updates on re-render,
-  //      so addEventListener could be bound to a dead socket)
-  //
-  // All WebSocket message handling now lives exclusively in WebSocketProvider.
-  // Home only reacts to state changes (rideNotifications, status, etc.) via context.
-  //
-  // The negotiation_update and other Home-specific events are handled below
-  // by having WebSocketProvider forward ALL notify events via handleWsEvent,
-  // and DriverRideContext/the context chain surfaces the results as state.
-  //
-  // If you need Home-specific handling of WS messages beyond what context
-  // already provides, add it inside WebSocketProvider's onmessage handler
-  // and expose the result as context state — never add a second listener here.
+  // All WS message handling lives in WebSocketProvider; Home reacts via context state.
 
   // --- HANDLERS ---
 
-  const handleOpenDrawer = () => navigation.dispatch(DrawerActions.openDrawer());
+  const handleOpenMenu = () => navigation.navigate('Account');
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -466,6 +445,29 @@ export default function Home() {
     }
   };
 
+  const handleUpdateFare = async (fare) => {
+    if (!rideId || typeof rideId !== 'string') {
+      setAlertData({ title: "Error", message: "No valid ride ID found", isError: true });
+      setAlertModalVisible(true);
+      return;
+    }
+    try {
+      await updateFareMutation.mutateAsync({ rideId, fare });
+      // Refresh ride details to show updated fare
+      await fetchRideDetails(rideId);
+      setAlertData({ title: "Fare Updated", message: `Fare set to ₦${fare.toLocaleString()}`, isError: false });
+      setAlertModalVisible(true);
+    } catch (error) {
+      console.error("❌ handleUpdateFare:", error);
+      setAlertData({
+        title: "Error",
+        message: error?.response?.data?.message || "Failed to update fare",
+        isError: true
+      });
+      setAlertModalVisible(true);
+    }
+  };
+
   const clearNegotiationUpdate = (viewId) => {
     setNegotiationUpdates(prev => {
       const updated = { ...prev };
@@ -510,14 +512,12 @@ export default function Home() {
         <HomeHeader
           profile={profile}
           notificationCount={rideNotifications.length + negotiationArray.length}
-          onMenuPress={handleOpenDrawer}
-          // FIX: Pass the merged toggle down so HomeHeader/StatusBadge
-          // only ever calls ONE function to change online state
+          onMenuPress={handleOpenMenu}
           onToggleOnline={handleToggleOnline}
           isConnected={isConnected}
         />
 
-        <StatusBadge />
+        <StatusBadge onToggleOnline={handleToggleOnline} />
         <ScrollView
           style={styles.scrollContainer}
           contentContainerStyle={styles.scrollContentContainer}
@@ -544,17 +544,15 @@ export default function Home() {
             isStarting={startRideMutation.isPending}
             isFinishing={finishRideMutation.isPending}
             isLoadingDetails={loadingRideDetails}
+            rideAcceptedAt={rideAcceptedAt}
+            expectedArrivalMinutes={expectedArrivalMinutes}
+            onUpdateFare={handleUpdateFare}
+            isUpdatingFare={updateFareMutation.isPending}
           />
 
-          {/* Chart */}
-          <View style={styles.chartContainer}>
-            <DonutChart />
-          </View>
 
-          {/* KYC */}
-          {kycData?.kyc_status !== "APPROVED" && kycData?.kyc_status !== "IN_REVIEW" && (
-            <UpgradeNotificationCard />
-          )}
+
+
 
           {/* Low Balance Banner */}
           {status === 'not_busy' && balanceWarning && showLowBalanceBanner && (
@@ -587,82 +585,57 @@ export default function Home() {
             </View>
           )}
 
+          {/* KYC */}
+          {kycData?.kyc_status !== "APPROVED" && kycData?.kyc_status !== "IN_REVIEW" && (
+            <UpgradeNotificationCard status={kycData?.kyc_status} />
+          )}
+
           {/* Ride Offers */}
           {status === 'not_busy' && (
             <>
-              {kycData?.kyc_status === "PENDING" ? (
-                <View style={styles.sectionContainer}>
-                  <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Ride Orders Restricted</Text>
-                    <Ionicons name="lock-closed-outline" size={scaleSize(20)} color="#facc15" />
-                  </View>
-                  <Text style={[styles.emptySubtext, { marginBottom: 15, textAlign: 'left' }]}>
-                    Complete KYC to receive ride orders and start earning.
-                  </Text>
-                  <TouchableOpacity
-                    style={[styles.viewButton, { backgroundColor: "#facc15" }]}
-                    onPress={() => navigation.navigate("DocumentUploads")}
-                  >
-                    <Text style={styles.viewButtonText}>Complete KYC</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : kycData?.kyc_status === "IN_REVIEW" ? (
-                <View style={styles.sectionContainer}>
-                  <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>KYC Under Review</Text>
-                    <Ionicons name="time-outline" size={scaleSize(20)} color="#ff9800" />
-                  </View>
-                  <Text style={[styles.emptySubtext, { marginBottom: 15, textAlign: 'left' }]}>
-                    Your documents are being reviewed. You'll be notified once approved.
-                  </Text>
-                </View>
-              ) : (
-                <>
-                  {rideNotifications.length > 0 ? (
-                    <View style={[styles.ordersContainer, { backgroundColor: 'transparent', padding: 0 }]}>
-                      <View style={styles.ordersHeader}>
-                        <View style={styles.ordersTitleRow}>
-                          <Text style={styles.sectionTitle}>Available Orders</Text>
-                          {!hasSufficientBalance() && (
-                            <View style={styles.viewOnlyBadge}>
-                              <Ionicons name="eye-outline" size={scaleSize(10)} color="#666" />
-                              <Text style={styles.viewOnlyText}>View Only</Text>
-                            </View>
-                          )}
+              {rideNotifications.length > 0 ? (
+                <View style={[styles.ordersContainer, { backgroundColor: 'transparent', padding: 0 }]}>
+                  <View style={styles.ordersHeader}>
+                    <View style={styles.ordersTitleRow}>
+                      <Text style={styles.sectionTitle}>Available Orders</Text>
+                      {!hasSufficientBalance() && (
+                        <View style={styles.viewOnlyBadge}>
+                          <Ionicons name="eye-outline" size={scaleSize(10)} color="#666" />
+                          <Text style={styles.viewOnlyText}>View Only</Text>
                         </View>
-                        <Text style={styles.ordersCount}>{rideNotifications.length} Active</Text>
-                      </View>
-
-                      {rideNotifications.map((item) => (
-                        <RideOfferCard
-                          key={item.ride_request_id}
-                          item={item}
-                          onAccept={handleAccept}
-                          onCounter={handleViewOffer}
-                          onDecline={handleDecline}
-                          disabled={!hasSufficientBalance()}
-                          disabledMessage="Add funds to accept rides"
-                          showViewOnly={!hasSufficientBalance()}
-                        />
-                      ))}
-
-                      {rideNotifications.length > 3 && (
-                        <TouchableOpacity style={styles.seeMoreButton} onPress={() => setRideModalVisible(true)}>
-                          <Text style={styles.seeMoreText}>See {rideNotifications.length - 3} More</Text>
-                          <Ionicons name="chevron-down" size={scaleSize(14)} color="#facc15" />
-                        </TouchableOpacity>
                       )}
                     </View>
-                  ) : (
-                    <View style={styles.emptyContainer}>
-                      <Ionicons name="car-outline" size={scaleSize(48)} color="#666" />
-                      <Text style={styles.emptyText}>No ride orders available</Text>
-                      <Text style={styles.emptySubtext}>
-                        {isConnected ? "Waiting for new requests..." : "Go online to receive rides"}
-                      </Text>
-                    </View>
+                    <Text style={styles.ordersCount}>{rideNotifications.length} Active</Text>
+                  </View>
+
+                  {rideNotifications.map((item) => (
+                    <RideOfferCard
+                      key={item.ride_request_id}
+                      item={item}
+                      onAccept={handleAccept}
+                      onCounter={handleViewOffer}
+                      onDecline={handleDecline}
+                      disabled={!hasSufficientBalance()}
+                      disabledMessage="Add funds to accept rides"
+                      showViewOnly={!hasSufficientBalance()}
+                    />
+                  ))}
+
+                  {rideNotifications.length > 3 && (
+                    <TouchableOpacity style={styles.seeMoreButton} onPress={() => setRideModalVisible(true)}>
+                      <Text style={styles.seeMoreText}>See {rideNotifications.length - 3} More</Text>
+                      <Ionicons name="chevron-down" size={scaleSize(14)} color="#facc15" />
+                    </TouchableOpacity>
                   )}
-                </>
+                </View>
+              ) : (
+                <View style={styles.emptyContainer}>
+                  <Ionicons name="car-outline" size={scaleSize(48)} color="#666" />
+                  <Text style={styles.emptyText}>No ride orders available</Text>
+                  <Text style={styles.emptySubtext}>
+                    {isConnected ? "Waiting for new requests..." : "Go online to receive rides"}
+                  </Text>
+                </View>
               )}
             </>
           )}
@@ -693,6 +666,10 @@ export default function Home() {
               </TouchableOpacity>
             </View>
           )}
+          {/* Chart */}
+          <View style={styles.chartContainer}>
+            <DonutChart />
+          </View>
         </ScrollView>
       </View>
 
@@ -722,7 +699,7 @@ export default function Home() {
             <Ionicons name="document-text-outline" size={scaleSize(50)} color="#facc15" />
             <Text style={styles.alertTitle}>Not verified</Text>
             <Text style={styles.alertMessage}>Upload all documents for verification</Text>
-            <TouchableOpacity style={styles.primaryButton} onPress={() => { setUploadModalVisible(false); navigation.navigate("DocumentUploads"); }}>
+            <TouchableOpacity style={styles.primaryButton} onPress={() => { setUploadModalVisible(false); navigation.navigate("IDVerify"); }}>
               <Text style={styles.primaryButtonText}>Upload Now</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.secondaryButton, { marginTop: 10 }]} onPress={() => setUploadModalVisible(false)}>
@@ -1091,9 +1068,9 @@ export default function Home() {
         title="Cannot Go Online"
         subText={onlineErrorMessage}
         icon="alert-circle"
-        confirmText="Upload Documents"
+        confirmText="Proceed"
         closeText="Later"
-        onConfirm={() => { setOnlineErrorModalVisible(false); navigation.navigate("DocumentUploads"); }}
+        onConfirm={() => { setOnlineErrorModalVisible(false); navigation.navigate("IDVerify"); }}
         onCancel={() => setOnlineErrorModalVisible(false)}
         confirmButtonColor="#facc15"
         themeColor="#ff9800"

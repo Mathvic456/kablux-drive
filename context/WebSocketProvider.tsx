@@ -1,10 +1,13 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { AppState, AppStateStatus } from "react-native";
 import * as Location from "expo-location";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { navigationRef } from "../screens/context/NavigationContext";
 import { useDriverRide } from "./DriverRideContext";
 import { useAuth } from "./AuthContext";
 import { playMessageSound } from "../utils/PlayMessageSound";
+import { authEvents } from "../utils/authEvents";
+import { fetchProfileStatus } from "../services/profile.service";
 
 const WSS_URL = process.env.EXPO_PUBLIC_WSS_URL;
 
@@ -59,14 +62,11 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
   const retryTimeout = useRef<NodeJS.Timeout | null>(null);
   const retryAttempts = useRef(0);
   const maxRetryDelay = 30000;
-  // FIX: shouldReconnect controls ONLY reconnect-on-drop, not user intent.
-  // isOnlineRef tracks user intent so we never reconnect when user chose offline.
   const shouldReconnect = useRef(false);
-  const isOnlineRef = useRef(false);
+  const isOnlineRef = useRef(false); // tracks user intent (online/offline)
   const sentOffersRef = useRef<Map<string, RideNotification>>(new Map());
   const currentRideIdRef = useRef<string | null>(null);
 
-  // FIX: Toggling is tracked separately to prevent double-fires causing flicker.
   const isTogglingRef = useRef(false);
 
   // State
@@ -86,7 +86,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
   }, [rideId]);
 
   // --- LOGOUT LOGIC ---
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     console.log("🚪 [LOGOUT] Session expired - cleaning up everything...");
     isOnlineRef.current = false;
     shouldReconnect.current = false;
@@ -110,7 +110,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         navigationRef.reset({ index: 0, routes: [{ name: 'Login' as never }] });
       }
     }, 100);
-  };
+  }, [clearTokens]); // only clearTokens is external; everything else is refs/local state
 
   // --- SERVER STATUS HELPERS ---
   // These are intentionally no-ops here; Home wires them to activeStatusMutation.
@@ -123,7 +123,6 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
   };
 
   // --- TOGGLE ONLINE/OFFLINE ---
-  // FIX: Guard with isTogglingRef so rapid taps don't cause flicker or double-connect.
   const toggleOnlineStatus = async () => {
     if (isTogglingRef.current) {
       console.log("⚠️ [TOGGLE] Already toggling, ignoring duplicate call");
@@ -186,12 +185,10 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
   };
 
   // --- NOTIFICATION PARSING ---
-  // FIX: Expanded field name fallbacks so offers aren't silently dropped.
   const parseRideNotification = (data: any): RideNotification | null => {
     try {
       console.log("🛠️ [PARSING] Raw data:", JSON.stringify(data, null, 2));
 
-      // FIX: Accept all known field name variants from the server
       const finalId =
         data.ride_request_id ||
         data.ride_id ||
@@ -331,7 +328,6 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
 
   // --- WEBSOCKET LIFECYCLE ---
   const connectWebSocket = async (accessToken: string) => {
-    // FIX: Don't open a new socket if one is already open/connecting
     if (
       ws.current &&
       (ws.current.readyState === WebSocket.OPEN ||
@@ -374,12 +370,11 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         console.log("[WS_DRIVER] Full payload:", JSON.stringify(msg, null, 2));
 
         // Forward ALL notify events to DriverRideContext
-        if ((msg.type === "notify" || "negotiation_update") && msg.data) {
+        if ((msg.type === "notify" || msg.type === "negotiation_update") && msg.data) {
           console.log("🔔 [WS_DRIVER] Forwarding to DriverRideContext:", msg.data.type);
           handleWsEvent(msg);
         }
 
-        // FIX: Handle RIDE_REQUESTED at both possible levels in the payload
         const isRideRequested =
           (msg.type === "notify" && msg.data?.type === "RIDE_REQUESTED") ||
           msg.type === "RIDE_REQUESTED";
@@ -450,7 +445,6 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         locationInterval.current = null;
       }
 
-      // FIX: Only reconnect if user intent is still "online"
       if (shouldReconnect.current && isOnlineRef.current) {
         scheduleRetry();
       } else {
@@ -479,7 +473,6 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
 
       console.log("🔄 [RETRY] Reconnecting...");
 
-      // FIX: Restart location tracking on reconnect (was missing before)
       if (!locationSubscription.current) {
         await startLocationTracking();
       }
@@ -494,6 +487,71 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
     }, delay);
   };
 
+  // --- LOGOUT EVENT LISTENER ---
+  useEffect(() => {
+    authEvents.onLogout(handleLogout);
+    return () => {
+      authEvents.offLogout();
+    };
+  }, [handleLogout]);
+
+  // --- AppState listener for reconnection on foreground return ---
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+
+  useEffect(() => {
+    const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+      const previousState = appStateRef.current;
+      appStateRef.current = nextAppState;
+
+      // Only act when transitioning from background/inactive to active
+      if (
+        (previousState === "background" || previousState === "inactive") &&
+        nextAppState === "active"
+      ) {
+        console.log("📱 [APPSTATE] App returned to foreground");
+
+        // Only reconnect if the driver intended to be online
+        if (!isOnlineRef.current) {
+          console.log("⏸️ [APPSTATE] Driver is offline, skipping reconnect");
+          return;
+        }
+
+        // Check if socket is still alive
+        if (
+          ws.current &&
+          ws.current.readyState === WebSocket.OPEN
+        ) {
+          console.log("✅ [APPSTATE] Socket still open, sending location ping");
+          if (currentLocationRef.current) {
+            sendLocationUpdate(ws.current, currentLocationRef.current);
+          }
+          return;
+        }
+
+        // Socket is dead or closing — reconnect
+        console.log("🔄 [APPSTATE] Socket not open, reconnecting...");
+        shouldReconnect.current = true;
+
+        // Restart location tracking if it stopped
+        if (!locationSubscription.current) {
+          await startLocationTracking();
+        }
+
+        const validToken = await getValidToken();
+        if (validToken) {
+          connectWebSocket(validToken);
+        } else {
+          console.error("❌ [APPSTATE] No valid token for reconnect");
+        }
+      }
+    };
+
+    const subscription = AppState.addEventListener("change", handleAppStateChange);
+    return () => {
+      subscription.remove();
+    };
+  }, [getValidToken]);
+
   // --- MOUNT / UNMOUNT ---
   useEffect(() => {
     console.log("🎬 [LIFECYCLE] Driver WebSocketProvider Mounted");
@@ -502,15 +560,33 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
       const { status } = await Location.getForegroundPermissionsAsync();
       setLocationPermission(status);
 
-      if (status === 'granted') {
-        console.log("✅ [INIT] Permission already granted, auto-connecting...");
-        isOnlineRef.current = true;
-        shouldReconnect.current = true;
-        await startLocationTracking();
-        const validToken = await getValidToken();
-        if (validToken) connectWebSocket(validToken);
-      } else {
+      if (status !== 'granted') {
         console.log("⏸️ [INIT] No permission yet, waiting for user action");
+        return;
+      }
+
+      // Check server-side online status before auto-connecting
+      const validToken = await getValidToken();
+      if (!validToken) {
+        console.log("⏸️ [INIT] No valid token, waiting for auth");
+        return;
+      }
+
+      try {
+        const { is_online } = await fetchProfileStatus();
+        console.log(`📡 [INIT] Server online status: ${is_online}`);
+
+        if (is_online) {
+          console.log("✅ [INIT] Server says online, reconnecting...");
+          isOnlineRef.current = true;
+          shouldReconnect.current = true;
+          await startLocationTracking();
+          connectWebSocket(validToken);
+        } else {
+          console.log("⏸️ [INIT] Server says offline, staying offline");
+        }
+      } catch (err) {
+        console.error("❌ [INIT] Failed to fetch profile status, staying offline:", err);
       }
     })();
 

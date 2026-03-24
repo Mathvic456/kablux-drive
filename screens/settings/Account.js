@@ -16,13 +16,15 @@ import {
 import { MaterialIcons, FontAwesome5, Feather, Entypo, Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useLogoutEndPoint } from '../../services/auth.service';
-import { useProfile } from '../../services/profile.service';
+import { useProfile, useUpdateProfile } from '../../services/profile.service';
+import { useUploadFile } from '../../services/fileUpload.service';
 import { SocketContext } from '../../context/WebSocketProvider';
 import { useAuth } from '../../context/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import CentralModal from '../components/CentralModal';
 import Platform from 'react-native/Libraries/Utilities/Platform';
 import { api } from '../../services/api';
+import * as ImagePicker from "expo-image-picker";
 
 
 export default function Account() {
@@ -44,6 +46,9 @@ export default function Account() {
   const { clearTokens } = useAuth();
   const { mutate: logout, isPending: isLoggingOut } = useLogoutEndPoint(clearTokens);
   const { socket } = useContext(SocketContext);
+  const { mutateAsync: uploadFile, isPending: isUploading } = useUploadFile();
+  const { mutateAsync: updateProfile, isPending: isUpdating } = useUpdateProfile();
+  const isUploadingImage = isUploading || isUpdating;
 
   const LoginAndSecurity = () => navigation.navigate('LoginAndSecurity');
   const PersonalInfo = () => navigation.navigate('PersonalInfo');
@@ -53,6 +58,48 @@ export default function Account() {
   const ReferAndEarn = () => navigation.navigate('ReferAndEarn');
   const HelpAndSupport = () => navigation.navigate('HelpAndSupport');
   const Legal = () => navigation.navigate('Legal');
+
+  console.log('PROFILE======', profile)
+
+  const pickProfileImages = async () => {
+    console.log("🔵 PROFILE IMAGE PICKER TRIGGERED");
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      alert('Sorry, we need camera roll permissions!');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: false,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets.length > 0) {
+      try {
+        const asset = result.assets[0];
+        const filename = asset.fileName || asset.uri.split('/').pop() || 'profile.jpg';
+
+        const formData = new FormData();
+        formData.append('files', {
+          uri: asset.uri,
+          type: 'image/jpeg',
+          name: filename,
+        });
+        formData.append('name', 'profile_image');
+
+        const uploadRes = await uploadFile(formData);
+        const fileId = uploadRes.data?.results?.[0]?.id;
+        console.log("IMAGE UPLOADEDD", uploadRes, fileId);
+        if (!fileId) throw new Error('Upload succeeded but no file ID returned');
+
+        await updateProfile({ upload_id: fileId });
+      } catch (error) {
+        console.error('Profile image upload failed:', error);
+        alert('Failed to update profile image. Please try again.');
+      }
+    }
+  };
 
   const handleLogout = async () => {
     console.log('🚪 Starting logout process...');
@@ -185,14 +232,32 @@ export default function Account() {
             isLargeScreen && styles.profileSectionLarge,
           ]}
         >
-          <Image
-            source={require('../../assets/Profileimg.png')}
-            style={[
-              styles.profileImage,
-              isSmallScreen && styles.profileImageSmall,
-              isLargeScreen && styles.profileImageLarge,
-            ]}
-          />
+          <View>
+            <View style={{ position: 'relative' }}>
+              <Image
+                source={
+                  profile?.profile_image
+                    ? { uri: profile.profile_image }
+                    : require('../../assets/images/placeholder.png')
+                }
+                style={[
+                  styles.profileImage,
+                  isSmallScreen && styles.profileImageSmall,
+                  isLargeScreen && styles.profileImageLarge,
+                ]}
+              />
+              {isUploadingImage && (
+                <View style={styles.imageLoadingOverlay}>
+                  <ActivityIndicator size="small" color="#FFC107" />
+                </View>
+              )}
+              {!isUploadingImage && (
+                <TouchableOpacity onPress={pickProfileImages} disabled={isUploadingImage} style={styles.cameraIconOverlay}>
+                  <Ionicons name="camera" size={12} color="white" />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
           <View
             style={[
               styles.profileInfo,
@@ -530,20 +595,43 @@ const styles = StyleSheet.create({
   headerSmall: { fontSize: width * 0.075, marginBottom: height * 0.015 },
   headerLarge: { fontSize: width * 0.085, marginBottom: height * 0.025 },
   headerTablet: { fontSize: width * 0.09, textAlign: 'center' },
-  profileSection: { padding: 10, borderRadius: 12 },
+  profileSection: { padding: 10, borderRadius: 12, flexDirection: 'column', gap: 10, alignItems: 'center', justifyContent: 'center' },
   profileSectionSmall: { marginBottom: height * 0.025 },
   profileSectionLarge: { marginBottom: height * 0.035 },
   profileImage: {
     width: width * 0.2,
     height: width * 0.2,
     borderRadius: width * 0.1,
-    marginRight: width * 0.04,
     alignSelf: 'center',
     padding: 10,
   },
   profileImageSmall: {},
   profileImageLarge: {},
-  profileInfo: { flex: 1, alignSelf: 'center' },
+  imageLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: width * 0.1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cameraIconOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#FFC107',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'black',
+  },
+  profileInfo: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   profileInfoSmall: { marginLeft: width * 0.03 },
   profileInfoLarge: { marginLeft: width * 0.05 },
   profileName: {

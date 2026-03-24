@@ -1,11 +1,16 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Linking } from 'react-native'
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Linking, Dimensions } from 'react-native'
 import React, { useState, useEffect } from 'react'
 import { Ionicons } from '@expo/vector-icons'
 import CentralModal from '../components/CentralModal'
+import { useNavigation } from '@react-navigation/native';
+
 
 // Only import permissions that work in Expo Go
 import * as Location from 'expo-location'
 import * as LocalAuthentication from 'expo-local-authentication'
+const { width, height } = Dimensions.get('window');
+const isSmallScreen = width < 375;
+const isLargeScreen = width > 768;
 
 export default function Settings() {
   const [permissions, setPermissions] = useState({
@@ -22,6 +27,10 @@ export default function Settings() {
   const [expoGoMode, setExpoGoMode] = useState(true)
   const [alertModalVisible, setAlertModalVisible] = useState(false)
   const [alertData, setAlertData] = useState({ title: '', message: '', action: null })
+  const navigation = useNavigation()
+
+  const goBack = () => { navigation.goBack(); }
+
 
   // Check available permissions on component mount
   useEffect(() => {
@@ -97,7 +106,7 @@ export default function Settings() {
           if (requested) {
             const result = await Location.requestForegroundPermissionsAsync()
             setPermissions(prev => ({ ...prev, location: result.granted }))
-            
+
             if (!result.granted) {
               setAlertData({
                 title: "Location Permission Denied",
@@ -191,7 +200,7 @@ export default function Settings() {
         message: `This permission requires a development build for full functionality.`
       });
       setAlertModalVisible(true);
-      
+
       // Still update UI for demo purposes
       if (permissionType !== 'location' && permissionType !== 'biometric') {
         setPermissions(prev => ({ ...prev, [permissionType]: requested }))
@@ -220,10 +229,10 @@ export default function Settings() {
           </Text>
         )}
       </View>
-      
+
       <TouchableOpacity
         style={[
-          styles.toggleContainer, 
+          styles.toggleContainer,
           permissions[permissionType] && styles.toggleActive,
           loading[permissionType] && styles.toggleDisabled
         ]}
@@ -251,6 +260,9 @@ export default function Settings() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerTop}>
+            <TouchableOpacity onPress={goBack}>
+              <Ionicons name="arrow-back-circle" size={isSmallScreen ? 28 : 32} color="white" />
+            </TouchableOpacity>
             <Text style={styles.headerTitle}>App Permissions</Text>
             <View style={styles.expoGoBanner}>
               <Ionicons name="information-circle" size={16} color="#FFD700" />
@@ -260,7 +272,7 @@ export default function Settings() {
           <Text style={styles.headerSubtitle}>
             Manage what this app can access on your device
           </Text>
-          
+
           {/* <TouchableOpacity 
             style={styles.refreshButton}
             onPress={checkAvailablePermissions}
@@ -280,7 +292,7 @@ export default function Settings() {
         {/* Permissions Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Device Permissions</Text>
-          
+
           <PermissionToggle
             icon="notifications-outline"
             title="Push Notifications"
@@ -315,7 +327,7 @@ export default function Settings() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Data & Privacy</Text>
-          
+
           <PermissionToggle
             icon="folder-outline"
             title="Storage Access"
@@ -335,7 +347,7 @@ export default function Settings() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Security</Text>
-          
+
           <PermissionToggle
             icon="finger-print-outline"
             title="Biometric Login"
@@ -353,7 +365,7 @@ export default function Settings() {
               Create a development build to test all permissions and access native device features.
             </Text>
           </View>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.devBuildButton}
             onPress={() => Linking.openURL('https://docs.expo.dev/develop/development-builds/introduction/')}
           >

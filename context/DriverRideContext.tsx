@@ -1,6 +1,4 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFetch } from "../utils/fetch-handler";
 import { useAuth } from "./AuthContext";
 import { api } from "../services/api";
 
@@ -14,32 +12,32 @@ interface DriverRideContextValue {
   status: DriverRideStatus;
   rideId: string | null;
   riderId: string | null;
-  isOnline: boolean;
   arrive: () => void;
   startRide: () => void;
   handleWsEvent: (msg: any) => void;
   finishRide: () => void;
   loadPersisted: () => Promise<void>;
   reset: () => void;
-  toggleOnline: () => Promise<void>;
   setNegotiationUpdates: React.Dispatch<React.SetStateAction<any[]>>;
-  negotiationUpdates: any[]
+  negotiationUpdates: any[];
+  rideAcceptedAt: number | null;
+  expectedArrivalMinutes: number;
 }
 
 const DriverRideContext = createContext<DriverRideContextValue>({
   status: "not_busy",
   rideId: null,
   riderId: null,
-  isOnline: false,
   handleWsEvent: () => { },
   finishRide: () => { },
   loadPersisted: async () => { },
   reset: () => { },
   arrive: () => { },
   startRide: () => { },
-  toggleOnline: async () => { },
   setNegotiationUpdates: () => { },
-  negotiationUpdates: []
+  negotiationUpdates: [],
+  rideAcceptedAt: null,
+  expectedArrivalMinutes: 15,
 });
 
 export const useDriverRide = () => useContext(DriverRideContext);
@@ -52,26 +50,11 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
   const [status, setStatus] = useState<DriverRideStatus>("not_busy");
   const [rideId, setRideId] = useState<string | null>(null);
   const [riderId, setRiderId] = useState<string | null>(null);
-  const [isOnline, setIsOnline] = useState<boolean>(false);
-  const { request } = useFetch();
   const { token } = useAuth();
   const [triggerEffect, setTriggerEffect] = useState(0);
   const [negotiationUpdates, setNegotiationUpdates] = useState([]);
-
-
-  const toggleOnline = async () => {
-    try {
-      const response = await request('users/active_status/', {
-        method: 'POST',
-        body: { is_online: !isOnline },
-        token
-      });
-      console.log("✅ [DRIVER_RIDE] Toggle online response:", response);
-      setIsOnline((prev) => !prev);
-    } catch (error) {
-      console.error("[DRIVER_RIDE] Failed to toggle online status:", error);
-    }
-  };
+  const [rideAcceptedAt, setRideAcceptedAt] = useState<number | null>(null);
+  const expectedArrivalMinutes = 15; // Default ETA threshold in minutes
 
   // Load persistent state
   const loadPersisted = async () => {
@@ -134,6 +117,7 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
       setStatus("ride_created");
       setRideId(ride_id);
       setRiderId(rider_id);
+      setRideAcceptedAt(Date.now());
 
     } else if (rawEvent === "ride_cancelled") {
       console.log("resetting from driver context");
@@ -197,6 +181,7 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
     setStatus("not_busy");
     setRideId(null);
     setRiderId(null);
+    setRideAcceptedAt(null);
     setTriggerEffect((prev) => prev + 1)
 
 
@@ -220,16 +205,16 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
         status,
         rideId,
         riderId,
-        isOnline,
         handleWsEvent,
         finishRide,
         loadPersisted,
         reset,
         arrive,
         startRide,
-        toggleOnline,
         setNegotiationUpdates,
-        negotiationUpdates
+        negotiationUpdates,
+        rideAcceptedAt,
+        expectedArrivalMinutes,
       }}
     >
       {children}

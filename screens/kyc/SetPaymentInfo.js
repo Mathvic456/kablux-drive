@@ -3,6 +3,7 @@ import Octicons from '@expo/vector-icons/Octicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import React, { useState, useRef, useEffect } from "react";
 import {
+  ActivityIndicator,
   Image,
   StyleSheet,
   Text,
@@ -15,6 +16,7 @@ import Logo from "../../assets/Logo.png";
 import { useNavigation } from '@react-navigation/native';
 import Entypo from '@expo/vector-icons/Entypo';
 import CentralModal from '../components/CentralModal';
+import { api } from '../../services/api';
 
 const SetPaymentInfo = ({ navigation }) => {
   const [formData, setFormData] = useState({
@@ -39,6 +41,8 @@ const SetPaymentInfo = ({ navigation }) => {
   });
 
   const [errorModalVisible, setErrorModalVisible] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitErrorMessage, setSubmitErrorMessage] = useState('');
 
   // Calculate progress based on filled fields
   const calculateProgress = () => {
@@ -203,12 +207,39 @@ const SetPaymentInfo = ({ navigation }) => {
     return !Object.values(newErrors).some(error => error !== '');
   };
 
-  const nextScreen = () => {
-    if (validateForm()) {
-      // Form is valid, proceed to next screen
-      navigation.navigate('PasskeySetup');
-    } else {
+  const nextScreen = async () => {
+    if (!validateForm()) {
       setErrorModalVisible(true);
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmitErrorMessage('');
+
+    try {
+      const rawCardNumber = formData.cardNumber.replace(/\s/g, '');
+      const [expiryMonth, expiryYear] = formData.expiryDate.split('/');
+
+      await api.post('drivers/payment-info/', {
+        card_number: rawCardNumber,
+        expiry_month: expiryMonth,
+        expiry_year: expiryYear,
+        cvv: formData.cvv,
+        card_name: formData.cardName.trim(),
+      });
+
+      console.log("✅ Payment info submitted successfully");
+      navigation.navigate('PasskeySetup');
+    } catch (error) {
+      console.error("❌ Payment info submission error:", error);
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.detail ||
+        "Failed to save payment information. Please try again.";
+      setSubmitErrorMessage(message);
+      setErrorModalVisible(true);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -355,20 +386,24 @@ const SetPaymentInfo = ({ navigation }) => {
         <TouchableOpacity
           style={[
             styles.proceedBtn,
-            !isFormValid() && styles.proceedBtnDisabled
+            (!isFormValid() || isSubmitting) && styles.proceedBtnDisabled
           ]}
           onPress={nextScreen}
-          disabled={!isFormValid()}
+          disabled={!isFormValid() || isSubmitting}
         >
-          <Text style={styles.proceedText}>Proceed</Text>
+          {isSubmitting ? (
+            <ActivityIndicator size="small" color="#000" />
+          ) : (
+            <Text style={styles.proceedText}>Proceed</Text>
+          )}
         </TouchableOpacity>
       </View>
 
       <CentralModal
         visible={errorModalVisible}
         onClose={() => setErrorModalVisible(false)}
-        title="Validation Error"
-        subText="Please fix all errors before proceeding."
+        title={submitErrorMessage ? "Submission Error" : "Validation Error"}
+        subText={submitErrorMessage || "Please fix all errors before proceeding."}
         icon="alert-circle"
         confirmText="OK"
         closeText=""
