@@ -92,7 +92,9 @@ api.interceptors.response.use(
 
       if (error.response.status === 401) {
         console.error(`🔐 [API Error ${requestId}] AUTHENTICATION ERROR - Invalid or missing token`);
-        authEvents.emitLogout();
+        if (!error.config?.url?.includes("auth/")) {
+          authEvents.emitLogout();
+        }
       } else if (error.response.status === 404) {
         console.error(`🔍 [API Error ${requestId}] ENDPOINT NOT FOUND`);
       } else if (error.response.status === 500) {

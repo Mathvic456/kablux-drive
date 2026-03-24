@@ -552,10 +552,7 @@ export default function Home() {
 
 
 
-          {/* KYC */}
-          {kycData?.kyc_status !== "APPROVED" && kycData?.kyc_status !== "IN_REVIEW" && (
-            <UpgradeNotificationCard />
-          )}
+
 
           {/* Low Balance Banner */}
           {status === 'not_busy' && balanceWarning && showLowBalanceBanner && (
@@ -588,82 +585,57 @@ export default function Home() {
             </View>
           )}
 
+          {/* KYC */}
+          {kycData?.kyc_status !== "APPROVED" && kycData?.kyc_status !== "IN_REVIEW" && (
+            <UpgradeNotificationCard status={kycData?.kyc_status} />
+          )}
+
           {/* Ride Offers */}
           {status === 'not_busy' && (
             <>
-              {kycData?.kyc_status === "PENDING" ? (
-                <View style={styles.sectionContainer}>
-                  <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Ride Orders Restricted</Text>
-                    <Ionicons name="lock-closed-outline" size={scaleSize(20)} color="#facc15" />
-                  </View>
-                  <Text style={[styles.emptySubtext, { marginBottom: 15, textAlign: 'left' }]}>
-                    Complete KYC to receive ride orders and start earning.
-                  </Text>
-                  <TouchableOpacity
-                    style={[styles.viewButton, { backgroundColor: "#facc15" }]}
-                    onPress={() => navigation.navigate("DocumentUploads")}
-                  >
-                    <Text style={styles.viewButtonText}>Complete KYC</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : kycData?.kyc_status === "IN_REVIEW" ? (
-                <View style={styles.sectionContainer}>
-                  <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>KYC Under Review</Text>
-                    <Ionicons name="time-outline" size={scaleSize(20)} color="#ff9800" />
-                  </View>
-                  <Text style={[styles.emptySubtext, { marginBottom: 15, textAlign: 'left' }]}>
-                    Your documents are being reviewed. You'll be notified once approved.
-                  </Text>
-                </View>
-              ) : (
-                <>
-                  {rideNotifications.length > 0 ? (
-                    <View style={[styles.ordersContainer, { backgroundColor: 'transparent', padding: 0 }]}>
-                      <View style={styles.ordersHeader}>
-                        <View style={styles.ordersTitleRow}>
-                          <Text style={styles.sectionTitle}>Available Orders</Text>
-                          {!hasSufficientBalance() && (
-                            <View style={styles.viewOnlyBadge}>
-                              <Ionicons name="eye-outline" size={scaleSize(10)} color="#666" />
-                              <Text style={styles.viewOnlyText}>View Only</Text>
-                            </View>
-                          )}
+              {rideNotifications.length > 0 ? (
+                <View style={[styles.ordersContainer, { backgroundColor: 'transparent', padding: 0 }]}>
+                  <View style={styles.ordersHeader}>
+                    <View style={styles.ordersTitleRow}>
+                      <Text style={styles.sectionTitle}>Available Orders</Text>
+                      {!hasSufficientBalance() && (
+                        <View style={styles.viewOnlyBadge}>
+                          <Ionicons name="eye-outline" size={scaleSize(10)} color="#666" />
+                          <Text style={styles.viewOnlyText}>View Only</Text>
                         </View>
-                        <Text style={styles.ordersCount}>{rideNotifications.length} Active</Text>
-                      </View>
-
-                      {rideNotifications.map((item) => (
-                        <RideOfferCard
-                          key={item.ride_request_id}
-                          item={item}
-                          onAccept={handleAccept}
-                          onCounter={handleViewOffer}
-                          onDecline={handleDecline}
-                          disabled={!hasSufficientBalance()}
-                          disabledMessage="Add funds to accept rides"
-                          showViewOnly={!hasSufficientBalance()}
-                        />
-                      ))}
-
-                      {rideNotifications.length > 3 && (
-                        <TouchableOpacity style={styles.seeMoreButton} onPress={() => setRideModalVisible(true)}>
-                          <Text style={styles.seeMoreText}>See {rideNotifications.length - 3} More</Text>
-                          <Ionicons name="chevron-down" size={scaleSize(14)} color="#facc15" />
-                        </TouchableOpacity>
                       )}
                     </View>
-                  ) : (
-                    <View style={styles.emptyContainer}>
-                      <Ionicons name="car-outline" size={scaleSize(48)} color="#666" />
-                      <Text style={styles.emptyText}>No ride orders available</Text>
-                      <Text style={styles.emptySubtext}>
-                        {isConnected ? "Waiting for new requests..." : "Go online to receive rides"}
-                      </Text>
-                    </View>
+                    <Text style={styles.ordersCount}>{rideNotifications.length} Active</Text>
+                  </View>
+
+                  {rideNotifications.map((item) => (
+                    <RideOfferCard
+                      key={item.ride_request_id}
+                      item={item}
+                      onAccept={handleAccept}
+                      onCounter={handleViewOffer}
+                      onDecline={handleDecline}
+                      disabled={!hasSufficientBalance()}
+                      disabledMessage="Add funds to accept rides"
+                      showViewOnly={!hasSufficientBalance()}
+                    />
+                  ))}
+
+                  {rideNotifications.length > 3 && (
+                    <TouchableOpacity style={styles.seeMoreButton} onPress={() => setRideModalVisible(true)}>
+                      <Text style={styles.seeMoreText}>See {rideNotifications.length - 3} More</Text>
+                      <Ionicons name="chevron-down" size={scaleSize(14)} color="#facc15" />
+                    </TouchableOpacity>
                   )}
-                </>
+                </View>
+              ) : (
+                <View style={styles.emptyContainer}>
+                  <Ionicons name="car-outline" size={scaleSize(48)} color="#666" />
+                  <Text style={styles.emptyText}>No ride orders available</Text>
+                  <Text style={styles.emptySubtext}>
+                    {isConnected ? "Waiting for new requests..." : "Go online to receive rides"}
+                  </Text>
+                </View>
               )}
             </>
           )}
@@ -727,7 +699,7 @@ export default function Home() {
             <Ionicons name="document-text-outline" size={scaleSize(50)} color="#facc15" />
             <Text style={styles.alertTitle}>Not verified</Text>
             <Text style={styles.alertMessage}>Upload all documents for verification</Text>
-            <TouchableOpacity style={styles.primaryButton} onPress={() => { setUploadModalVisible(false); navigation.navigate("DocumentUploads"); }}>
+            <TouchableOpacity style={styles.primaryButton} onPress={() => { setUploadModalVisible(false); navigation.navigate("IDVerify"); }}>
               <Text style={styles.primaryButtonText}>Upload Now</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.secondaryButton, { marginTop: 10 }]} onPress={() => setUploadModalVisible(false)}>
@@ -1096,9 +1068,9 @@ export default function Home() {
         title="Cannot Go Online"
         subText={onlineErrorMessage}
         icon="alert-circle"
-        confirmText="Upload Documents"
+        confirmText="Proceed"
         closeText="Later"
-        onConfirm={() => { setOnlineErrorModalVisible(false); navigation.navigate("DocumentUploads"); }}
+        onConfirm={() => { setOnlineErrorModalVisible(false); navigation.navigate("IDVerify"); }}
         onCancel={() => setOnlineErrorModalVisible(false)}
         confirmButtonColor="#facc15"
         themeColor="#ff9800"

@@ -9,28 +9,28 @@ jobs:
   build:
     runs-on: ubuntu-latest
     if: contains(github.event.head_commit.message, 'build-android') || github.event_name == 'workflow_dispatch'
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-      
+          node-version: "20"
+          cache: "npm"
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
-          java-version: '17'
-      
+          distribution: "zulu"
+          java-version: "17"
+
       - name: Install dependencies
         run: npm install
 
       - name: Generate native Android project
         run: npx expo prebuild --platform android --non-interactive
-      
+
       - name: Setup Android signing
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
@@ -43,7 +43,7 @@ jobs:
         run: |
           python3 - <<'EOF'
           content = open('android/app/build.gradle').read()
-          
+
           release_config = '''        release {
                   def keystoreProperties = new Properties()
                   keystoreProperties.load(new FileInputStream(rootProject.file("key.properties")))
@@ -52,10 +52,10 @@ jobs:
                   keyAlias keystoreProperties["keyAlias"]
                   keyPassword keystoreProperties["keyPassword"]
               }'''
-          
+
           content = content.replace('signingConfigs {\n        debug {', 'signingConfigs {\n' + release_config + '\n        debug {')
           content = content.replace('signingConfig signingConfigs.debug\n            def enableShrinkResources', 'signingConfig signingConfigs.release\n            def enableShrinkResources')
-          
+
           open('android/app/build.gradle', 'w').write(content)
           print("Done! Release signing config added.")
           EOF
@@ -66,23 +66,37 @@ jobs:
             -storepass ${{ secrets.ANDROID_STORE_PASSWORD }} | grep SHA1
 
       - name: Build Android Bundle
-        run: cd android && ./gradlew bundleRelease
-      
+        run: cd android && ./gradlew bundleRelease > /tmp/build-output.txt 2>&1 || true
+
+      - name: Show build output
+        if: always()
+        run: cat /tmp/build-output.txt
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: /tmp/build-output.txt
+          retention-days: 5
+
       - name: Configure AWS credentials
+        if: success()
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-north-1
-      
+
       - name: Upload to S3
+        if: success()
         run: |
           BUILD_FILE="android/app/build/outputs/bundle/release/app-release.aab"
-          
+
           if [ ! -f "$BUILD_FILE" ]; then
             BUILD_FILE="android/app/build/outputs/apk/release/app-release.apk"
           fi
-          
+
           if [ -f "$BUILD_FILE" ]; then
             aws s3 cp "$BUILD_FILE" s3://${{ secrets.S3_BUCKET_NAME }}/expo-app/mobile/app-latest.aab
             
@@ -95,7 +109,7 @@ jobs:
             echo "❌ Build artifact not found"
             exit 1
           fi
-      
+
       - name: Upload build artifacts to GitHub
         if: always()
         uses: actions/upload-artifact@v4

@@ -1,28 +1,62 @@
 import React from "react";
-import { View, Text, Image, StyleSheet } from "react-native";
+import { View, Text, Image, StyleSheet, Dimensions, TouchableOpacity } from "react-native";
+import { useNavigation } from "@react-navigation/native";
 
-const UpgradeNotificationCard = () => {
+const { width, height } = Dimensions.get('window');
+
+const scaleFont = (size) => {
+  const scaleFactor = width / 375;
+  return Math.round(size * Math.min(scaleFactor, 1.3));
+};
+const scaleSize = (size) => {
+  const scaleFactor = width / 375;
+  return Math.round(size * Math.min(scaleFactor, 1.2));
+};
+
+const UpgradeNotificationCard = ({ status }) => {
+  const navigation = useNavigation();
+  console.log('statusss', status)
   return (
     <View style={styles.container}>
-      {/* Left section - Text */}
-      <View style={styles.textContainer}>
-        <Text style={styles.title}>
-          You're a tier 1 user — upgrade to tier 2 for more coverage
-        </Text>
-        <Text style={styles.subtitle}>
-          Finish registration today to enjoy more benefits from Kablux
-        </Text>
-        {/* <Image
-          source={require("../../assets/Profileimg.png")}
-          style={styles.avatar}
-        /> */}
+
+      {/* Top row: text + illustration */}
+      <View style={styles.topRow}>
+        {status !== "IN_REVIEW" ? (
+          <View style={styles.textBlock}>
+            <Text style={styles.title}>
+              Complete Verification before receiving Rides
+            </Text>
+            <Text style={styles.subtitle}>
+              Finish registration today to enjoy more benefits from Kablux
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.textBlock}>
+            <Text style={styles.title}>
+              Your documents are under review
+            </Text>
+            <Text style={styles.subtitle}>
+              We are reviewing your submitted documents. We will notify you once the review is complete.
+            </Text>
+          </View>
+        )}
+
+        <Image
+          source={require("../../assets/reg2.png")}
+          style={styles.illustration}
+        />
       </View>
 
-      {/* Right section - Illustration */}
-      <Image
-        source={require("../../assets/Reg.png")}
-        style={styles.illustration}
-      />
+      {/* Button */}
+      {status !== "IN_REVIEW" && (
+        <TouchableOpacity
+          style={styles.viewButton}
+          onPress={() => navigation.navigate("IDVerify")}
+        >
+          <Text style={styles.viewButtonText}>Proceed</Text>
+        </TouchableOpacity>
+      )}
+
     </View>
   );
 };
@@ -31,41 +65,50 @@ export default UpgradeNotificationCard;
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: "row",
     backgroundColor: "#7B0000",
     borderRadius: 12,
     padding: 15,
-    alignItems: "center",
-    justifyContent: "space-between",
     margin: 16,
   },
-  textContainer: {
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  textBlock: {
     flex: 1,
-    marginRight: 10,
+    flexShrink: 1,
+    marginRight: 12,
   },
   title: {
-    color: "white",
-    fontSize: 25,
-    fontWeight: "700",
+    color: "#fff",
+    fontSize: scaleFont(15),
+    fontWeight: "600",
     marginBottom: 6,
+    flexWrap: "wrap",
   },
   subtitle: {
-    color: "white",
-    fontSize: 14,
+    color: "#fff",
+    fontSize: scaleFont(11),
     opacity: 0.9,
-  },
-  avatar: {
-    width: 25,
-    height: 25,
-    borderRadius: 12.5,
-    marginTop: 10,
+    flexWrap: "wrap",
   },
   illustration: {
     width: 70,
-    height: 100,
-    resizeMode: "cover",
-    borderWidth: 1,
+    height: 90,
+    resizeMode: "contain",
+    flexShrink: 0,
+  },
+  viewButton: {
+    backgroundColor: "#facc15",
+    paddingVertical: Math.max(10, height * 0.012),
+    paddingHorizontal: 20,
+    borderRadius: 8,
     alignItems: "center",
-    justifyContent: "center",
+  },
+  viewButtonText: {
+    color: "#000",
+    fontWeight: "bold",
+    fontSize: Math.max(14, width * 0.037),
   },
 });
