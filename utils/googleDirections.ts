@@ -92,3 +92,32 @@ export const getDirections = async (
         throw error; // Re-throw to allow caller to handle
     }
 };
+
+/**
+ * Get route geometry in GeoJSON format (for compatibility with existing code)
+ * Also returns distance and duration from the underlying route result.
+ */
+export const getDirectionsGeometry = async (
+    pickupLng: number,
+    pickupLat: number,
+    dropoffLng: number,
+    dropoffLat: number
+): Promise<{ type: string; coordinates: number[][]; distance?: number; duration?: number } | null> => {
+    try {
+        const result = await getDirections(pickupLng, pickupLat, dropoffLng, dropoffLat);
+        if (result) {
+            // Convert to GeoJSON LineString format [lng, lat]
+            const geoJsonCoordinates = result.coordinates.map(([lat, lng]) => [lng, lat]);
+            return {
+                type: 'LineString',
+                coordinates: geoJsonCoordinates,
+                distance: result.distance,
+                duration: result.duration,
+            };
+        }
+        return null;
+    } catch (error) {
+        console.error('Error getting directions geometry:', error);
+        return null;
+    }
+};
