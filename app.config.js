@@ -68,7 +68,7 @@ export default {
       ],
       package: "com.crashingout.kabluxdrive",
       googleServicesFile: "./google-services.json",
-      versionCode: 43,
+      versionCode: 44,
     },
     web: {
       favicon: "./assets/favicon.png",

@@ -12,9 +12,7 @@ const scaleFont = (size) => {
 export default function IDVerification() {
     const navigation = useNavigation();
 
-    const handlePush = () => {
-        navigation.navigate("CarDetails");
-    }
+
     return (
         <SafeAreaView style={styles.mainContainer}>
             <StatusBar barStyle="light-content" backgroundColor="#000" />
@@ -47,11 +45,20 @@ export default function IDVerification() {
                         </View>
                     </TouchableOpacity>
 
-                    <TouchableOpacity onPress={() => navigation.navigate("CarDetails")}>
+                    <TouchableOpacity onPress={() => navigation.navigate("CarDetails" as never)}>
                         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, padding: 20, borderRadius: 12, borderWidth: 1, borderColor: "#fff", width: "100%" }}>
                             <Ionicons name="person" size={18} color="#fff" />
                             <Text style={{ color: "#fff", fontSize: 16, fontWeight: "600", textAlign: "center" }}>
                                 ID upload
+                            </Text>
+                        </View>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity onPress={() => navigation.navigate("BankDetails" as never)}>
+                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, padding: 20, borderRadius: 12, borderWidth: 1, borderColor: "#fff", width: "100%" }}>
+                            <Ionicons name="card" size={18} color="#fff" />
+                            <Text style={{ color: "#fff", fontSize: 16, fontWeight: "600", textAlign: "center" }}>
+                                Bank Details
                             </Text>
                         </View>
                     </TouchableOpacity>

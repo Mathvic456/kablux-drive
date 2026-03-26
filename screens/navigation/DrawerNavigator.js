@@ -31,6 +31,8 @@ import SafetyActions from '../settings/SafetyActions';
 import PersonalInfo from '../settings/PersonalInfo';
 import IDVerification from '../kyc/new-kyc-flow/ID-verification';
 import CarDetails from '../kyc/new-kyc-flow/Car-details';
+import AddPhotos from '../kyc/new-kyc-flow/AddPhotos';
+import BankDetails from '../kyc/new-kyc-flow/BankDetails';
 
 const Drawer = createDrawerNavigator();
 
@@ -179,6 +181,8 @@ export default function DrawerNavigator() {
         <Drawer.Screen name="PersonalInfo" component={PersonalInfo} options={{ drawerLabel: () => null }} />
         <Drawer.Screen name="IDVerify" component={IDVerification} options={{ drawerLabel: () => null }} />
         <Drawer.Screen name="CarDetails" component={CarDetails} options={{ drawerLabel: () => null }} />
+        <Drawer.Screen name="AddPhotos" component={AddPhotos} options={{ drawerLabel: () => null }} />
+        <Drawer.Screen name="BankDetails" component={BankDetails} options={{ drawerLabel: () => null }} />
       </Drawer.Navigator>
     </GestureHandlerRootView>
   );

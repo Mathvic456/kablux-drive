@@ -173,8 +173,9 @@ export default function CarDetails() {
     };
 
     const handleSubmit = () => {
-        if (!validateForm()) return;
-        console.log({ plateNumber, carModel, year, carDocument, driversLicense, carColor });
+        // if (!validateForm()) return;
+        // console.log({ plateNumber, carModel, year, carDocument, driversLicense, carColor });
+        navigation.navigate("AddPhotos" as never);
     };
 
     return (
@@ -183,7 +184,7 @@ export default function CarDetails() {
 
             {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+                <TouchableOpacity onPress={() => navigation.navigate("IDVerify" as never)} style={styles.backBtn}>
                     <Ionicons name="arrow-back" size={scaleFont(20)} color="#000" />
                 </TouchableOpacity>
                 <View />
