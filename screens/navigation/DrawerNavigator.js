@@ -1,12 +1,5 @@
-import 'react-native-gesture-handler';
-import { createDrawerNavigator, DrawerContentScrollView } from '@react-navigation/drawer';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Ionicons, Entypo } from '@expo/vector-icons';
-import { useLogoutEndPoint } from '../../services/auth.service';
-import { useContext } from 'react';
-import { SocketContext } from '../../context/WebSocketProvider';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React from 'react';
+import { createStackNavigator } from '@react-navigation/stack';
 
 // Import screens
 import Leaderboard from '../dashboard/Leaderboard';
@@ -31,201 +24,48 @@ import SafetyActions from '../settings/SafetyActions';
 import PersonalInfo from '../settings/PersonalInfo';
 import IDVerification from '../kyc/new-kyc-flow/ID-verification';
 import CarDetails from '../kyc/new-kyc-flow/Car-details';
-import AddPhotos from '../kyc/new-kyc-flow/AddPhotos';
 import BankDetails from '../kyc/new-kyc-flow/BankDetails';
+import AddPhotos from '../kyc/new-kyc-flow/AddPhotos';
 
-const Drawer = createDrawerNavigator();
+const Stack = createStackNavigator();
 
-function CustomDrawerContent(props) {
-  const logoutEndpoint = useLogoutEndPoint();
-  const { socket } = useContext(SocketContext);
-
-  const handleLogout = async () => {
-    try {
-      console.log("🚪 Starting logout process...");
-
-      if (socket) {
-        console.log("🔌 Closing WebSocket connection...");
-        socket.close(1000, "User logged out");
-      }
-
-      console.log("🗑️ Clearing auth tokens...");
-      await AsyncStorage.multiRemove(['token', 'refreshToken', 'pendingEmail']);
-
-      await logoutEndpoint.mutateAsync();
-
-      console.log("✅ User logged out successfully");
-
-      props.navigation.navigate("Login");
-    } catch (error) {
-      console.error("❌ Logout failed:", error);
-
-      try {
-        if (socket) socket.close();
-        await AsyncStorage.multiRemove(['token', 'refreshToken', 'pendingEmail']);
-        props.navigation.navigate("Login");
-      } catch (cleanupError) {
-        console.error("❌ Cleanup failed:", cleanupError);
-      }
-    }
-  };
-
+export default function MainStackNavigator() {
   return (
-    <DrawerContentScrollView {...props} style={styles.drawerContainer}>
-      <View style={styles.drawerHeader}>
-        {/* Profile header stuff */}
-      </View>
+    <Stack.Navigator
+      initialRouteName="MainTabs"
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      {/* Main Tabs */}
+      <Stack.Screen name="MainTabs" component={TabNavigator} />
 
-      <View style={styles.drawerItems}>
-        <TouchableOpacity
-          style={styles.drawerButton}
-          onPress={() => {
-            props.navigation.navigate('MainTabs');
-            props.navigation.closeDrawer();
-          }}
-        >
-          <Ionicons name="home-outline" size={20} color="#FFC107" />
-          <Text style={styles.drawerLabel}>Home</Text>
-        </TouchableOpacity>
+      {/* Dashboard Screens */}
+      <Stack.Screen name="Leaderboard" component={Leaderboard} />
+      <Stack.Screen name="Ratings" component={Ratings} />
+      <Stack.Screen name="SettingsScreen" component={Settings} />
+      <Stack.Screen name="DriverIncomeDashboard" component={DriverIncomeDashboard} />
 
-        <TouchableOpacity
-          style={styles.drawerButton}
-          onPress={() => {
-            props.navigation.navigate('Leaderboard');
-            props.navigation.closeDrawer();
-          }}
-        >
-          <Ionicons name="trophy-outline" size={20} color="#FFC107" />
-          <Text style={styles.drawerLabel}>Leaderboards</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.drawerButton}
-          onPress={() => {
-            props.navigation.navigate('DriverIncomeDashboard');
-            props.navigation.closeDrawer();
-          }}
-        >
-          <Entypo name="wallet" size={20} color="#FFC107" />
-          <Text style={styles.drawerLabel}>Earnings</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.drawerButton}
-          onPress={() => {
-            props.navigation.navigate('SettingsScreen');
-            props.navigation.closeDrawer();
-          }}
-        >
-          <Ionicons name="settings-outline" size={20} color="#FFC107" />
-          <Text style={styles.drawerLabel}>Settings</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.drawerButton, styles.logoutButton]}
-          onPress={handleLogout}
-          disabled={logoutEndpoint.isPending}
-        >
-          <Ionicons name="log-out-outline" size={20} color="#ff4444" />
-          <Text style={[styles.drawerLabel, styles.logoutLabel]}>
-            {logoutEndpoint.isPending ? "Logging out..." : "Logout"}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </DrawerContentScrollView>
+      {/* App Screens */}
+      <Stack.Screen name="DocumentUploads" component={DocumentUploads} />
+      <Stack.Screen name="OrderScreen" component={OrderScreen} />
+      <Stack.Screen name="DriverMapScreen" component={DriverMapScreen} />
+      <Stack.Screen name="DriverChat" component={DriverChatScreen} />
+      <Stack.Screen name="Withdraw" component={Withdraw} />
+      <Stack.Screen name="BankTransfer" component={BankTransfer} />
+      <Stack.Screen name="TopUp" component={TopUp} />
+      <Stack.Screen name="Settings" component={Account} />
+      <Stack.Screen name="Legal" component={Legal} />
+      <Stack.Screen name="City" component={City} />
+      <Stack.Screen name="HelpAndSupport" component={HelpAndSupport} />
+      <Stack.Screen name="LoginAndSecurity" component={LoginAndSecurity} />
+      <Stack.Screen name="ReferAndEarn" component={ReferAndEarn} />
+      <Stack.Screen name="SafetyActions" component={SafetyActions} />
+      <Stack.Screen name="PersonalInfo" component={PersonalInfo} />
+      <Stack.Screen name="IDVerify" component={IDVerification} />
+      <Stack.Screen name="CarDetails" component={CarDetails} />
+      <Stack.Screen name="BankDetails" component={BankDetails} />
+      <Stack.Screen name="AddPhotos" component={AddPhotos} />
+    </Stack.Navigator>
   );
 }
-
-export default function DrawerNavigator() {
-  return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <Drawer.Navigator
-        initialRouteName="MainTabs"
-        drawerContent={(props) => <CustomDrawerContent {...props} />}
-        screenOptions={{
-          drawerPosition: 'right',
-          headerShown: false,
-          drawerStyle: { width: 200 },
-          swipeEnabled: true,
-          drawerType: 'front',
-        }}
-      >
-        {/* Main Tabs */}
-        <Drawer.Screen
-          name="MainTabs"
-          component={TabNavigator}
-          options={{ drawerLabel: () => null }}
-        />
-
-        {/* Drawer Menu Screens */}
-        <Drawer.Screen name="Leaderboard" component={Leaderboard} options={{ drawerLabel: () => null }} />
-        <Drawer.Screen name="Ratings" component={Ratings} options={{ drawerLabel: () => null }} />
-        <Drawer.Screen name="SettingsScreen" component={Settings} options={{ drawerLabel: () => null }} />
-        <Drawer.Screen name="DriverIncomeDashboard" component={DriverIncomeDashboard} options={{ drawerLabel: () => null }} />
-
-        {/* All other app screens */}
-        <Drawer.Screen name="DocumentUploads" component={DocumentUploads} options={{ drawerLabel: () => null }} />
-        <Drawer.Screen name="OrderScreen" component={OrderScreen} options={{ drawerLabel: () => null }} />
-        <Drawer.Screen name="DriverMapScreen" component={DriverMapScreen} options={{ drawerLabel: () => null }} />
-        <Drawer.Screen name="DriverChat" component={DriverChatScreen} options={{ drawerLabel: () => null }} />
-        <Drawer.Screen name="Withdraw" component={Withdraw} options={{ drawerLabel: () => null }} />
-        <Drawer.Screen name="BankTransfer" component={BankTransfer} options={{ drawerLabel: () => null }} />
-        <Drawer.Screen name="TopUp" component={TopUp} options={{ drawerLabel: () => null }} />
-        <Drawer.Screen name="Settings" component={Account} options={{ drawerLabel: () => null }} />
-        <Drawer.Screen name="Legal" component={Legal} options={{ drawerLabel: () => null }} />
-        <Drawer.Screen name="City" component={City} options={{ drawerLabel: () => null }} />
-        <Drawer.Screen name="HelpAndSupport" component={HelpAndSupport} options={{ drawerLabel: () => null }} />
-        <Drawer.Screen name="LoginAndSecurity" component={LoginAndSecurity} options={{ drawerLabel: () => null }} />
-        <Drawer.Screen name="ReferAndEarn" component={ReferAndEarn} options={{ drawerLabel: () => null }} />
-        <Drawer.Screen name="SafetyActions" component={SafetyActions} options={{ drawerLabel: () => null }} />
-        <Drawer.Screen name="PersonalInfo" component={PersonalInfo} options={{ drawerLabel: () => null }} />
-        <Drawer.Screen name="IDVerify" component={IDVerification} options={{ drawerLabel: () => null }} />
-        <Drawer.Screen name="CarDetails" component={CarDetails} options={{ drawerLabel: () => null }} />
-        <Drawer.Screen name="AddPhotos" component={AddPhotos} options={{ drawerLabel: () => null }} />
-        <Drawer.Screen name="BankDetails" component={BankDetails} options={{ drawerLabel: () => null }} />
-      </Drawer.Navigator>
-    </GestureHandlerRootView>
-  );
-}
-
-const styles = StyleSheet.create({
-  drawerContainer: {
-    backgroundColor: 'black',
-    borderLeftWidth: 2,
-    borderRightColor: '#FFC107',
-  },
-  drawerHeader: {
-    padding: 25,
-    paddingTop: 50,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 193, 7, 0.3)',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-  },
-  drawerItems: {
-    flex: 1,
-    paddingVertical: 10,
-  },
-  drawerButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    borderLeftWidth: 3,
-    borderLeftColor: 'transparent',
-  },
-  drawerLabel: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 15,
-  },
-  logoutButton: {
-    marginTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 68, 68, 0.2)',
-    paddingTop: 25,
-  },
-  logoutLabel: {
-    color: '#ff4444',
-  },
-});

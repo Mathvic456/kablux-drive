@@ -42,7 +42,7 @@ import { useArriveRide } from "../../services/rides.service";
 import { useActiveStatusEndPoint } from "../../services/auth.service";
 import { api } from "../../services/api";
 import { navigationRef } from '../context/NavigationContext';
-import { DrawerActions } from "@react-navigation/native";
+
 import { useAuth } from "../../context/AuthContext";
 
 const { width, height } = Dimensions.get('window');
@@ -290,7 +290,7 @@ export default function Home() {
 
   // --- HANDLERS ---
 
-  const handleOpenDrawer = () => navigation.dispatch(DrawerActions.openDrawer());
+  const handleOpenMenu = () => navigation.navigate('Account');
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -512,7 +512,7 @@ export default function Home() {
         <HomeHeader
           profile={profile}
           notificationCount={rideNotifications.length + negotiationArray.length}
-          onMenuPress={handleOpenDrawer}
+          onMenuPress={handleOpenMenu}
           onToggleOnline={handleToggleOnline}
           isConnected={isConnected}
         />

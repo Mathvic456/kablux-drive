@@ -11,6 +11,7 @@ const scaleFont = (size) => {
 
 export default function IDVerification() {
     const navigation = useNavigation();
+    // const route = useRoute();
 
 
     return (
@@ -18,7 +19,7 @@ export default function IDVerification() {
             <StatusBar barStyle="light-content" backgroundColor="#000" />
 
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, marginVertical: 20 }}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 1, borderRadius: "50%", backgroundColor: "#fff" }}>
+                <TouchableOpacity onPress={() => navigation.navigate("MainTabs" as never)} style={{ padding: 1, borderRadius: "50%", backgroundColor: "#fff" }}>
                     <Ionicons name="arrow-back" size={scaleFont(24)} color="#000" />
                 </TouchableOpacity>
                 <View />
