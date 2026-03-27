@@ -6,6 +6,7 @@ import ScreenHeaders from '../components/ScreenHeaders';
 import { Feather, Entypo, FontAwesome, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useState } from 'react';
 import CentralModal from '../components/CentralModal';
+import { useProfile } from '../../services/profile.service';
 
 const { width, height } = Dimensions.get('window');
 const isSmallScreen = width < 375;
@@ -18,7 +19,8 @@ export default function City() {
     const [address, setAddress] = useState('');
     const [alertModalVisible, setAlertModalVisible] = useState(false);
     const [alertData, setAlertData] = useState({ title: '', message: '', isError: false });
-    const [favourites, setFavourites] = useState([{ type: 'home', title: 'Home', address: '268 olorulana Street, osun state', city: 'Osun State' }, { type: 'city', title: 'City', address: 'Lagos State of Nigeria', city: 'Lagos State' }]);
+    const { data: user } = useProfile()
+    const [favourites, setFavourites] = useState([{ type: 'home', title: 'Home', address: user?.address || 'N/A', city: user?.address || 'Unknown City' }, { type: 'city', title: 'City', address: user?.address || 'N/A', city: user?.address || 'Unknown City' }]);
 
     const goBack = () => { navigation.goBack(); }
     const handleAddPlace = () => { setModalVisible(true); }
@@ -77,7 +79,7 @@ export default function City() {
             <View style={styles.card}>
                 <View style={styles.row}>
                     <Text style={styles.title}>From</Text>
-                    <View style={styles.textBox}><Text style={styles.desc}>Lagos State of Nigeria</Text></View>
+                    <View style={styles.textBox}><Text style={styles.desc}>{user?.address || 'N/A'}</Text></View>
                 </View>
                 <TouchableOpacity style={styles.row}>
                     <Text style={styles.title}>To</Text>

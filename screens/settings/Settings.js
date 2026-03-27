@@ -1,11 +1,14 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Linking } from 'react-native'
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Linking, Dimensions } from 'react-native'
 import React, { useState, useEffect } from 'react'
 import { Ionicons } from '@expo/vector-icons'
 import CentralModal from '../components/CentralModal'
+import { useNavigation } from '@react-navigation/native';
 
-// Only import permissions that work in Expo Go
 import * as Location from 'expo-location'
 import * as LocalAuthentication from 'expo-local-authentication'
+
+const { width } = Dimensions.get('window');
+const isSmallScreen = width < 375;
 
 export default function Settings() {
   const [permissions, setPermissions] = useState({
@@ -19,31 +22,25 @@ export default function Settings() {
   })
 
   const [loading, setLoading] = useState({})
-  const [expoGoMode, setExpoGoMode] = useState(true)
   const [alertModalVisible, setAlertModalVisible] = useState(false)
   const [alertData, setAlertData] = useState({ title: '', message: '', action: null })
+  const navigation = useNavigation()
 
-  // Check available permissions on component mount
+  const goBack = () => { navigation.goBack(); }
+
   useEffect(() => {
     checkAvailablePermissions()
   }, [])
 
   const checkAvailablePermissions = async () => {
-    setLoading(prev => ({ ...prev, checking: true }))
-
     try {
-      // Check Location Permission (works in Expo Go)
       try {
         const locationStatus = await Location.getForegroundPermissionsAsync()
-        setPermissions(prev => ({
-          ...prev,
-          location: locationStatus.granted
-        }))
+        setPermissions(prev => ({ ...prev, location: locationStatus.granted }))
       } catch (error) {
         console.log('Location permission check failed:', error)
       }
 
-      // Check Biometric Availability (works in Expo Go)
       try {
         const biometricAvailable = await LocalAuthentication.hasHardwareAsync()
         const biometricEnrolled = await LocalAuthentication.isEnrolledAsync()
@@ -54,22 +51,8 @@ export default function Settings() {
       } catch (error) {
         console.log('Biometric check failed:', error)
       }
-
-      // For other permissions in Expo Go, we'll simulate the state
-      // since we can't actually check them in Expo Go
-      setPermissions(prev => ({
-        ...prev,
-        notifications: false,
-        camera: false,
-        microphone: false,
-        storage: false,
-        contacts: false,
-      }))
-
     } catch (error) {
       console.error('Error checking permissions:', error)
-    } finally {
-      setLoading(prev => ({ ...prev, checking: false }))
     }
   }
 
@@ -80,24 +63,10 @@ export default function Settings() {
 
     try {
       switch (permissionType) {
-        case 'notifications':
-          if (requested) {
-            setAlertData({
-              title: "Enable Notifications",
-              message: "To enable notifications, you need to create a development build. Expo Go has limited notification support.",
-              action: () => Linking.openURL('https://docs.expo.dev/develop/development-builds/introduction/')
-            });
-            setAlertModalVisible(true);
-          }
-          // Simulate state change for demo
-          setPermissions(prev => ({ ...prev, notifications: requested }))
-          break
-
         case 'location':
           if (requested) {
             const result = await Location.requestForegroundPermissionsAsync()
             setPermissions(prev => ({ ...prev, location: result.granted }))
-            
             if (!result.granted) {
               setAlertData({
                 title: "Location Permission Denied",
@@ -109,54 +78,6 @@ export default function Settings() {
           } else {
             setPermissions(prev => ({ ...prev, location: false }))
           }
-          break
-
-        case 'camera':
-          setAlertData({
-            title: "Camera Access",
-            message: "Camera permissions require a development build for full functionality in Expo.",
-            action: () => {
-              Linking.openURL('https://docs.expo.dev/develop/development-builds/introduction/');
-              setPermissions(prev => ({ ...prev, camera: requested }));
-            }
-          });
-          setAlertModalVisible(true);
-          break
-
-        case 'microphone':
-          setAlertData({
-            title: "Microphone Access",
-            message: "Microphone permissions require a development build. Expo AV is deprecated, use expo-audio instead.",
-            action: () => {
-              Linking.openURL('https://docs.expo.dev/versions/latest/sdk/audio/');
-              setPermissions(prev => ({ ...prev, microphone: requested }));
-            }
-          });
-          setAlertModalVisible(true);
-          break
-
-        case 'storage':
-          setAlertData({
-            title: "Storage Access",
-            message: "Media library access requires a development build in newer Expo versions.",
-            action: () => {
-              Linking.openURL('https://docs.expo.dev/develop/development-builds/create-a-build/');
-              setPermissions(prev => ({ ...prev, storage: requested }));
-            }
-          });
-          setAlertModalVisible(true);
-          break
-
-        case 'contacts':
-          setAlertData({
-            title: "Contacts Access",
-            message: "Contacts permissions require a development build for full functionality.",
-            action: () => {
-              Linking.openURL('https://docs.expo.dev/develop/development-builds/introduction/');
-              setPermissions(prev => ({ ...prev, contacts: requested }));
-            }
-          });
-          setAlertModalVisible(true);
           break
 
         case 'biometric':
@@ -181,49 +102,30 @@ export default function Settings() {
           break
 
         default:
+          setPermissions(prev => ({ ...prev, [permissionType]: requested }))
           break
       }
-
     } catch (error) {
       console.error(`Error with ${permissionType} permission:`, error)
-      setAlertData({
-        title: "Limitation",
-        message: `This permission requires a development build for full functionality.`
-      });
-      setAlertModalVisible(true);
-      
-      // Still update UI for demo purposes
-      if (permissionType !== 'location' && permissionType !== 'biometric') {
-        setPermissions(prev => ({ ...prev, [permissionType]: requested }))
-      }
+      setPermissions(prev => ({ ...prev, [permissionType]: requested }))
     } finally {
       setLoading(prev => ({ ...prev, [permissionType]: false }))
     }
   }
 
-  const PermissionToggle = ({ icon, title, description, permissionType, expoGoWarning = false }) => (
+  const PermissionToggle = ({ icon, title, description, permissionType }) => (
     <View style={styles.permissionItem}>
       <View style={styles.permissionInfo}>
         <View style={styles.iconTitle}>
           <Ionicons name={icon} size={22} color="#FFD700" />
           <Text style={styles.permissionTitle}>{title}</Text>
-          {expoGoWarning && (
-            <View style={styles.expoGoBadge}>
-              <Text style={styles.expoGoBadgeText}>Dev Build</Text>
-            </View>
-          )}
         </View>
         <Text style={styles.permissionDescription}>{description}</Text>
-        {expoGoWarning && (
-          <Text style={styles.expoGoWarning}>
-            Requires development build in Expo
-          </Text>
-        )}
       </View>
-      
+
       <TouchableOpacity
         style={[
-          styles.toggleContainer, 
+          styles.toggleContainer,
           permissions[permissionType] && styles.toggleActive,
           loading[permissionType] && styles.toggleDisabled
         ]}
@@ -251,42 +153,26 @@ export default function Settings() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerTop}>
+            <TouchableOpacity onPress={goBack}>
+              <Ionicons name="arrow-back-circle" size={isSmallScreen ? 28 : 32} color="white" />
+            </TouchableOpacity>
             <Text style={styles.headerTitle}>App Permissions</Text>
-            <View style={styles.expoGoBanner}>
-              <Ionicons name="information-circle" size={16} color="#FFD700" />
-              <Text style={styles.expoGoBannerText}>Expo Go Mode</Text>
-            </View>
+            <View />
           </View>
           <Text style={styles.headerSubtitle}>
             Manage what this app can access on your device
           </Text>
-          
-          {/* <TouchableOpacity 
-            style={styles.refreshButton}
-            onPress={checkAvailablePermissions}
-            disabled={loading.checking}
-          >
-            <Ionicons 
-              name="refresh" 
-              size={20} 
-              color={loading.checking ? "#888" : "#FFD700"} 
-            />
-            <Text style={styles.refreshText}>
-              {loading.checking ? "Checking..." : "Refresh Permissions"}
-            </Text>
-          </TouchableOpacity> */}
         </View>
 
         {/* Permissions Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Device Permissions</Text>
-          
+
           <PermissionToggle
             icon="notifications-outline"
             title="Push Notifications"
             description="Receive ride updates, promotions and important alerts"
             permissionType="notifications"
-            expoGoWarning={true}
           />
 
           <PermissionToggle
@@ -301,7 +187,6 @@ export default function Settings() {
             title="Camera Access"
             description="For profile pictures and document verification"
             permissionType="camera"
-            expoGoWarning={true}
           />
 
           <PermissionToggle
@@ -309,19 +194,17 @@ export default function Settings() {
             title="Microphone Access"
             description="For voice commands and in-app calls"
             permissionType="microphone"
-            expoGoWarning={true}
           />
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Data & Privacy</Text>
-          
+
           <PermissionToggle
             icon="folder-outline"
             title="Storage Access"
             description="Save ride receipts and app data locally"
             permissionType="storage"
-            expoGoWarning={true}
           />
 
           <PermissionToggle
@@ -329,36 +212,18 @@ export default function Settings() {
             title="Contacts Access"
             description="Find friends and share ride details"
             permissionType="contacts"
-            expoGoWarning={true}
           />
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Security</Text>
-          
+
           <PermissionToggle
             icon="finger-print-outline"
             title="Biometric Login"
             description="Use fingerprint or face ID for faster login"
             permissionType="biometric"
           />
-        </View>
-
-        {/* Development Build Info */}
-        <View style={styles.devBuildInfo}>
-          <Ionicons name="rocket-outline" size={24} color="#FFD700" />
-          <View style={styles.devBuildText}>
-            <Text style={styles.devBuildTitle}>Ready for Production?</Text>
-            <Text style={styles.devBuildDescription}>
-              Create a development build to test all permissions and access native device features.
-            </Text>
-          </View>
-          <TouchableOpacity 
-            style={styles.devBuildButton}
-            onPress={() => Linking.openURL('https://docs.expo.dev/develop/development-builds/introduction/')}
-          >
-            <Text style={styles.devBuildButtonText}>Learn More</Text>
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -368,7 +233,7 @@ export default function Settings() {
         title={alertData.title}
         subText={alertData.message}
         icon={alertData.action ? "information-circle" : "checkmark-circle"}
-        confirmText={alertData.action ? "Learn More" : "OK"}
+        confirmText={alertData.action ? "Open Settings" : "OK"}
         closeText=""
         onConfirm={() => {
           if (alertData.action) {
@@ -409,42 +274,11 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700',
   },
-  expoGoBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 215, 0, 0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#FFD700',
-  },
-  expoGoBannerText: {
-    color: '#FFD700',
-    fontSize: 12,
-    fontWeight: '600',
-    marginLeft: 4,
-  },
   headerSubtitle: {
     color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 16,
     lineHeight: 22,
     marginBottom: 15,
-  },
-  refreshButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1C1C1E',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignSelf: 'flex-start',
-  },
-  refreshText: {
-    color: '#FFD700',
-    marginLeft: 8,
-    fontSize: 14,
-    fontWeight: '500',
   },
   section: {
     gap: 20,
@@ -477,38 +311,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 6,
-    flexWrap: 'wrap',
   },
   permissionTitle: {
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 12,
-    marginRight: 8,
-  },
-  expoGoBadge: {
-    backgroundColor: 'rgba(255, 215, 0, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  expoGoBadgeText: {
-    color: '#FFD700',
-    fontSize: 10,
-    fontWeight: '600',
   },
   permissionDescription: {
     color: 'rgba(255, 255, 255, 0.6)',
     fontSize: 14,
     lineHeight: 18,
     paddingLeft: 34,
-  },
-  expoGoWarning: {
-    color: '#FF6B6B',
-    fontSize: 12,
-    marginTop: 4,
-    paddingLeft: 34,
-    fontStyle: 'italic',
   },
   toggleContainer: {
     width: 70,
@@ -540,42 +354,5 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 10,
     fontWeight: "600",
-  },
-  devBuildInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 215, 0, 0.1)',
-    padding: 16,
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: '#FFD700',
-    marginTop: 10,
-  },
-  devBuildText: {
-    flex: 1,
-    marginLeft: 12,
-    marginRight: 12,
-  },
-  devBuildTitle: {
-    color: '#FFD700',
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  devBuildDescription: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 14,
-    lineHeight: 18,
-  },
-  devBuildButton: {
-    backgroundColor: '#FFD700',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
-  },
-  devBuildButtonText: {
-    color: '#000000',
-    fontSize: 12,
-    fontWeight: '600',
   },
 })

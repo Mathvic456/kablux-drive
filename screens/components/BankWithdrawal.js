@@ -15,8 +15,12 @@ import { banks } from '../../constants/banks';
 import { useFetch } from '../../utils/fetch-handler';
 import { useAuth } from '../../context/AuthContext';
 import CentralModal from './CentralModal';
+import { api } from '../../services/api';
+import { useNavigation } from '@react-navigation/native';
 
 export default function BankWithdrawal() {
+    const navigation = useNavigation();
+
     const [amount, setAmount] = useState('');
     const [reason, setReason] = useState('');
     const [account, setAccount] = useState();
@@ -24,12 +28,18 @@ export default function BankWithdrawal() {
     const { token } = useAuth();
     const [loading, setLoading] = useState(false);
     const [errState, setErrState] = useState({ errMessage: '', showModal: false })
+    const [isSuccess, setIsSuccess] = useState(false)
+
+    const goToDashboard = () => {
+        navigation.replace('Mainapp')
+    }
 
     const getAccounts = async () => {
         try {
-            const res = await request('wallets/transfer_recipient/', { method: 'GET', token })
-            console.log('transfer recp', res)
-            setAccount(res)
+            // const res = await request('wallets/transfer_recipient/', { method: 'GET', token })
+            const res = await api.get('/wallets/transfer_recipient/')
+            console.log('transfer recp', res.data)
+            setAccount(res.data)
         } catch (error) {
             console.log('error getting accounts', error)
         }
@@ -52,31 +62,26 @@ export default function BankWithdrawal() {
     const handleProceed = async () => {
         setLoading(true);
 
-        // Proceed with transfer logic
-        console.log('Transfer details:', {
-            reason,
-            amount
-        });
         try {
-            const res = await request('wallets/withdraw/', {
-                method: 'POST',
-                body: {
-                    "amount": amount,
-                    "reason": reason,
-                },
-                token
+            const res = await api.post('/wallets/withdraw/', {
+                amount: amount,
+                reason: reason,
             });
-            console.log("Transfer response", res);
+            console.log('withdrawal response', res.data)
+            setIsSuccess(true)
             clearForm();
-            // alert('Transfer initiated successfully!');
         } catch (error) {
-            console.error("Transfer error", error)
-            setErrState((prev) => { return { ...prev, errMessage: error || '', showModal: true } })
+            console.error('Withdrawal error', error)
+            setErrState((prev) => ({
+                ...prev,
+                errMessage: error?.response?.data?.message || error?.message || 'Something went wrong',
+                showModal: true
+            }))
         } finally {
             setLoading(false);
         }
-
     };
+    console.log("error state", errState)
 
     return (
         <View style={styles.container}>
@@ -100,7 +105,7 @@ export default function BankWithdrawal() {
                                 styles.beneficiaryNumber,
                                 (!account) && styles.placeholderText
                             ]}>
-                                {account?.account_number} • {account?.bank_code}
+                                {account?.account_number}
                             </Text>
                         </View>
                     </View>
@@ -149,7 +154,7 @@ export default function BankWithdrawal() {
             {/* Error Modal */}
             <CentralModal
                 visible={errState.showModal}
-                onClose={() => setShowErrorModal(false)}
+                onClose={() => setErrState((prev) => { return { ...prev, showModal: false } })}
                 title="Attention Required"
                 subText={errState.errMessage}
                 icon="alert-circle"
@@ -158,6 +163,18 @@ export default function BankWithdrawal() {
                 onConfirm={() => setErrState((prev) => { return { ...prev, showModal: false } })}
                 confirmButtonColor="#F44336"
                 themeColor="#F44336"
+            />
+            <CentralModal
+                visible={isSuccess}
+                onClose={() => setIsSuccess(false)}
+                title="Success!"
+                subText={'Your withdrawal is being proccessed'}
+                icon="alert-circle"
+                confirmText="Go to dashboard"
+                closeText=""
+                onConfirm={() => goToDashboard()}
+                confirmButtonColor="#4CAF50"
+                themeColor="#4CAF50"
             />
         </View>
     );

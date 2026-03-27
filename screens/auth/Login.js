@@ -131,6 +131,7 @@ const Login = ({ navigation }) => {
   };
 
 
+
   return (
     <SafeAreaView style={styles.mainContainer}>
       <StatusBar barStyle="light-content" backgroundColor="#0B2633" />
@@ -141,9 +142,6 @@ const Login = ({ navigation }) => {
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       >
         {/* Top Banner */}
-        <View style={[styles.banner, {
-          height: Math.max(200, height * 0.25)
-        }]} />
 
         {/* Scrollable Card */}
         <ScrollView
@@ -152,6 +150,9 @@ const Login = ({ navigation }) => {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          <View style={[styles.banner, {
+            height: Math.max(200, height * 0.25)
+          }]} />
           <View style={[
             styles.card,
             {
@@ -188,9 +189,7 @@ const Login = ({ navigation }) => {
                 lineHeight: scaleFont(20)
               }
             ]}>
-              Need a ride? Skip the stress and rent a car in minutes. Whether
-              it's a quick trip, a business ride or a family vacation, we got
-              you covered.
+              Earn more with structured support and transparent payouts.
             </Text>
 
             {/* Email Input */}
@@ -394,7 +393,7 @@ const Login = ({ navigation }) => {
                 styles.footerText,
                 { fontSize: scaleFont(12) }
               ]}>
-                Don't have an account?{" "}
+                Don't have an account ?{" "}
                 <Text style={styles.signup}>Sign up</Text>
               </Text>
             </TouchableOpacity>

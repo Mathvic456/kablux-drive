@@ -7,7 +7,14 @@ const HomeHeader = ({ profile, notificationCount, onMenuPress }) => {
     <View style={styles.header}>
       <View style={styles.leftSection}>
         <View style={styles.profileImageContainer}>
-          <Ionicons name="person-circle" size={40} color="#facc15" />
+          {profile?.profile_image ? (
+            <Image
+              source={{ uri: profile.profile_image }}
+              style={styles.profileImage}
+            />
+          ) : (
+            <Ionicons name="person-circle" size={40} color="#facc15" />
+          )}
         </View>
         <Text style={styles.greeting}>
           Hello {profile?.first_name || "Driver"}
@@ -51,6 +58,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#333",
+    overflow: "hidden",
+  },
+  profileImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
   greeting: {
     fontSize: 22,

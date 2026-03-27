@@ -12,7 +12,8 @@ import {
   Platform,
   SafeAreaView,
   StatusBar,
-  Dimensions
+  Dimensions,
+  Animated,
 } from "react-native";
 import { FontAwesome, Feather } from "@expo/vector-icons";
 import Octicons from '@expo/vector-icons/Octicons';
@@ -22,8 +23,21 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRegisterEndPoint } from "../../services/auth.service";
 import Logo from "../../assets/Logo.png";
 import CentralModal from "../components/CentralModal";
+import PlanSelector from "../../components/PlanSelector";
 
 const { width, height } = Dimensions.get('window');
+
+const scaleFont = (size) => {
+  const scaleFactor = width / 375;
+  return Math.round(size * Math.min(scaleFactor, 1.3));
+};
+
+const scaleSize = (size) => {
+  const scaleFactor = width / 375;
+  return Math.round(size * Math.min(scaleFactor, 1.2));
+};
+
+
 
 const SignUp = ({ navigation }) => {
   const [fullName, setFullName] = useState("");
@@ -33,6 +47,7 @@ const SignUp = ({ navigation }) => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [referral, setReferral] = useState("");
+  const [plan, setPlan] = useState("");
   const [showErr, setShowErr] = useState(false);
   const [errMessage, setErrMessage] = useState('');
 
@@ -43,18 +58,8 @@ const SignUp = ({ navigation }) => {
     address: "",
     password: "",
     referral: "",
+    driver_type: "",
   });
-
-  // Responsive scaling functions
-  const scaleFont = (size) => {
-    const scaleFactor = width / 375;
-    return Math.round(size * Math.min(scaleFactor, 1.3));
-  };
-
-  const scaleSize = (size) => {
-    const scaleFactor = width / 375;
-    return Math.round(size * Math.min(scaleFactor, 1.2));
-  };
 
   const validateForm = () => {
     let valid = true;
@@ -65,6 +70,7 @@ const SignUp = ({ navigation }) => {
       address: "",
       password: "",
       referral: "",
+      driver_type: "",
     };
 
     if (!fullName.trim()) {
@@ -116,6 +122,11 @@ const SignUp = ({ navigation }) => {
       valid = false;
     }
 
+    if (!driver_type) {
+      newErrors.driver_type = "Please select a driver type";
+      valid = false;
+    }
+
     setErrors(newErrors);
     return valid;
   };
@@ -127,12 +138,14 @@ const SignUp = ({ navigation }) => {
   const { mutate: register, isPending } = useRegisterEndPoint();
 
   const handleProceed = async () => {
+
     if (!validateForm()) return;
 
     const [first_name, ...rest] = fullName.trim().split(" ");
     const last_name = rest.length > 0 ? rest.join(" ") : "";
 
     await AsyncStorage.setItem("pendingEmail", email);
+    await AsyncStorage.setItem("pendingPassword", password);
 
     try {
       register(
@@ -144,15 +157,15 @@ const SignUp = ({ navigation }) => {
           last_name,
           phone_number: phone,
           address,
+          driver_type,
         },
         {
           onSuccess: () => {
-            navigation.navigate("OTP");
+            navigation.navigate("Terms");
           },
           onError: (err) => {
             const errorData = err.response?.data;
 
-            // Handle "already exists" errors
             const newErrors = { ...errors };
             let hasError = false;
 
@@ -174,7 +187,7 @@ const SignUp = ({ navigation }) => {
             if (hasError) {
               setErrors(newErrors);
             } else {
-              console.error("Registration failjjediijooiiuu:", errorData[0]);
+              console.error("Registration failed:", errorData[0]);
               return alert("Something went wrong. Please try again.");
             }
           },
@@ -192,19 +205,21 @@ const SignUp = ({ navigation }) => {
 
       <KeyboardAvoidingView
         style={styles.container}
+        removeClippedSubviews={false}
+        scrollEventThrottle={16}
+        overScrollMode="never"
+        bounces={false}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+        scrollIndicatorInsets={{ right: 1 }}
       >
-        {/* Top Banner */}
-        <View style={styles.banner} />
-
-        {/* Scrollable Card */}
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          <View style={styles.banner} />
           <View style={styles.card}>
             <View style={styles.logoContainer}>
               <Image
@@ -358,7 +373,7 @@ const SignUp = ({ navigation }) => {
             ) : null}
 
             {/* Referral Code */}
-            <View style={styles.inputContainer}>
+            {/* <View style={styles.inputContainer}>
               <Octicons
                 name="cross-reference"
                 size={scaleSize(20)}
@@ -374,12 +389,19 @@ const SignUp = ({ navigation }) => {
                 autoCapitalize="characters"
                 returnKeyType="done"
               />
-            </View>
+            </View> */}
             {errors.referral ? (
               <Text style={[styles.errorText, { fontSize: scaleFont(12) }]}>
                 {errors.referral}
               </Text>
             ) : null}
+
+            {/* Plan Selector */}
+            <PlanSelector
+              selectedPlan={plan}
+              onSelect={setPlan}
+              error={errors.driver_type}
+            />
 
             {/* Password Requirements */}
             <View style={styles.passwordRequirements}>
@@ -593,7 +615,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(30, 30, 30, 0.8)',
     borderRadius: 8,
     padding: Math.max(10, width * 0.03),
-    marginTop: Math.max(5, height * 0.01),
+    marginTop: Math.max(12, height * 0.015),
     marginBottom: Math.max(10, height * 0.015),
   },
   requirementText: {
