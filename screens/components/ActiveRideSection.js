@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const ActiveRideSection = ({
   status,
@@ -16,8 +16,6 @@ const ActiveRideSection = ({
   isArriving,
   rideAcceptedAt = null,
   expectedArrivalMinutes = 15,
-  onUpdateFare,
-  isUpdatingFare = false,
 }) => {
 
   const navigation = useNavigation();
@@ -42,37 +40,6 @@ const ActiveRideSection = ({
 
     return () => clearInterval(interval);
   }, [rideAcceptedAt, isPickupPhase]);
-
-  const [manualFare, setManualFare] = useState('');
-  const [showFareInput, setShowFareInput] = useState(false);
-
-  const handleFareSubmit = () => {
-    const fareValue = parseFloat(manualFare);
-    if (isNaN(fareValue) || fareValue <= 0) {
-      Alert.alert("Invalid Fare", "Please enter a valid positive amount.");
-      return;
-    }
-    if (fareValue > 999999) {
-      Alert.alert("Invalid Fare", "Fare amount is too high.");
-      return;
-    }
-
-    Alert.alert(
-      "Confirm Fare Update",
-      `Set ride fare to ₦${fareValue.toLocaleString()}?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Confirm",
-          onPress: () => {
-            onUpdateFare?.(fareValue);
-            setShowFareInput(false);
-            setManualFare('');
-          },
-        },
-      ]
-    );
-  };
 
   const expectedSeconds = expectedArrivalMinutes * 60;
   const remainingSeconds = Math.max(0, expectedSeconds - elapsedSeconds);
@@ -196,60 +163,6 @@ const ActiveRideSection = ({
           <Text style={styles.fareLabel}>Est. Fare.</Text>
           <Text style={styles.fareValue}>{formatCurrency(rideDetails.fare)}</Text>
         </View>
-      )}
-
-      {/* Manual Fare Input */}
-      {(status === 'ride_started' || status === 'started') && onUpdateFare && (
-        <>
-          {showFareInput ? (
-            <View style={styles.fareInputContainer}>
-              <View style={styles.fareInputRow}>
-                <Text style={styles.fareInputPrefix}>₦</Text>
-                <TextInput
-                  style={styles.fareInput}
-                  placeholder="Enter fare"
-                  placeholderTextColor="#666"
-                  keyboardType="numeric"
-                  value={manualFare}
-                  onChangeText={(text) => {
-                    // Allow digits and one decimal point, max 2 decimal places
-                    const cleaned = text.replace(/[^0-9.]/g, '');
-                    const parts = cleaned.split('.');
-                    if (parts.length > 2) return;
-                    if (parts[1] && parts[1].length > 2) return;
-                    setManualFare(cleaned);
-                  }}
-                  maxLength={10}
-                />
-                <TouchableOpacity
-                  style={[styles.fareSubmitButton, isUpdatingFare && styles.buttonDisabled]}
-                  onPress={handleFareSubmit}
-                  disabled={isUpdatingFare || !manualFare}
-                >
-                  {isUpdatingFare ? (
-                    <ActivityIndicator size="small" color="black" />
-                  ) : (
-                    <Ionicons name="checkmark" size={20} color="black" />
-                  )}
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.fareCancelButton}
-                  onPress={() => { setShowFareInput(false); setManualFare(''); }}
-                >
-                  <Ionicons name="close" size={20} color="#666" />
-                </TouchableOpacity>
-              </View>
-            </View>
-          ) : (
-            <TouchableOpacity
-              style={styles.setFareButton}
-              onPress={() => setShowFareInput(true)}
-            >
-              <Ionicons name="create-outline" size={16} color="#facc15" style={{ marginRight: 6 }} />
-              <Text style={styles.setFareButtonText}>Set Manual Fare</Text>
-            </TouchableOpacity>
-          )}
-        </>
       )}
 
       <View style={styles.actionsContainer}>
@@ -506,60 +419,6 @@ const styles = StyleSheet.create({
     color: '#facc15',
     fontSize: 18,
     fontWeight: 'bold',
-  },
-
-  /* FARE INPUT */
-  fareInputContainer: {
-    marginBottom: 16,
-  },
-  fareInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#252525',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#facc15',
-    paddingHorizontal: 12,
-  },
-  fareInputPrefix: {
-    color: '#facc15',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginRight: 4,
-  },
-  fareInput: {
-    flex: 1,
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
-    height: 48,
-    paddingHorizontal: 4,
-  },
-  fareSubmitButton: {
-    backgroundColor: '#facc15',
-    borderRadius: 6,
-    padding: 8,
-    marginLeft: 8,
-  },
-  fareCancelButton: {
-    padding: 8,
-    marginLeft: 4,
-  },
-  setFareButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    marginBottom: 12,
-    backgroundColor: 'rgba(250, 204, 21, 0.1)',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(250, 204, 21, 0.3)',
-  },
-  setFareButtonText: {
-    color: '#facc15',
-    fontSize: 13,
-    fontWeight: '600',
   },
 
   /* BUTTONS */

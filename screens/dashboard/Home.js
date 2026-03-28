@@ -34,7 +34,7 @@ import CentralModal from "../components/CentralModal";
 // Context & Services
 import { useProfile } from "../../services/profile.service";
 import { useDriverKycStatus } from "../../services/checkKyc.service";
-import { useStartRide, useFinishRide, useUpdateFare } from "../../services/rides.service";
+import { useStartRide, useFinishRide } from "../../services/rides.service";
 import { useGetMyBalance } from "../../services/funding.service";
 import { SocketContext } from "../../context/WebSocketProvider";
 import { useDriverRide } from "../../context/DriverRideContext";
@@ -129,7 +129,6 @@ export default function Home() {
   const finishRideMutation = useFinishRide();
   const arriveRideMutation = useArriveRide();
   const activeStatusMutation = useActiveStatusEndPoint();
-  const updateFareMutation = useUpdateFare();
 
   // Responsive scaling
   const scaleFont = (size) => Math.round(size * Math.min(width / 375, 1.3));
@@ -445,29 +444,6 @@ export default function Home() {
     }
   };
 
-  const handleUpdateFare = async (fare) => {
-    if (!rideId || typeof rideId !== 'string') {
-      setAlertData({ title: "Error", message: "No valid ride ID found", isError: true });
-      setAlertModalVisible(true);
-      return;
-    }
-    try {
-      await updateFareMutation.mutateAsync({ rideId, fare });
-      // Refresh ride details to show updated fare
-      await fetchRideDetails(rideId);
-      setAlertData({ title: "Fare Updated", message: `Fare set to ₦${fare.toLocaleString()}`, isError: false });
-      setAlertModalVisible(true);
-    } catch (error) {
-      console.error("❌ handleUpdateFare:", error);
-      setAlertData({
-        title: "Error",
-        message: error?.response?.data?.message || "Failed to update fare",
-        isError: true
-      });
-      setAlertModalVisible(true);
-    }
-  };
-
   const clearNegotiationUpdate = (viewId) => {
     setNegotiationUpdates(prev => {
       const updated = { ...prev };
@@ -546,8 +522,6 @@ export default function Home() {
             isLoadingDetails={loadingRideDetails}
             rideAcceptedAt={rideAcceptedAt}
             expectedArrivalMinutes={expectedArrivalMinutes}
-            onUpdateFare={handleUpdateFare}
-            isUpdatingFare={updateFareMutation.isPending}
           />
 
 
