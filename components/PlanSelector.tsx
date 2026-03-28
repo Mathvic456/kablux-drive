@@ -21,6 +21,7 @@ const PLANS = [
         description: "",
         icon: "package",
         badge: null,
+        disabled: false,
     },
     {
         id: "premium",
@@ -28,6 +29,7 @@ const PLANS = [
         description: "",
         icon: "star",
         badge: null,
+        disabled: true,
     },
     {
         id: "business",
@@ -35,6 +37,7 @@ const PLANS = [
         description: "",
         icon: "briefcase",
         badge: null,
+        disabled: true,
     },
 ];
 
@@ -88,27 +91,39 @@ export default function PlanSelector({ selectedPlan, onSelect, error }) {
                                 style={[
                                     planStyles.option,
                                     isSelected && planStyles.optionSelected,
+                                    plan.disabled && planStyles.optionDisabled,
                                     index < PLANS.length - 1 && planStyles.optionBorder,
                                 ]}
                                 onPress={() => {
+                                    if (plan.disabled) return;
                                     onSelect(plan.id);
                                     setOpen(false);
                                 }}
-                                activeOpacity={0.75}
+                                activeOpacity={plan.disabled ? 1 : 0.75}
+                                disabled={plan.disabled}
                             >
                                 {/* Left accent bar */}
                                 {isSelected && <View style={planStyles.accentBar} />}
 
-                                <View style={[planStyles.optionIconWrap, isSelected && planStyles.optionIconWrapSelected]}>
+                                <View style={[
+                                    planStyles.optionIconWrap,
+                                    isSelected && planStyles.optionIconWrapSelected,
+                                    plan.disabled && planStyles.optionIconWrapDisabled,
+                                ]}>
                                     <Feather
                                         name={plan.icon as any}
                                         size={scaleSize(16)}
-                                        color={isSelected ? "#000" : "#aaa"}
+                                        color={isSelected ? "#000" : plan.disabled ? "#444" : "#aaa"}
                                     />
                                 </View>
 
                                 <View style={{ flex: 1 }}>
-                                    <Text style={[planStyles.optionLabel, { fontSize: scaleFont(13) }, isSelected && planStyles.optionLabelSelected]}>
+                                    <Text style={[
+                                        planStyles.optionLabel,
+                                        { fontSize: scaleFont(13) },
+                                        isSelected && planStyles.optionLabelSelected,
+                                        plan.disabled && planStyles.optionLabelDisabled,
+                                    ]}>
                                         {plan.label}
                                     </Text>
                                     <Text style={[planStyles.optionDesc, { fontSize: scaleFont(11) }]}>
@@ -116,7 +131,16 @@ export default function PlanSelector({ selectedPlan, onSelect, error }) {
                                     </Text>
                                 </View>
 
-                                {plan.badge && (
+                                {/* Coming Soon badge for disabled plans */}
+                                {plan.disabled && (
+                                    <View style={planStyles.comingSoonBadge}>
+                                        <Text style={[planStyles.comingSoonText, { fontSize: scaleFont(9) }]}>
+                                            Coming Soon
+                                        </Text>
+                                    </View>
+                                )}
+
+                                {plan.badge && !plan.disabled && (
                                     <View style={[planStyles.badge, isSelected && planStyles.badgeSelected]}>
                                         <Text style={[planStyles.badgeText, { fontSize: scaleFont(9) }]}>
                                             {plan.badge}
@@ -191,6 +215,9 @@ const planStyles = StyleSheet.create({
     optionSelected: {
         backgroundColor: "rgba(252, 191, 36, 0.07)",
     },
+    optionDisabled: {
+        opacity: 0.45,
+    },
     optionBorder: {
         borderBottomWidth: 1,
         borderBottomColor: "#222",
@@ -216,6 +243,9 @@ const planStyles = StyleSheet.create({
     optionIconWrapSelected: {
         backgroundColor: "#fcbf24",
     },
+    optionIconWrapDisabled: {
+        backgroundColor: "#1a1a1a",
+    },
     optionLabel: {
         color: "#ccc",
         fontWeight: "500",
@@ -225,8 +255,26 @@ const planStyles = StyleSheet.create({
         color: "#fff",
         fontWeight: "700",
     },
+    optionLabelDisabled: {
+        color: "#555",
+    },
     optionDesc: {
         color: "#555",
+    },
+    comingSoonBadge: {
+        backgroundColor: "#1e1e1e",
+        borderRadius: 4,
+        borderWidth: 1,
+        borderColor: "#333",
+        paddingHorizontal: scaleSize(6),
+        paddingVertical: scaleSize(3),
+        marginLeft: scaleSize(6),
+    },
+    comingSoonText: {
+        color: "#666",
+        fontWeight: "700",
+        textTransform: "uppercase",
+        letterSpacing: 0.4,
     },
     badge: {
         backgroundColor: "#222",
