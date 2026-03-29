@@ -8,7 +8,8 @@ import { navigationRef } from './screens/context/NavigationContext';
 import { DriverRideProvider } from './context/DriverRideContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { setAuthTokenGetter } from './services/api';
-import React, { useEffect } from 'react';
+import React, { use, useEffect } from 'react';
+import * as Notifications from "expo-notifications";
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 
@@ -16,6 +17,28 @@ import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 const queryClient = new QueryClient();
 export default function App() {
+
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener(response => {
+      const data = response.notification.request.content.data;
+      console.log("Notification clicked:", data);
+
+      // Extract screen and params from notification data
+      const screenName = data?.screen;
+      const params = data?.params || {};
+
+      // Navigate to the specified screen with params
+      if (screenName) {
+        navigation.navigate(screenName, params);
+      }
+    });
+
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
   // const { token } = useAuth()
   useEffect(() => {
     GoogleSignin.configure({
