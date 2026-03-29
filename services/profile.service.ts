@@ -50,3 +50,17 @@ export const useUpdateProfile = () => {
     },
   });
 };
+
+export const useEditProfile = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: Partial<ProfileResponse>) => {
+      const response = await api.put("users/users_update/", data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+    },
+  });
+};
