@@ -561,7 +561,7 @@ export default function Home() {
 
           {/* KYC */}
           {kycData?.kyc_status !== "APPROVED" && kycData?.kyc_status !== "IN_REVIEW" && (
-            <UpgradeNotificationCard status={kycData?.kyc_status} />
+            <UpgradeNotificationCard status={kycData ? kycData : null} />
           )}
 
           {/* Ride Offers */}

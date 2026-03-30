@@ -28,6 +28,7 @@ export default function PersonalInfo() {
   const navigation = useNavigation();
   const editProfile = useEditProfile();
   const goBack = () => { navigation.goBack(); };
+  console.log('user ere', user)
 
   const [editingField, setEditingField] = useState(null);
   const [editValue, setEditValue] = useState("");
@@ -58,7 +59,7 @@ export default function PersonalInfo() {
     if (trimmed === original || trimmed === "") return;
 
     editProfile.mutate(
-      { [field]: trimmed },
+      { id: user.id, [field]: trimmed },  // ✅ single variables object
       {
         onError: (error) => {
           const message =

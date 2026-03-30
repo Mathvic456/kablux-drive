@@ -85,8 +85,10 @@ export default function BankDetails() {
     };
 
     const handleSubmit = () => {
-        if (!validateForm()) return;
+        // if (!validateForm()) return;
         console.log({ accountName, accountNumber, pin });
+
+        navigation.navigate("IDVerify" as never)
     };
 
     return (

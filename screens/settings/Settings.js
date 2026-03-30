@@ -207,23 +207,23 @@ export default function Settings() {
             permissionType="storage"
           />
 
-          <PermissionToggle
+          {/* <PermissionToggle
             icon="people-outline"
             title="Contacts Access"
             description="Find friends and share ride details"
             permissionType="contacts"
-          />
+          /> */}
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Security</Text>
+          {/* <Text style={styles.sectionTitle}>Security</Text> */}
 
-          <PermissionToggle
+          {/* <PermissionToggle
             icon="finger-print-outline"
             title="Biometric Login"
             description="Use fingerprint or face ID for faster login"
             permissionType="biometric"
-          />
+          /> */}
         </View>
       </View>
 
