@@ -15,6 +15,7 @@ const WSS_URL = process.env.EXPO_PUBLIC_WSS_URL;
 // --- Types ---
 interface RideNotification {
   ride_request_id: string;
+  ride_id?: string | null;
   notification_type: string;
   ride_type: string;
   message: string;

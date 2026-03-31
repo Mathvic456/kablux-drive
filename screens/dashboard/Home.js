@@ -290,10 +290,18 @@ export default function Home() {
 
     if (action) {
       switch (action.type) {
-        case "RIDE_REQUESTED":
-          setSelectedOffer(action.data);
+        case "RIDE_REQUESTED": {
+          const fcmRideId = notificationData.ride_id;
+          const fcmRequestId = notificationData.ride_request_id;
+          const existing = rideNotifications.find(
+            (n) =>
+              (fcmRequestId && n.ride_request_id === fcmRequestId) ||
+              (fcmRideId && (n.ride_request_id === fcmRideId || n.ride_id === fcmRideId))
+          );
+          setSelectedOffer(existing || action.data);
           setViewOfferModalVisible(true);
           break;
+        }
       }
     }
 

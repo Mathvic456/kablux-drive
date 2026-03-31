@@ -30,6 +30,7 @@ export function parseRideRequest(data) {
 
   return {
     ride_request_id: rideId,
+    ride_id: data.ride_id || null,
     notification_type: data.type || "RIDE_REQUESTED",
     ride_type: data.ride_type || "standard",
     message: data.message || "",
