@@ -37,6 +37,9 @@ interface CentralModalProps {
   closeButtonColor?: string;
   themeColor?: string;
   
+m  // Layout
+  hideCloseButton?: boolean;
+
   // Styling Overrides (if needed)
   containerStyle?: ViewStyle;
 }
@@ -56,6 +59,7 @@ const CentralModal: React.FC<CentralModalProps> = ({
   confirmButtonColor = "#FEB914",
   closeButtonColor = "#666",
   themeColor = "#FEB914",
+  hideCloseButton = false,
   containerStyle,
 }) => {
   
@@ -129,15 +133,17 @@ const CentralModal: React.FC<CentralModalProps> = ({
                   </TouchableOpacity>
 
                   {/* Secondary/Close Button (Below Confirm) */}
-                  <TouchableOpacity
-                    style={styles.closeButton}
-                    onPress={onClose}
-                    activeOpacity={0.6}
-                  >
-                    <Text style={[styles.closeButtonText, { color: closeButtonColor }]}>
-                      {closeText}
-                    </Text>
-                  </TouchableOpacity>
+                  {!hideCloseButton && (
+                    <TouchableOpacity
+                      style={styles.closeButton}
+                      onPress={onClose}
+                      activeOpacity={0.6}
+                    >
+                      <Text style={[styles.closeButtonText, { color: closeButtonColor }]}>
+                        {closeText}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
 
               </View>

@@ -92,37 +92,28 @@ function handleNotificationNavigation(data: any) {
     // where ride requests are displayed
     const hasRideData = data.ride_request_id || data.ride_id || data.type === "RIDE_REQUESTED";
 
-    if (hasRideData) {
-        console.log("🚗 [NOTIFICATION] Ride request notification tapped, navigating to Home");
+    const tryNavigate = (attempts = 0) => {
+        if (!navigationRef.isReady()) {
+            if (attempts < 10) setTimeout(() => tryNavigate(attempts + 1), 500);
+            return;
+        }
 
-        // Wait for navigation to be ready (handles cold start)
-        const tryNavigate = (attempts = 0) => {
-            if (navigationRef.isReady()) {
-                navigationRef.reset({
-                    index: 0,
-                    routes: [{ name: 'Mainapp' as never }],
-                });
-            } else if (attempts < 10) {
-                setTimeout(() => tryNavigate(attempts + 1), 500);
-            }
-        };
+        const type = data.type || data.click_action;
 
-        tryNavigate();
-        return;
-    }
+        if (type === "RIDE_REQUESTED" || hasRideData) {
+            console.log("🚗 [NOTIFICATION] Ride request tapped, navigating to Home with data");
+            // @ts-ignore - untyped navigator params
+            navigationRef.navigate("Mainapp", {
+                screen: "MainTabs",
+                params: { screen: "Home", params: { notificationData: data } },
+            });
+        } else if (data.screen) {
+            // @ts-ignore - untyped navigator params
+            navigationRef.navigate(data.screen, data.params);
+        }
+    };
 
-    // Generic screen navigation from notification payload
-    if (data.screen) {
-        const tryNavigate = (attempts = 0) => {
-            if (navigationRef.isReady()) {
-                navigationRef.navigate(data.screen as never, data.params as never);
-            } else if (attempts < 10) {
-                setTimeout(() => tryNavigate(attempts + 1), 500);
-            }
-        };
-
-        tryNavigate();
-    }
+    tryNavigate();
 }
 
 export function usePushNotifications(enabled: boolean = true) {
