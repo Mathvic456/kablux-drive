@@ -559,8 +559,8 @@ export default function Home() {
             </View>
           )}
 
-          {/* KYC */}
-          {kycData?.kyc_status !== "APPROVED" && kycData?.kyc_status !== "IN_REVIEW" && (
+
+          {kycData?.kyc_status === "PENDING" && (
             <UpgradeNotificationCard status={kycData ? kycData : null} />
           )}
 
