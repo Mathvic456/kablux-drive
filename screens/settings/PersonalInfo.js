@@ -1,12 +1,14 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import {
   View,
   Text,
+  TextInput,
   StyleSheet,
   Image,
   TouchableOpacity,
   ScrollView,
   Dimensions,
+  Alert,
 } from "react-native";
 import {
   FontAwesome5,
@@ -15,7 +17,7 @@ import {
 } from "@expo/vector-icons";
 
 import { useNavigation } from "@react-navigation/native";
-import { useProfile } from "../../services/profile.service";
+import { useProfile, useEditProfile } from "../../services/profile.service";
 
 const { width, height } = Dimensions.get('window');
 const isSmallScreen = width < 375;
@@ -24,7 +26,13 @@ const isLargeScreen = width > 768;
 export default function PersonalInfo() {
   const { data: user } = useProfile();
   const navigation = useNavigation();
+  const editProfile = useEditProfile();
   const goBack = () => { navigation.goBack(); };
+  console.log('user ere', user)
+
+  const [editingField, setEditingField] = useState(null);
+  const [editValue, setEditValue] = useState("");
+  const inputRef = useRef(null);
 
   const scaleFont = (size) => {
     const scaleFactor = width / 375;
@@ -36,25 +44,73 @@ export default function PersonalInfo() {
     return Math.round(size * Math.min(scaleFactor, 1.2));
   };
 
-  const InfoRow = ({ icon, value }) => (
-    <View style={styles.infoRow}>
-      <View style={styles.infoLeft}>
-        <Ionicons name={icon} size={scaleSize(22)} color="#f7b731" />
-        <Text style={styles.text2}>
-          {value || 'N/A'}
-        </Text>
+  const handleEdit = useCallback((field, currentValue) => {
+    setEditingField(field);
+    setEditValue(currentValue || "");
+    setTimeout(() => inputRef.current?.focus(), 100);
+  }, []);
+
+  const handleSubmit = useCallback((field) => {
+    const trimmed = editValue.trim();
+    const original = user?.[field] || "";
+
+    setEditingField(null);
+
+    if (trimmed === original || trimmed === "") return;
+
+    editProfile.mutate(
+      { id: user.id, [field]: trimmed },  // ✅ single variables object
+      {
+        onError: (error) => {
+          const message =
+            error?.response?.data?.message ||
+            error?.response?.data?.detail ||
+            "Failed to update. Please try again.";
+          Alert.alert("Update Failed", message);
+        },
+      }
+    );
+  }, [editValue, user, editProfile]);
+
+  const InfoRow = ({ icon, field, value, editable }) => {
+    const isEditing = editingField === field;
+
+    return (
+      <View style={styles.infoRow}>
+        <View style={styles.infoLeft}>
+          <Ionicons name={icon} size={scaleSize(22)} color="#f7b731" />
+          {isEditing ? (
+            <TextInput
+              ref={inputRef}
+              style={styles.textInput}
+              value={editValue}
+              onChangeText={setEditValue}
+              onBlur={() => handleSubmit(field)}
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={() => handleSubmit(field)}
+            />
+          ) : (
+            <Text style={styles.text2}>
+              {value || 'N/A'}
+            </Text>
+          )}
+        </View>
+        {editable && !isEditing && (
+          <TouchableOpacity style={styles.pencilBtn} onPress={() => handleEdit(field, value)}>
+            <Ionicons name="pencil" size={scaleSize(22)} color="#f7b731" />
+          </TouchableOpacity>
+        )}
       </View>
-      <TouchableOpacity style={styles.pencilBtn}>
-        <Ionicons name="pencil" size={scaleSize(22)} color="#f7b731" />
-      </TouchableOpacity>
-    </View>
-  );
+    );
+  };
 
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={{ paddingBottom: 30 }}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
     >
       <View style={{ flexDirection: 'column', gap: 25 }}>
         <View style={styles.header}>
@@ -67,11 +123,11 @@ export default function PersonalInfo() {
 
         {/* Section 1 */}
         <View style={styles.card}>
-          <InfoRow icon="person" value={user?.first_name} />
-          <InfoRow icon="person" value={user?.last_name} />
-          <InfoRow icon="mail" value={user?.email} />
-          <InfoRow icon="call" value={user?.phone_number} />
-          <InfoRow icon="location" value={user?.address} />
+          <InfoRow icon="person" field="first_name" value={user?.first_name} editable />
+          <InfoRow icon="person" field="last_name" value={user?.last_name} editable />
+          <InfoRow icon="mail" field="email" value={user?.email} />
+          <InfoRow icon="call" field="phone_number" value={user?.phone_number} />
+          <InfoRow icon="location" field="address" value={user?.address} />
         </View>
 
         {/* Section 2 */}
@@ -111,6 +167,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#FFFFFF',
     flexShrink: 1,
+  },
+  textInput: {
+    fontFamily: 'Manrope',
+    fontWeight: '600',
+    fontSize: 16,
+    color: '#FFFFFF',
+    flexShrink: 1,
+    flex: 1,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f7b731',
+    paddingVertical: 2,
+    paddingHorizontal: 0,
   },
   card: {
     backgroundColor: "#04223A",

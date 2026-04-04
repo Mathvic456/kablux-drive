@@ -102,19 +102,7 @@ export function usePushNotifications(enabled: boolean = true) {
         });
 
         // Handle notification clicks
-        const subscription = Notifications.addNotificationResponseReceivedListener(response => {
-            const data = response.notification.request.content.data;
-            console.log("Notification clicked:", data);
 
-            // Extract screen and params from notification data
-            const screenName = data?.screen as string;
-            const params = data?.params || {};
-
-            // Navigate to the specified screen with params
-            if (screenName) {
-                navigation.navigate(screenName, params);
-            }
-        });
 
         // Initialize push notifications
         const initializePushNotifications = async () => {
@@ -132,8 +120,5 @@ export function usePushNotifications(enabled: boolean = true) {
 
         initializePushNotifications();
 
-        return () => {
-            subscription.remove();
-        };
     }, [enabled, navigation]);
 }

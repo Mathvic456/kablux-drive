@@ -18,7 +18,7 @@ export default {
       color: "#ffffff",
     },
     ios: {
-      buildNumber: "5",
+      buildNumber: "6",
       supportsTablet: true,
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
@@ -68,7 +68,7 @@ export default {
       ],
       package: "com.crashingout.kabluxdrive",
       googleServicesFile: "./google-services.json",
-      versionCode: 45,
+      versionCode: 49,
     },
     web: {
       favicon: "./assets/favicon.png",

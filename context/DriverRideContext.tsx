@@ -58,7 +58,6 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
 
   // Load persistent state
   const loadPersisted = async () => {
-
     try {
       const saved = await api.get('rides/current/')
       console.log('[DRIVER_RIDE] Saved state:', saved?.data);

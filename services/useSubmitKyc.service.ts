@@ -2,7 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import { api } from "./api";
 
 interface KycDocumentPayload {
-  doc_type: "DRIVER_LICENSE" | "NATIONAL_ID" | "POLICE_CLEARANCE";
+  doc_type: "DRIVER_LICENSE" | "NATIONAL_ID" | "CAR_DOCUMENT" | "POLICE_CLEARANCE";
   file: string;
 }
 

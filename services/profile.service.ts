@@ -14,6 +14,7 @@ export interface ProfileResponse {
   type?: string;
   has_completed_kyc?: boolean;
   is_online?: boolean;
+  upload_id?: string;
 }
 
 /**
@@ -31,6 +32,7 @@ export const useProfile = (token?: string) => {
     queryKey: ["profile"],
     queryFn: async () => {
       const response = await api.get("users/me/");
+      console.log('es user---', response.data);
       return response.data.data;
     },
     enabled: !!token,
@@ -43,6 +45,21 @@ export const useUpdateProfile = () => {
   return useMutation({
     mutationFn: async (data: Partial<ProfileResponse>) => {
       const response = await api.post("users/set-profile-picture/", data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+    },
+  });
+};
+
+export const useEditProfile = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: Partial<ProfileResponse> & { id: string }) => {
+      const { id, ...data } = payload;
+      const response = await api.put(`users/${id}/`, data);
       return response.data;
     },
     onSuccess: () => {

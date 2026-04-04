@@ -1,6 +1,6 @@
-import { Ionicons, Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import {
-    Dimensions,
+    Alert,
     Image,
     StatusBar,
     StyleSheet,
@@ -9,80 +9,168 @@ import {
     View,
     Platform,
     ScrollView,
-    KeyboardAvoidingView,
+    ActivityIndicator,
+    useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import * as ImagePicker from "expo-image-picker";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useUploadFile } from "../../../services/fileUpload.service";
+import { useCreateVehicle, useVehicleImages } from "../../../services/createVehicle.service";
 
-const { width, height } = Dimensions.get("window");
-
-const scaleFont = (size) => {
-    const scaleFactor = width / 375;
-    return Math.round(size * Math.min(scaleFactor, 1.3));
-};
-
-const scaleSize = (size) => {
-    const scaleFactor = width / 375;
-    return Math.round(size * Math.min(scaleFactor, 1.2));
-};
-
+// Photo slot definitions — id maps directly to the "type" field the API expects
 const PHOTO_SLOTS = [
     { id: "front", label: "Front View" },
     { id: "back", label: "Back View" },
-    { id: "side", label: "Side View" },
+    { id: "left", label: "left View" },
     { id: "interior", label: "Interior" },
 ];
 
-const CELL_SIZE = (width - Math.max(20, width * 0.05) * 2 - Math.max(20, width * 0.05) * 2 - 12) / 2;
-
 export default function AddPhotos() {
     const navigation = useNavigation();
-    const [photos, setPhotos] = useState({ front: null, back: null, side: null, interior: null });
-    const [errors, setErrors] = useState({});
+    const { width, height } = useWindowDimensions();
+    const { data: vehicle } = useCreateVehicle();
 
-    const pickImage = async (slotId) => {
+    // FIX: scaleFont/scaleSize inleft component via useWindowDimensions
+    // instead of module-level Dimensions.get() which causes stale-value flicker
+    const scaleFont = useCallback(
+        (size: number) => Math.round(size * Math.min(width / 375, 1.3)),
+        [width]
+    );
+    const scaleSize = useCallback(
+        (size: number) => Math.round(size * Math.min(width / 375, 1.2)),
+        [width]
+    );
+
+    // uri: local preview uri — shown immediately after picking
+    // fileId: returned from uploadFile, used in the vehicle images API call
+    const [photos, setPhotos] = useState<Record<string, { uri: string; fileId: string } | null>>({
+        front: null,
+        back: null,
+        left: null,
+        interior: null,
+    });
+
+    // Per-slot loading state so each cell shows its own spinner independently
+    const [uploading, setUploading] = useState<Record<string, boolean>>({
+        front: false,
+        back: false,
+        left: false,
+        interior: false,
+    });
+
+    const [errors, setErrors] = useState<Record<string, boolean>>({});
+
+    const { mutateAsync: uploadFile } = useUploadFile();
+    const { mutateAsync: postVehicleImage } = useVehicleImages();
+
+    const pickImage = useCallback(async (slotId: string) => {
         try {
+            // Step 1: Gallery permission — kept as-is from original
             const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
             if (status !== "granted") {
-                alert("Permission to access photos is required.");
+                Alert.alert("Permission Required", "Permission to access photos is required.");
                 return;
             }
+
+            // Step 2: Pick from gallery — kept as-is from original
             const result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
                 allowsEditing: true,
                 aspect: [4, 3],
                 quality: 0.8,
             });
-            if (!result.canceled && result.assets?.length > 0) {
-                setPhotos((prev) => ({ ...prev, [slotId]: result.assets[0].uri }));
-                setErrors((prev) => ({ ...prev, [slotId]: false }));
+
+            if (result.canceled || !result.assets?.length) return;
+
+            const asset = result.assets[0];
+            const fileName = asset.fileName || asset.uri.split("/").pop() || `${slotId}.jpg`;
+
+            // Step 3: Show preview immediately (optimistic)
+            setPhotos((prev) => ({ ...prev, [slotId]: { uri: asset.uri, fileId: "" } }));
+            setErrors((prev) => ({ ...prev, [slotId]: false }));
+            setUploading((prev) => ({ ...prev, [slotId]: true }));
+
+            try {
+                // Step 4: Upload the image file, same flow as pickProfileImages
+                const formData = new FormData();
+                formData.append("files", {
+                    uri: asset.uri,
+                    type: "image/jpeg",
+                    name: fileName,
+                } as any);
+                formData.append("name", `car_${slotId}`);
+
+                const uploadRes = await uploadFile(formData);
+                const fileId = uploadRes.data?.results?.[0]?.id;
+                console.log(`[AddPhotos] ${slotId} uploaded, fileId:`, fileId);
+                if (!fileId) throw new Error("No fileId returned from upload");
+                setPhotos((prev) => ({ ...prev, [slotId]: { uri: asset.uri, fileId } }));
+            } catch (error) {
+                console.error(`[AddPhotos] ${slotId} upload failed:`, error);
+                // Clear optimistic preview so user knows it didn't go through
+                setPhotos((prev) => ({ ...prev, [slotId]: null }));
+                Alert.alert(
+                    "Upload Failed",
+                    `Failed to upload the ${slotId} photo. Please try again.`
+                );
+            } finally {
+                setUploading((prev) => ({ ...prev, [slotId]: false }));
             }
         } catch (err) {
             console.error("Image pick error:", err);
+            setUploading((prev) => ({ ...prev, [slotId]: false }));
         }
-    };
+    }, [uploadFile, postVehicleImage]);
 
-    const removeImage = (slotId) => {
+    // Removing a photo clears both the local preview and the stored fileId.
+    // The user must re-pick to get a new fileId for that slot.
+    const removeImage = useCallback((slotId: string) => {
         setPhotos((prev) => ({ ...prev, [slotId]: null }));
-    };
+    }, []);
 
-    const handleProceed = () => {
-        const newErrors = {};
+    const handleProceed = useCallback(async () => {
+        const newErrors: Record<string, boolean> = {};
+
         PHOTO_SLOTS.forEach((slot) => {
-            if (!photos[slot.id]) newErrors[slot.id] = true;
+            if (!photos[slot.id]?.fileId) newErrors[slot.id] = true;
         });
+
         if (Object.keys(newErrors).length > 0) {
             setErrors(newErrors);
             return;
         }
-        // Navigate or submit
-        navigation.navigate("IDVerify" as never);
-        console.log("Photos:", photos);
-    };
 
-    const allFilled = PHOTO_SLOTS.every((s) => photos[s.id]);
+        try {
+            const vehicleId = vehicle?.vehicle_id;
+            if (!vehicleId) throw new Error("vehicle_id not found");
+
+            const payload = PHOTO_SLOTS.map((slot) => ({
+                file: photos[slot.id]!.fileId,
+                image_type: slot.id.toUpperCase(),
+            }));
+
+            console.log("Sending payload:", payload);
+
+            await postVehicleImage({
+                vehicle_id: vehicleId,
+                images: payload,
+            });
+
+            navigation.navigate("IDVerify" as never);
+        } catch (error) {
+            console.error("Submit images failed:", error);
+            Alert.alert("Error", "Failed to submit vehicle images. Try again.");
+        }
+    }, [photos, navigation]);
+
+    const isAnyUploading = Object.values(uploading).some(Boolean);
+    // Proceed is enabled only when all 4 slots have a confirmed fileId
+    const allConfirmed = PHOTO_SLOTS.every((s) => photos[s.id]?.fileId);
+
+    const CELL_SIZE = (width - Math.max(20, width * 0.05) * 2 - Math.max(20, width * 0.05) * 2 - 12) / 2;
 
     return (
         <SafeAreaView style={styles.mainContainer}>
@@ -90,7 +178,10 @@ export default function AddPhotos() {
 
             {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.navigate("CarDetails" as never)} style={styles.backBtn}>
+                <TouchableOpacity
+                    onPress={() => navigation.goBack()}
+                    style={styles.backBtn}
+                >
                     <Ionicons name="arrow-back" size={scaleFont(20)} color="#000" />
                 </TouchableOpacity>
                 <View />
@@ -104,7 +195,7 @@ export default function AddPhotos() {
                 bounces={false}
                 overScrollMode="never"
             >
-                <View style={styles.container}>
+                <View style={[styles.container, { padding: Math.max(20, width * 0.05), margin: Math.max(20, width * 0.05) }]}>
                     {/* Title block */}
                     <View style={styles.titleBlock}>
                         <Text style={[styles.title, { fontSize: scaleFont(24) }]}>
@@ -112,56 +203,70 @@ export default function AddPhotos() {
                         </Text>
                         <Text style={[styles.subtitle, { fontSize: scaleFont(12) }]}>
                             Add the specific photos of your car to complete the verification
-                            process. This includes clear images of the front, back, side, and
+                            process. This includes clear images of the front, back, left, and
                             interior of your vehicle. Make sure the plate number is visible
                             for the back photo.
                         </Text>
                     </View>
 
-                    {/* 2 x 2 Grid */}
+                    {/* 2 × 2 Grid */}
                     <View style={styles.grid}>
                         {PHOTO_SLOTS.map((slot) => {
-                            const uri = photos[slot.id];
+                            const photo = photos[slot.id];
+                            const isUploading = uploading[slot.id];
                             const hasError = errors[slot.id];
+                            const isConfirmed = !!photo?.fileId;
 
                             return (
-                                <View key={slot.id} style={styles.cellWrapper}>
-                                    {/* Label */}
+                                <View key={slot.id} style={[styles.cellWrapper, { width: CELL_SIZE }]}>
                                     <Text style={[styles.cellLabel, { fontSize: scaleFont(12) }]}>
                                         {slot.label}
                                     </Text>
 
-                                    {/* Box */}
                                     <TouchableOpacity
                                         style={[
                                             styles.cell,
                                             { width: CELL_SIZE, height: CELL_SIZE },
                                             hasError && styles.cellError,
-                                            uri && styles.cellFilled,
+                                            isConfirmed && styles.cellFilled,
+                                            // Amber border while uploading to signal activity
+                                            isUploading && styles.cellUploading,
                                         ]}
-                                        onPress={() => pickImage(slot.id)}
+                                        onPress={() => !isUploading && pickImage(slot.id)}
                                         activeOpacity={0.75}
+                                        disabled={isUploading}
                                     >
-                                        {uri ? (
+                                        {photo?.uri ? (
                                             <>
                                                 <Image
-                                                    source={{ uri }}
+                                                    source={{ uri: photo.uri }}
                                                     style={styles.cellImage}
                                                 />
-                                                {/* Remove button */}
-                                                <TouchableOpacity
-                                                    style={styles.removeBtn}
-                                                    onPress={() => removeImage(slot.id)}
-                                                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                                >
-                                                    <Ionicons name="close" size={scaleFont(12)} color="#fff" />
-                                                </TouchableOpacity>
+                                                {/* Spinner overlay while uploading */}
+                                                {isUploading && (
+                                                    <View style={styles.uploadingOverlay}>
+                                                        <ActivityIndicator size="small" color="#fcbf24" />
+                                                        <Text style={[styles.uploadingLabel, { fontSize: scaleFont(10) }]}>
+                                                            Uploading…
+                                                        </Text>
+                                                    </View>
+                                                )}
+                                                {/* Remove only available once upload is confirmed */}
+                                                {!isUploading && (
+                                                    <TouchableOpacity
+                                                        style={styles.removeBtn}
+                                                        onPress={() => removeImage(slot.id)}
+                                                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                                    >
+                                                        <Ionicons name="close" size={scaleFont(12)} color="#fff" />
+                                                    </TouchableOpacity>
+                                                )}
                                             </>
                                         ) : (
                                             <View style={styles.placeholder}>
-                                                <View style={styles.crossIcon}>
-                                                    <View style={styles.crossH} />
-                                                    <View style={styles.crossV} />
+                                                <View style={[styles.crossIcon, { width: scaleSize(28), height: scaleSize(28) }]}>
+                                                    <View style={[styles.crossH, { width: scaleSize(28) }]} />
+                                                    <View style={[styles.crossV, { height: scaleSize(28) }]} />
                                                 </View>
                                             </View>
                                         )}
@@ -177,14 +282,19 @@ export default function AddPhotos() {
                         })}
                     </View>
 
-                    {/* Proceed Button */}
+                    {/* Proceed */}
                     <TouchableOpacity
-                        style={[styles.proceedBtn, !allFilled && styles.proceedBtnDim]}
+                        style={[
+                            styles.proceedBtn,
+                            { marginTop: Math.max(24, height * 0.03), minHeight: Math.max(50, height * 0.06) },
+                            (!allConfirmed || isAnyUploading) && styles.proceedBtnDim,
+                        ]}
                         onPress={handleProceed}
                         activeOpacity={0.85}
+                        disabled={!allConfirmed || isAnyUploading}
                     >
                         <Text style={[styles.proceedText, { fontSize: scaleFont(16) }]}>
-                            Proceed
+                            {isAnyUploading ? "Uploading…" : "Proceed"}
                         </Text>
                     </TouchableOpacity>
                 </View>
@@ -218,8 +328,6 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: "#000",
         borderRadius: 20,
-        padding: Math.max(20, width * 0.05),
-        margin: Math.max(20, width * 0.05),
         gap: 24,
     },
     titleBlock: {
@@ -240,8 +348,6 @@ const styles = StyleSheet.create({
         textAlign: "center",
         lineHeight: 20,
     },
-
-    // Grid
     grid: {
         flexDirection: "row",
         flexWrap: "wrap",
@@ -249,7 +355,6 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
     },
     cellWrapper: {
-        width: CELL_SIZE,
         gap: 6,
     },
     cellLabel: {
@@ -267,6 +372,9 @@ const styles = StyleSheet.create({
         justifyContent: "center",
     },
     cellFilled: {
+        borderColor: "#4CAF50",
+    },
+    cellUploading: {
         borderColor: "#fcbf24",
     },
     cellError: {
@@ -277,20 +385,32 @@ const styles = StyleSheet.create({
         height: "100%",
         resizeMode: "cover",
     },
+    uploadingOverlay: {
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: "rgba(0,0,0,0.55)",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
+    },
+    uploadingLabel: {
+        color: "#fcbf24",
+        fontWeight: "600",
+    },
     placeholder: {
         flex: 1,
         alignItems: "center",
         justifyContent: "center",
     },
     crossIcon: {
-        width: scaleSize(28),
-        height: scaleSize(28),
         alignItems: "center",
         justifyContent: "center",
     },
     crossH: {
         position: "absolute",
-        width: scaleSize(28),
         height: 2,
         backgroundColor: "#fcbf24",
         borderRadius: 1,
@@ -298,7 +418,6 @@ const styles = StyleSheet.create({
     crossV: {
         position: "absolute",
         width: 2,
-        height: scaleSize(28),
         backgroundColor: "#fcbf24",
         borderRadius: 1,
     },
@@ -315,15 +434,12 @@ const styles = StyleSheet.create({
         fontFamily: "Poppins-Regular",
         marginTop: 2,
     },
-
-    // Proceed
     proceedBtn: {
         backgroundColor: "#fcbf24",
         borderRadius: 10,
         alignItems: "center",
         justifyContent: "center",
-        minHeight: Math.max(50, height * 0.06),
-        paddingVertical: Math.max(14, height * 0.017),
+        paddingVertical: 14,
         marginTop: 4,
     },
     proceedBtnDim: {

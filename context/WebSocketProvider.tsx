@@ -8,12 +8,14 @@ import { useAuth } from "./AuthContext";
 import { playMessageSound } from "../utils/PlayMessageSound";
 import { authEvents } from "../utils/authEvents";
 import { fetchProfileStatus } from "../services/profile.service";
+import { parseRideRequest } from "../utils/notificationMapper";
 
 const WSS_URL = process.env.EXPO_PUBLIC_WSS_URL;
 
 // --- Types ---
 interface RideNotification {
   ride_request_id: string;
+  ride_id?: string | null;
   notification_type: string;
   ride_type: string;
   message: string;
@@ -186,54 +188,14 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
 
   // --- NOTIFICATION PARSING ---
   const parseRideNotification = (data: any): RideNotification | null => {
-    try {
-      console.log("🛠️ [PARSING] Raw data:", JSON.stringify(data, null, 2));
-
-      const finalId =
-        data.ride_request_id ||
-        data.ride_id ||
-        data.request_id ||
-        data.id ||
-        null;
-
-      if (!finalId) {
-        console.warn("⚠️ [PARSE FAILED] No ride ID found in any known field. Full payload:", JSON.stringify(data));
-        return null;
-      }
-
-      const offerMatch = data.message?.match(/Rider offer:\s*([\d.]+)/);
-      const distanceVal = data.distance
-        ? parseFloat(data.distance)
-        : data.distance_km
-          ? parseFloat(data.distance_km)
-          : undefined;
-
-      const timeCalc = distanceVal ? String((distanceVal / 0.5) * 60) : "0";
-
-      const parsed: RideNotification = {
-        ride_request_id: finalId,
-        notification_type: data.type || "RIDE_REQUESTED",
-        ride_type: data.ride_type || "standard",
-        message: data.message || "",
-        rider_name: data.rider_name || "Unknown Rider",
-        rider_rating: data.rider_rating || "4.5",
-        time_to_pickup: timeCalc,
-        pickup: data.pickup || data.pickup_address || data.address || "Unknown pickup",
-        dropoff: data.destination || data.dropoff_address || "Unknown dropoff",
-        offer_amount: offerMatch
-          ? parseFloat(offerMatch[1])
-          : data.offer_amount ?? data.fare ?? 0,
-        estimated_fare: data.estimated_fare ?? data.fare,
-        distance_km: distanceVal,
-
-      };
-
+    console.log("🛠️ [PARSING] Raw data:", JSON.stringify(data, null, 2));
+    const parsed = parseRideRequest(data);
+    if (parsed) {
       console.log("✅ [PARSED] Notification ready:", parsed.ride_request_id);
-      return parsed;
-    } catch (err) {
-      console.error("❌ [PARSE ERROR]", err);
-      return null;
+    } else {
+      console.warn("⚠️ [PARSE FAILED] Could not parse notification. Full payload:", JSON.stringify(data));
     }
+    return parsed as RideNotification | null;
   };
 
   // --- MAP STORAGE (SENT OFFERS) ---
