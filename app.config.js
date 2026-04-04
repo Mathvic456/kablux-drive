@@ -2,7 +2,7 @@ export default {
   expo: {
     name: "kablux-drive",
     slug: "kablux-drive",
-    version: "1.0.1",
+    version: "1.0.2",
     scheme: "kablux-drive",
     orientation: "portrait",
     icon: "./assets/r-logo.png",
