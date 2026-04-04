@@ -1,4 +1,23 @@
-export const banks = [
+export interface Bank {
+    id: number;
+    name: string;
+    slug: string;
+    code: string;
+    longcode: string;
+    gateway: string | null;
+    pay_with_bank: boolean;
+    supports_transfer: boolean;
+    available_for_direct_debit: boolean;
+    active: boolean;
+    country: string;
+    currency: string;
+    type: string;
+    is_deleted: boolean;
+    createdAt: string; // ISO date string
+    updatedAt: string; // ISO date string
+
+}
+export const banks: Bank[] = [
     {
         "id": 302,
         "name": "9mobile 9Payment Service Bank",
