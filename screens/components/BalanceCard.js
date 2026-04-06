@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import { MaterialIcons, Entypo, Ionicons, FontAwesome } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+const { width, height } = Dimensions.get('window');
+
 
 // Helper function to format the balance
 const formatCurrency = (amount) => {
@@ -192,7 +194,6 @@ export default function BalanceCard({ balanceData, isLoading, isError, userBalan
   );
 }
 
-const { width, height } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   card: {
@@ -208,6 +209,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
+    marginTop: Platform.OS === 'android' ? StatusBar.currentHeight : 20,
+
   },
   cardSmall: {
     padding: Math.min(width * 0.04, 16),

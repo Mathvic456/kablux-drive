@@ -18,7 +18,7 @@ type IoniconsName = keyof typeof Ionicons.glyphMap;
 interface CentralModalProps {
   visible: boolean;
   onClose: () => void;
-  
+
   // Content
   title: string;
   subText?: string;
@@ -30,13 +30,16 @@ interface CentralModalProps {
   onConfirm?: () => void;
   confirmText?: string;
   closeText?: string;
-  
+
   // Customization
   iconColor?: string;
   confirmButtonColor?: string;
   closeButtonColor?: string;
   themeColor?: string;
-  
+
+  // Layout
+  hideCloseButton?: boolean;
+
   // Styling Overrides (if needed)
   containerStyle?: ViewStyle;
 }
@@ -56,9 +59,10 @@ const CentralModal: React.FC<CentralModalProps> = ({
   confirmButtonColor = "#FEB914",
   closeButtonColor = "#666",
   themeColor = "#FEB914",
+  hideCloseButton = false,
   containerStyle,
 }) => {
-  
+
   // If no onConfirm is provided, the confirm button acts as a close button
   const handleConfirm = () => {
     if (onConfirm) {
@@ -86,15 +90,15 @@ const CentralModal: React.FC<CentralModalProps> = ({
             {/* Stop propagation so clicking the modal itself doesn't close it */}
             <TouchableWithoutFeedback>
               <View style={[styles.modalContainer, { borderColor: themeColor }, containerStyle]}>
-                
+
                 {/* --- 1. Header (Icon + Title) --- */}
                 <View style={styles.header}>
                   {icon && (
                     <View style={[styles.iconContainer, { backgroundColor: `${themeColor}15` }]}>
-                      <Ionicons 
-                        name={icon} 
-                        size={32} 
-                        color={iconColor || themeColor} 
+                      <Ionicons
+                        name={icon}
+                        size={32}
+                        color={iconColor || themeColor}
                       />
                     </View>
                   )}
@@ -129,15 +133,17 @@ const CentralModal: React.FC<CentralModalProps> = ({
                   </TouchableOpacity>
 
                   {/* Secondary/Close Button (Below Confirm) */}
-                  <TouchableOpacity
-                    style={styles.closeButton}
-                    onPress={onClose}
-                    activeOpacity={0.6}
-                  >
-                    <Text style={[styles.closeButtonText, { color: closeButtonColor }]}>
-                      {closeText}
-                    </Text>
-                  </TouchableOpacity>
+                  {!hideCloseButton && (
+                    <TouchableOpacity
+                      style={styles.closeButton}
+                      onPress={onClose}
+                      activeOpacity={0.6}
+                    >
+                      <Text style={[styles.closeButtonText, { color: closeButtonColor }]}>
+                        {closeText}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
 
               </View>
@@ -165,7 +171,7 @@ const styles = StyleSheet.create({
   modalContainer: {
     width: "100%",
     maxWidth: 340,
-    backgroundColor: "#111", 
+    backgroundColor: "#111",
     borderRadius: 24,
     padding: 24,
     borderWidth: 1,

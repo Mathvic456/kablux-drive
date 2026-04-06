@@ -3,6 +3,7 @@ import {
   View,
   Text,
   TouchableOpacity,
+  TextInput,
   ActivityIndicator,
   StyleSheet,
 } from "react-native";
@@ -14,6 +15,8 @@ const CounterOfferItem = ({ item, onClose, socket, onCounterSubmit }) => {
 
   const [counterAmount, setCounterAmount] = useState(Number(item.counter_offer));
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isManualEntry, setIsManualEntry] = useState(false);
+  const [manualText, setManualText] = useState('');
   const { setNegotiationUpdates } = useDriverRide()
 
   const originalOffer = Number(item.counter_offer);
@@ -94,9 +97,46 @@ const CounterOfferItem = ({ item, onClose, socket, onCounterSubmit }) => {
         </TouchableOpacity>
 
         <View style={styles.priceContainer}>
-          <Text style={styles.mainPrice}>
-            ₦{counterAmount?.toLocaleString()}
-          </Text>
+          {isManualEntry ? (
+            <View style={styles.manualInputRow}>
+              <Text style={styles.manualPrefix}>₦</Text>
+              <TextInput
+                style={styles.manualInput}
+                keyboardType="numeric"
+                value={manualText}
+                onChangeText={(text) => {
+                  const cleaned = text.replace(/[^0-9]/g, '');
+                  setManualText(cleaned);
+                }}
+                autoFocus
+                maxLength={7}
+                placeholder="0"
+                placeholderTextColor="#666"
+                onBlur={() => {
+                  const val = parseInt(manualText, 10);
+                  if (val > 0) setCounterAmount(val);
+                  setIsManualEntry(false);
+                  setManualText('');
+                }}
+                onSubmitEditing={() => {
+                  const val = parseInt(manualText, 10);
+                  if (val > 0) setCounterAmount(val);
+                  setIsManualEntry(false);
+                  setManualText('');
+                }}
+              />
+            </View>
+          ) : (
+            <TouchableOpacity onPress={() => {
+              setManualText(String(counterAmount));
+              setIsManualEntry(true);
+            }}>
+              <Text style={styles.mainPrice}>
+                ₦{counterAmount?.toLocaleString()}
+              </Text>
+              <Text style={styles.tapHint}>Tap to type amount</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <TouchableOpacity
@@ -227,6 +267,34 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: 'white',
     textAlign: 'center',
+  },
+  tapHint: {
+    color: '#666',
+    fontSize: 10,
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  manualInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: '#facc15',
+    paddingBottom: 4,
+  },
+  manualPrefix: {
+    color: '#facc15',
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginRight: 2,
+  },
+  manualInput: {
+    color: 'white',
+    fontSize: 28,
+    fontWeight: 'bold',
+    minWidth: 80,
+    textAlign: 'center',
+    padding: 0,
   },
 
   // --- Difference ---

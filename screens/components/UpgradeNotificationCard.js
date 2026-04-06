@@ -21,7 +21,7 @@ const UpgradeNotificationCard = ({ status }) => {
 
       {/* Top row: text + illustration */}
       <View style={styles.topRow}>
-        {status !== "IN_REVIEW" ? (
+        {status?.kyc_status !== "IN_REVIEW" ? (
           <View style={styles.textBlock}>
             <Text style={styles.title}>
               Complete Verification before receiving Rides
@@ -48,7 +48,7 @@ const UpgradeNotificationCard = ({ status }) => {
       </View>
 
       {/* Button */}
-      {status !== "IN_REVIEW" && (
+      {status?.kyc_status !== "IN_REVIEW" && (
         <TouchableOpacity
           style={styles.viewButton}
           onPress={() => navigation.navigate("IDVerify")}

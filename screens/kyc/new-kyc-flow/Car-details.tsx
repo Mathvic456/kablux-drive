@@ -1,6 +1,6 @@
 import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import {
-    Dimensions,
+    Alert,
     StatusBar,
     StyleSheet,
     Text,
@@ -10,77 +10,106 @@ import {
     Platform,
     ScrollView,
     KeyboardAvoidingView,
+    ActivityIndicator,
+    useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
+import { useUploadFile } from "../../../services/fileUpload.service";
+import { useUpdateProfile } from "../../../services/profile.service";
+import { useSubmitKycDocument } from "../../../services/useSubmitKyc.service";
+import { useCreateVehicle } from "../../../services/createVehicle.service";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const { width, height } = Dimensions.get("window");
-
-const scaleFont = (size) => {
-    const scaleFactor = width / 375;
-    return Math.round(size * Math.min(scaleFactor, 1.3));
-};
-
-const scaleSize = (size) => {
-    const scaleFactor = width / 375;
-    return Math.round(size * Math.min(scaleFactor, 1.2));
-};
+// FIX: Removed module-level Dimensions.get() — causes stale-value flicker.
+// scaleFont/scaleSize now use useWindowDimensions() inside the component.
 
 // ─── File Picker Row ──────────────────────────────────────────────────────────
-const FilePicker = ({ icon, placeholder, value, onPress, error }) => (
-    <View style={{ marginTop: Math.max(10, height * 0.012) }}>
+const FilePicker = ({ icon, placeholder, value, onPress, error, loading }) => (
+    <View style={{ marginTop: 10 }}>
         <TouchableOpacity
             style={[
                 styles.inputContainer,
-                { minHeight: scaleSize(50) },
+                { minHeight: 50 },
                 error && { borderColor: "#ff4444" },
+                loading && { opacity: 0.7 },
             ]}
             onPress={onPress}
             activeOpacity={0.75}
+            disabled={loading}
         >
-            <Feather
-                name={icon}
-                size={scaleSize(20)}
-                color={value ? "#fcbf24" : "#aaa"}
-                style={styles.inputIcon}
-            />
+            {loading ? (
+                <ActivityIndicator
+                    size="small"
+                    color="#fcbf24"
+                    style={styles.inputIcon}
+                />
+            ) : (
+                <Feather
+                    name={icon}
+                    size={20}
+                    color={value ? "#fcbf24" : "#aaa"}
+                    style={styles.inputIcon}
+                />
+            )}
             <Text
                 style={[
                     styles.filePickerText,
-                    { fontSize: scaleFont(14) },
                     value && styles.filePickerTextFilled,
                 ]}
                 numberOfLines={1}
             >
-                {value || placeholder}
+                {loading ? "Uploading…" : value || placeholder}
             </Text>
-            <Feather
-                name={value ? "check-circle" : "upload"}
-                size={scaleSize(16)}
-                color={value ? "#4CAF50" : "#555"}
-            />
+            {!loading && (
+                <Feather
+                    name={value ? "check-circle" : "upload"}
+                    size={16}
+                    color={value ? "#4CAF50" : "#555"}
+                />
+            )}
         </TouchableOpacity>
-        {error ? (
-            <Text style={[styles.errorText, { fontSize: scaleFont(12) }]}>
-                {error}
-            </Text>
-        ) : null}
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
     </View>
 );
 
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 export default function CarDetails() {
     const navigation = useNavigation();
+    const { width, height } = useWindowDimensions();
+
+    const scaleFont = useCallback(
+        (size: number) => Math.round(size * Math.min(width / 375, 1.3)),
+        [width]
+    );
+    const scaleSize = useCallback(
+        (size: number) => Math.round(size * Math.min(width / 375, 1.2)),
+        [width]
+    );
+
+    // Memoize dynamic margins to prevent layout flicker
+    const inputMarginTop = useMemo(
+        () => Math.max(10, height * 0.012),
+        [height]
+    );
+    const submitMarginTop = useMemo(
+        () => Math.max(24, height * 0.03),
+        [height]
+    );
 
     const [plateNumber, setPlateNumber] = useState("");
     const [carModel, setCarModel] = useState("");
     const [year, setYear] = useState("");
-    const [carDocument, setCarDocument] = useState(null);
-    const [driversLicense, setDriversLicense] = useState(null);
+    const [carDocument, setCarDocument] = useState<{ id: string, name: string } | null>(null);
+    const [driversLicense, setDriversLicense] = useState<{ id: string, name: string } | null>(null);
     const [carColor, setCarColor] = useState("");
+
+    // Independent loading states per field so spinners are scoped correctly
+    const [isUploadingDocument, setIsUploadingDocument] = useState(false);
+    const [isUploadingLicense, setIsUploadingLicense] = useState(false);
 
     const [errors, setErrors] = useState({
         plateNumber: "",
@@ -90,6 +119,10 @@ export default function CarDetails() {
         driversLicense: "",
         carColor: "",
     });
+
+    const { mutateAsync: uploadFile } = useUploadFile();
+    const { mutateAsync: createVehicle } = useCreateVehicle();
+    const { mutateAsync: submitKycDocument } = useSubmitKycDocument();
 
     const validateForm = () => {
         let valid = true;
@@ -134,47 +167,151 @@ export default function CarDetails() {
         return valid;
     };
 
-    const pickDocument = async () => {
+    // ── Pick car document (DocumentPicker — kept as-is) then upload ───────────
+    const pickDocument = useCallback(async () => {
         try {
             const result = await DocumentPicker.getDocumentAsync({
                 type: ["application/pdf", "image/*"],
                 copyToCacheDirectory: true,
             });
-            if (!result.canceled && result.assets?.length > 0) {
-                setCarDocument(result.assets[0].name);
-                setErrors((e) => ({ ...e, carDocument: "" }));
+
+            if (result.canceled || !result.assets?.length) return;
+
+            const asset = result.assets[0];
+
+            // Show filename immediately as optimistic feedback
+            setCarDocument((prev) => ({ ...prev, name: asset.name }));
+            setErrors((e) => ({ ...e, carDocument: "" }));
+            setIsUploadingDocument(true);
+
+            try {
+                const formData = new FormData();
+                formData.append("files", {
+                    uri: asset.uri,
+                    type: asset.mimeType || "application/octet-stream",
+                    name: asset.name,
+                } as any);
+                formData.append("name", "car_document");
+
+                const uploadRes = await uploadFile(formData);
+                const fileId = uploadRes.data?.results?.[0]?.id;
+                console.log("CAR DOCUMENT UPLOADED", uploadRes, fileId);
+
+                if (!fileId) throw new Error("Upload succeeded but no file ID returned");
+                setCarDocument((prev) => ({ ...prev, id: fileId }));
+
+
+            } catch (error) {
+                console.error("Car document upload failed:", error);
+                // Clear optimistic value so user knows it didn't go through
+                setCarDocument(null);
+                Alert.alert(
+                    "Upload Failed",
+                    "Failed to upload the car document. Please try again."
+                );
+            } finally {
+                setIsUploadingDocument(false);
             }
         } catch (err) {
             console.error("Document pick error:", err);
+            setIsUploadingDocument(false);
         }
-    };
+    }, [uploadFile]);
 
-    const pickLicensePhoto = async () => {
+    // ── Pick license photo (ImagePicker gallery — kept as-is) then upload ─────
+    const pickLicensePhoto = useCallback(async () => {
         try {
             const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
             if (status !== "granted") {
-                alert("Permission to access photos is required.");
+                Alert.alert("Permission Required", "Permission to access photos is required.");
                 return;
             }
+
             const result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
                 allowsEditing: true,
                 quality: 0.8,
             });
-            if (!result.canceled && result.assets?.length > 0) {
-                const uri = result.assets[0].uri;
-                const fileName = uri.split("/").pop();
-                setDriversLicense(fileName);
-                setErrors((e) => ({ ...e, driversLicense: "" }));
+
+            if (result.canceled || !result.assets?.length) return;
+
+            const asset = result.assets[0];
+            const fileName = asset.fileName || asset.uri.split("/").pop() || "license.jpg";
+
+            // Show filename immediately as optimistic feedback
+            setDriversLicense((prev) => ({ ...prev, name: fileName }));
+            setErrors((e) => ({ ...e, driversLicense: "" }));
+            setIsUploadingLicense(true);
+
+            try {
+                const formData = new FormData();
+                formData.append("files", {
+                    uri: asset.uri,
+                    type: "image/jpeg",
+                    name: fileName,
+                } as any);
+                formData.append("name", "drivers_license");
+
+                const uploadRes = await uploadFile(formData);
+                const fileId = uploadRes.data?.results?.[0]?.id;
+                console.log("LICENSE UPLOADED", uploadRes, fileId);
+
+                if (!fileId) throw new Error("Upload succeeded but no file ID returned");
+
+                setDriversLicense((prev) => ({ ...prev, id: fileId }));
+            } catch (error) {
+                console.error("License upload failed:", error);
+                // Clear optimistic value so user knows it didn't go through
+                setDriversLicense(null);
+                Alert.alert(
+                    "Upload Failed",
+                    "Failed to upload the license photo. Please try again."
+                );
+            } finally {
+                setIsUploadingLicense(false);
             }
         } catch (err) {
             console.error("Image pick error:", err);
+            setIsUploadingLicense(false);
         }
-    };
+    }, [uploadFile]);
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         if (!validateForm()) return;
-        console.log({ plateNumber, carModel, year, carDocument, driversLicense, carColor });
+        console.log({ plateNumber, carModel, year, carDocument: carDocument?.id, driversLicense: driversLicense?.id, carColor });
+
+        try {
+            await createVehicle({
+                plate_number: plateNumber,
+                model: carModel,
+                year: parseInt(year, 10),
+                color: carColor,
+            });
+            // await AsyncStorage.setItem("vehicle_id", id);
+
+            await submitKycDocument({
+                doc_type: "POLICE_CLEARANCE",
+                file: carDocument?.id || "",
+            });
+
+            await submitKycDocument({
+                doc_type: "DRIVER_LICENSE",
+                file: driversLicense?.id || "",
+            });
+
+
+            navigation.navigate("AddPhotos" as never);
+
+        } catch (error) {
+            Alert.alert(
+                "Submission Failed",
+                "An error occurred while submitting your car details. Please try again."
+            );
+            // navigation.navigate("AddPhotos" as never);
+
+            console.error("Error submitting car details:", error);
+        }
+
     };
 
     return (
@@ -183,7 +320,10 @@ export default function CarDetails() {
 
             {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+                <TouchableOpacity
+                    onPress={() => navigation.navigate("IDVerify" as never)}
+                    style={styles.backBtn}
+                >
                     <Ionicons name="arrow-back" size={scaleFont(20)} color="#000" />
                 </TouchableOpacity>
                 <View />
@@ -215,7 +355,7 @@ export default function CarDetails() {
                         </View>
 
                         {/* Plate Number */}
-                        <View style={[styles.inputContainer, { marginTop: Math.max(10, height * 0.012) }]}>
+                        <View style={[styles.inputContainer, { marginTop: inputMarginTop }]}>
                             <MaterialCommunityIcons
                                 name="card-text-outline"
                                 size={scaleSize(20)}
@@ -244,7 +384,7 @@ export default function CarDetails() {
                         {/* Car Model + Year — side by side */}
                         <View style={styles.row}>
                             <View style={{ flex: 1.6 }}>
-                                <View style={[styles.inputContainer, { marginTop: Math.max(10, height * 0.012) }]}>
+                                <View style={[styles.inputContainer, { marginTop: inputMarginTop }]}>
                                     <Ionicons
                                         name="car"
                                         size={scaleSize(20)}
@@ -271,7 +411,7 @@ export default function CarDetails() {
                             </View>
 
                             <View style={{ flex: 1 }}>
-                                <View style={[styles.inputContainer, { marginTop: Math.max(10, height * 0.012) }]}>
+                                <View style={[styles.inputContainer, { marginTop: inputMarginTop }]}>
                                     <Feather
                                         name="calendar"
                                         size={scaleSize(18)}
@@ -300,26 +440,28 @@ export default function CarDetails() {
                             </View>
                         </View>
 
-                        {/* Car Document */}
+                        {/* Car Document — DocumentPicker, now with upload */}
                         <FilePicker
                             icon="file-text"
                             placeholder="Car Document (PDF / Image)"
-                            value={carDocument}
+                            value={carDocument?.name}
                             onPress={pickDocument}
                             error={errors.carDocument}
+                            loading={isUploadingDocument}
                         />
 
-                        {/* Driver's License */}
+                        {/* Driver's License — ImagePicker gallery, now with upload */}
                         <FilePicker
                             icon="camera"
                             placeholder="Driver's License (Photo)"
-                            value={driversLicense}
+                            value={driversLicense?.name}
                             onPress={pickLicensePhoto}
                             error={errors.driversLicense}
+                            loading={isUploadingLicense}
                         />
 
-                        {/* Car Color — last field */}
-                        <View style={[styles.inputContainer, { marginTop: Math.max(10, height * 0.012) }]}>
+                        {/* Car Color */}
+                        <View style={[styles.inputContainer, { marginTop: inputMarginTop }]}>
                             <MaterialCommunityIcons
                                 name="palette-outline"
                                 size={scaleSize(20)}
@@ -347,9 +489,14 @@ export default function CarDetails() {
 
                         {/* Submit */}
                         <TouchableOpacity
-                            style={[styles.proceedBtn, { marginTop: Math.max(24, height * 0.03) }]}
+                            style={[
+                                styles.proceedBtn,
+                                { marginTop: submitMarginTop },
+                                (isUploadingDocument || isUploadingLicense) && styles.proceedBtnDisabled,
+                            ]}
                             onPress={handleSubmit}
                             activeOpacity={0.85}
+                            disabled={isUploadingDocument || isUploadingLicense}
                         >
                             <Text style={[styles.proceedText, { fontSize: scaleFont(16) }]}>
                                 Proceed
@@ -375,7 +522,7 @@ const styles = StyleSheet.create({
         marginVertical: 16,
     },
     backBtn: {
-        padding: 6,
+        padding: 3,
         borderRadius: 100,
         backgroundColor: "#fff",
     },
@@ -387,8 +534,8 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: "#000",
         borderRadius: 20,
-        padding: Math.max(20, width * 0.05),
-        marginHorizontal: Math.max(20, width * 0.05),
+        padding: 20,
+        marginHorizontal: 20,
     },
     titleBlock: {
         alignItems: "center",
@@ -410,7 +557,7 @@ const styles = StyleSheet.create({
     },
     row: {
         flexDirection: "row",
-        gap: Math.max(10, width * 0.025),
+        gap: 10,
         alignItems: "flex-start",
     },
     inputContainer: {
@@ -419,24 +566,25 @@ const styles = StyleSheet.create({
         backgroundColor: "#111",
         borderRadius: 10,
         marginBottom: 5,
-        paddingHorizontal: Math.max(12, width * 0.03),
+        paddingHorizontal: 12,
         borderWidth: 1,
         borderColor: "#fff",
     },
     inputIcon: {
-        marginRight: Math.max(8, width * 0.02),
+        marginRight: 8,
     },
     input: {
         flex: 1,
         color: "#fff",
-        fontSize: Math.max(14, width * 0.037),
-        paddingHorizontal: Math.max(4, width * 0.01),
+        fontSize: 14,
+        paddingHorizontal: 4,
         fontFamily: "Poppins-Regular",
     },
     filePickerText: {
         flex: 1,
         color: "#aaa",
         fontFamily: "Poppins-Regular",
+        fontSize: 14,
     },
     filePickerTextFilled: {
         color: "#fff",
@@ -444,18 +592,22 @@ const styles = StyleSheet.create({
     },
     errorText: {
         color: "#ff4444",
-        marginBottom: Math.max(4, height * 0.006),
-        marginLeft: Math.max(12, width * 0.03),
+        marginBottom: 4,
+        marginLeft: 12,
         marginTop: 2,
         fontFamily: "Poppins-Regular",
+        fontSize: 12,
     },
     proceedBtn: {
         backgroundColor: "#fcbf24",
         borderRadius: 10,
         alignItems: "center",
         justifyContent: "center",
-        minHeight: Math.max(50, height * 0.06),
-        paddingVertical: Math.max(14, height * 0.017),
+        minHeight: 50,
+        paddingVertical: 14,
+    },
+    proceedBtnDisabled: {
+        opacity: 0.5,
     },
     proceedText: {
         color: "#000",

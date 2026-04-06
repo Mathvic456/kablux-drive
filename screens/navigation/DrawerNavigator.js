@@ -24,6 +24,8 @@ import SafetyActions from '../settings/SafetyActions';
 import PersonalInfo from '../settings/PersonalInfo';
 import IDVerification from '../kyc/new-kyc-flow/ID-verification';
 import CarDetails from '../kyc/new-kyc-flow/Car-details';
+import BankDetails from '../kyc/new-kyc-flow/BankDetails';
+import AddPhotos from '../kyc/new-kyc-flow/AddPhotos';
 
 const Stack = createStackNavigator();
 
@@ -62,6 +64,8 @@ export default function MainStackNavigator() {
       <Stack.Screen name="PersonalInfo" component={PersonalInfo} />
       <Stack.Screen name="IDVerify" component={IDVerification} />
       <Stack.Screen name="CarDetails" component={CarDetails} />
+      <Stack.Screen name="BankDetails" component={BankDetails} />
+      <Stack.Screen name="AddPhotos" component={AddPhotos} />
     </Stack.Navigator>
   );
 }

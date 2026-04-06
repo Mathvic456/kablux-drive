@@ -4,6 +4,7 @@ import {
   StyleSheet,
   View,
   TouchableOpacity,
+  TextInput,
   ActivityIndicator,
   Platform,
   ScrollView,
@@ -26,6 +27,8 @@ export default function OrderScreen() {
 
   const [counterAmount, setCounterAmount] = useState(item?.offer_amount || 0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isManualEntry, setIsManualEntry] = useState(false);
+  const [manualText, setManualText] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [modalData, setModalData] = useState({ title: '', message: '', isError: false });
   const [mapRegion, setMapRegion] = useState({
@@ -217,9 +220,46 @@ export default function OrderScreen() {
                 <Ionicons name="remove" size={24} color="white" />
               </TouchableOpacity>
 
-              <Text style={styles.mainPrice}>
-                ₦{counterAmount.toLocaleString()}
-              </Text>
+              {isManualEntry ? (
+                <View style={styles.manualInputRow}>
+                  <Text style={styles.manualPrefix}>₦</Text>
+                  <TextInput
+                    style={styles.manualInput}
+                    keyboardType="numeric"
+                    value={manualText}
+                    onChangeText={(text) => {
+                      const cleaned = text.replace(/[^0-9]/g, '');
+                      setManualText(cleaned);
+                    }}
+                    autoFocus
+                    maxLength={7}
+                    placeholder="0"
+                    placeholderTextColor="#666"
+                    onBlur={() => {
+                      const val = parseInt(manualText, 10);
+                      if (val > 0) setCounterAmount(val);
+                      setIsManualEntry(false);
+                      setManualText('');
+                    }}
+                    onSubmitEditing={() => {
+                      const val = parseInt(manualText, 10);
+                      if (val > 0) setCounterAmount(val);
+                      setIsManualEntry(false);
+                      setManualText('');
+                    }}
+                  />
+                </View>
+              ) : (
+                <TouchableOpacity onPress={() => {
+                  setManualText(String(counterAmount));
+                  setIsManualEntry(true);
+                }}>
+                  <Text style={styles.mainPrice}>
+                    ₦{counterAmount.toLocaleString()}
+                  </Text>
+                  <Text style={styles.tapHint}>Tap to type amount</Text>
+                </TouchableOpacity>
+              )}
 
               <TouchableOpacity
                 onPress={handleIncrease}
@@ -507,6 +547,34 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: 'white',
     textAlign: 'center',
+  },
+  tapHint: {
+    color: '#666',
+    fontSize: 10,
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  manualInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: '#facc15',
+    paddingBottom: 4,
+  },
+  manualPrefix: {
+    color: '#facc15',
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginRight: 2,
+  },
+  manualInput: {
+    color: 'white',
+    fontSize: 28,
+    fontWeight: 'bold',
+    minWidth: 80,
+    textAlign: 'center',
+    padding: 0,
   },
 
   // --- Difference ---

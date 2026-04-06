@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -12,12 +12,11 @@ import {
   Platform,
   SafeAreaView,
   StatusBar,
-  Dimensions,
-  Animated,
+  useWindowDimensions,
 } from "react-native";
-import { FontAwesome, Feather } from "@expo/vector-icons";
-import Octicons from '@expo/vector-icons/Octicons';
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { Feather, Ionicons } from "@expo/vector-icons";
+import Octicons from "@expo/vector-icons/Octicons";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { useRegisterEndPoint } from "../../services/auth.service";
@@ -25,31 +24,24 @@ import Logo from "../../assets/Logo.png";
 import CentralModal from "../components/CentralModal";
 import PlanSelector from "../../components/PlanSelector";
 
-const { width, height } = Dimensions.get('window');
-
-const scaleFont = (size) => {
-  const scaleFactor = width / 375;
-  return Math.round(size * Math.min(scaleFactor, 1.3));
-};
-
-const scaleSize = (size) => {
-  const scaleFactor = width / 375;
-  return Math.round(size * Math.min(scaleFactor, 1.2));
-};
-
-
+// FIX: Removed module-level Dimensions.get('window') — returns stale values
+// before layout is measured, causing a re-render flicker.
+// useWindowDimensions() is reactive and tied to the React lifecycle.
 
 const SignUp = ({ navigation }) => {
+  const { width, height } = useWindowDimensions();
+
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [referral, setReferral] = useState("");
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [plan, setPlan] = useState("");
   const [showErr, setShowErr] = useState(false);
-  const [errMessage, setErrMessage] = useState('');
+  const [errMessage, setErrMessage] = useState("");
 
   const [errors, setErrors] = useState({
     fullName: "",
@@ -57,11 +49,22 @@ const SignUp = ({ navigation }) => {
     phone: "",
     address: "",
     password: "",
-    referral: "",
+    confirmPassword: "",
     driver_type: "",
   });
 
-  const validateForm = () => {
+  // FIX: Memoized so they don't recreate on every render
+  const scaleFont = useCallback((size) => {
+    const scaleFactor = width / 375;
+    return Math.round(size * Math.min(scaleFactor, 1.3));
+  }, [width]);
+
+  const scaleSize = useCallback((size) => {
+    const scaleFactor = width / 375;
+    return Math.round(size * Math.min(scaleFactor, 1.2));
+  }, [width]);
+
+  const validateForm = useCallback(() => {
     let valid = true;
     const newErrors = {
       fullName: "",
@@ -69,7 +72,7 @@ const SignUp = ({ navigation }) => {
       phone: "",
       address: "",
       password: "",
-      referral: "",
+      confirmPassword: "",
       driver_type: "",
     };
 
@@ -122,23 +125,28 @@ const SignUp = ({ navigation }) => {
       valid = false;
     }
 
-    if (!driver_type) {
+    if (!confirmPassword) {
+      newErrors.confirmPassword = "Please confirm your password";
+      valid = false;
+    } else if (password !== confirmPassword) {
+      newErrors.confirmPassword = "Passwords do not match";
+      valid = false;
+    }
+
+    if (!plan) {
       newErrors.driver_type = "Please select a driver type";
       valid = false;
     }
 
     setErrors(newErrors);
     return valid;
-  };
+  }, [fullName, email, phone, address, password, confirmPassword, plan]);
 
-  const handleLogin = () => {
-    navigation.navigate('Login');
-  };
+  const handleLogin = useCallback(() => navigation.navigate("Login"), [navigation]);
 
   const { mutate: register, isPending } = useRegisterEndPoint();
 
-  const handleProceed = async () => {
-
+  const handleProceed = useCallback(async () => {
     if (!validateForm()) return;
 
     const [first_name, ...rest] = fullName.trim().split(" ");
@@ -157,7 +165,7 @@ const SignUp = ({ navigation }) => {
           last_name,
           phone_number: phone,
           address,
-          driver_type,
+          driver_type: plan,
         },
         {
           onSuccess: () => {
@@ -165,7 +173,6 @@ const SignUp = ({ navigation }) => {
           },
           onError: (err) => {
             const errorData = err.response?.data;
-
             const newErrors = { ...errors };
             let hasError = false;
 
@@ -173,13 +180,12 @@ const SignUp = ({ navigation }) => {
               newErrors.email = "This email is already registered. Try signing in instead.";
               hasError = true;
             }
-
             if (errorData?.phone_number?.[0]?.includes("already exists")) {
               newErrors.phone = "This phone number is already registered. Try signing in instead.";
               hasError = true;
             }
-            if (errorData[0]?.includes("registered")) {
-              setErrMessage(errorData[0] || "This account already exists")
+            if (errorData?.[0]?.includes("registered")) {
+              setErrMessage(errorData[0] || "This account already exists");
               setShowErr(true);
               return;
             }
@@ -187,8 +193,8 @@ const SignUp = ({ navigation }) => {
             if (hasError) {
               setErrors(newErrors);
             } else {
-              console.error("Registration failed:", errorData[0]);
-              return alert("Something went wrong. Please try again.");
+              console.error("Registration failed:", errorData?.[0]);
+              alert("Something went wrong. Please try again.");
             }
           },
         }
@@ -197,7 +203,14 @@ const SignUp = ({ navigation }) => {
       console.error("Registration error:", error);
       alert("An unexpected error occurred. Please try again.");
     }
-  };
+  }, [validateForm, fullName, email, password, phone, address, plan, register, errors, navigation]);
+
+  // FIX: Memoize dynamic styles to avoid recalculating every render
+  const dynStyles = useMemo(() => ({
+    banner: { height: Math.max(200, height * 0.25) },
+    inputHeight: { height: scaleSize(50) },
+    logo: { width: scaleSize(130), height: scaleSize(100) },
+  }), [height, scaleSize]);
 
   return (
     <SafeAreaView style={styles.mainContainer}>
@@ -206,12 +219,8 @@ const SignUp = ({ navigation }) => {
       <KeyboardAvoidingView
         style={styles.container}
         removeClippedSubviews={false}
-        scrollEventThrottle={16}
-        overScrollMode="never"
-        bounces={false}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
-        scrollIndicatorInsets={{ right: 1 }}
       >
         <ScrollView
           style={styles.scrollView}
@@ -219,38 +228,29 @@ const SignUp = ({ navigation }) => {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.banner} />
+          <View style={[styles.banner, dynStyles.banner]} />
+
           <View style={styles.card}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="arrow-back" size={scaleSize(22)} color="#fff" />
+            </TouchableOpacity>
+            {/* Logo */}
             <View style={styles.logoContainer}>
-              <Image
-                source={Logo}
-                style={[
-                  styles.logoIcon,
-                  {
-                    width: scaleSize(130),
-                    height: scaleSize(100)
-                  }
-                ]}
-              />
+              <Image source={Logo} style={dynStyles.logo} resizeMode="contain" />
             </View>
 
-            <Text style={[styles.title, { fontSize: scaleFont(24) }]}>
-              Get Started Now
-            </Text>
+            <Text style={[styles.title, { fontSize: scaleFont(24) }]}>Get Started Now</Text>
+            <Text style={[styles.subtitle, { fontSize: scaleFont(14) }]}>Let's create an account</Text>
 
-            <Text style={[styles.subtitle, { fontSize: scaleFont(14) }]}>
-              Let's create an account
-            </Text>
-
-            {/* Full Name Input */}
+            {/* Full Name */}
             <View style={styles.inputContainer}>
-              <Octicons
-                name="person"
-                size={scaleSize(24)}
-                color="#aaa"
-              />
+              <Octicons name="person" size={scaleSize(24)} color="#aaa" />
               <TextInput
-                style={[styles.input, { height: scaleSize(50) }]}
+                style={[styles.input, dynStyles.inputHeight]}
                 placeholder="Full name"
                 placeholderTextColor="#aaa"
                 value={fullName}
@@ -260,21 +260,14 @@ const SignUp = ({ navigation }) => {
               />
             </View>
             {errors.fullName ? (
-              <Text style={[styles.errorText, { fontSize: scaleFont(12) }]}>
-                {errors.fullName}
-              </Text>
+              <Text style={[styles.errorText, { fontSize: scaleFont(12) }]}>{errors.fullName}</Text>
             ) : null}
 
-            {/* Email Input */}
+            {/* Email */}
             <View style={styles.inputContainer}>
-              <MaterialCommunityIcons
-                name="email-outline"
-                size={scaleSize(20)}
-                color="#aaa"
-                style={styles.inputIcon}
-              />
+              <MaterialCommunityIcons name="email-outline" size={scaleSize(20)} color="#aaa" style={styles.inputIcon} />
               <TextInput
-                style={[styles.input, { height: scaleSize(50) }]}
+                style={[styles.input, dynStyles.inputHeight]}
                 placeholder="Email"
                 placeholderTextColor="#aaa"
                 keyboardType="email-address"
@@ -285,21 +278,14 @@ const SignUp = ({ navigation }) => {
               />
             </View>
             {errors.email ? (
-              <Text style={[styles.errorText, { fontSize: scaleFont(12) }]}>
-                {errors.email}
-              </Text>
+              <Text style={[styles.errorText, { fontSize: scaleFont(12) }]}>{errors.email}</Text>
             ) : null}
 
-            {/* Phone Number */}
+            {/* Phone */}
             <View style={styles.inputContainer}>
-              <Feather
-                name="phone"
-                size={scaleSize(20)}
-                color="#aaa"
-                style={styles.inputIcon}
-              />
+              <Feather name="phone" size={scaleSize(20)} color="#aaa" style={styles.inputIcon} />
               <TextInput
-                style={[styles.input, { height: scaleSize(50) }]}
+                style={[styles.input, dynStyles.inputHeight]}
                 placeholder="Phone Number"
                 placeholderTextColor="#aaa"
                 keyboardType="phone-pad"
@@ -309,21 +295,14 @@ const SignUp = ({ navigation }) => {
               />
             </View>
             {errors.phone ? (
-              <Text style={[styles.errorText, { fontSize: scaleFont(12) }]}>
-                {errors.phone}
-              </Text>
+              <Text style={[styles.errorText, { fontSize: scaleFont(12) }]}>{errors.phone}</Text>
             ) : null}
 
             {/* Address */}
             <View style={styles.inputContainer}>
-              <Feather
-                name="map-pin"
-                size={scaleSize(20)}
-                color="#aaa"
-                style={styles.inputIcon}
-              />
+              <Feather name="map-pin" size={scaleSize(20)} color="#aaa" style={styles.inputIcon} />
               <TextInput
-                style={[styles.input, { height: scaleSize(50) }]}
+                style={[styles.input, dynStyles.inputHeight]}
                 placeholder="Address"
                 placeholderTextColor="#aaa"
                 value={address}
@@ -332,179 +311,98 @@ const SignUp = ({ navigation }) => {
               />
             </View>
             {errors.address ? (
-              <Text style={[styles.errorText, { fontSize: scaleFont(12) }]}>
-                {errors.address}
-              </Text>
+              <Text style={[styles.errorText, { fontSize: scaleFont(12) }]}>{errors.address}</Text>
             ) : null}
 
             {/* Password */}
             <View style={styles.inputContainer}>
-              <Feather
-                name="lock"
-                size={scaleSize(20)}
-                color="#aaa"
-                style={styles.inputIcon}
-              />
+              <Feather name="lock" size={scaleSize(20)} color="#aaa" style={styles.inputIcon} />
               <TextInput
-                style={[styles.input, { height: scaleSize(50) }]}
+                style={[styles.input, dynStyles.inputHeight]}
                 placeholder="Password"
                 placeholderTextColor="#aaa"
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
                 value={password}
                 onChangeText={setPassword}
-                returnKeyType="done"
+                returnKeyType="next"
               />
-              <TouchableOpacity
-                onPress={() => setShowPassword(!showPassword)}
-                style={styles.eyeButton}
-              >
-                <Feather
-                  name={showPassword ? "eye" : "eye-off"}
-                  size={scaleSize(20)}
-                  color="#aaa"
-                />
+              <TouchableOpacity onPress={() => setShowPassword((v) => !v)} style={styles.eyeButton}>
+                <Feather name={showPassword ? "eye" : "eye-off"} size={scaleSize(20)} color="#aaa" />
               </TouchableOpacity>
             </View>
             {errors.password ? (
-              <Text style={[styles.errorText, { fontSize: scaleFont(12) }]}>
-                {errors.password}
-              </Text>
+              <Text style={[styles.errorText, { fontSize: scaleFont(12) }]}>{errors.password}</Text>
             ) : null}
 
-            {/* Referral Code */}
-            {/* <View style={styles.inputContainer}>
-              <Octicons
-                name="cross-reference"
-                size={scaleSize(20)}
-                color="#aaa"
-                style={styles.inputIcon}
-              />
+            {/* Confirm Password */}
+            <View style={styles.inputContainer}>
+              <Feather name="lock" size={scaleSize(20)} color="#aaa" style={styles.inputIcon} />
               <TextInput
-                style={[styles.input, { height: scaleSize(50) }]}
-                placeholder="Referral Code (Optional)"
+                style={[styles.input, dynStyles.inputHeight]}
+                placeholder="Confirm Password"
                 placeholderTextColor="#aaa"
-                value={referral}
-                onChangeText={setReferral}
-                autoCapitalize="characters"
+                secureTextEntry={!showConfirmPassword}
+                autoCapitalize="none"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
                 returnKeyType="done"
               />
-            </View> */}
-            {errors.referral ? (
-              <Text style={[styles.errorText, { fontSize: scaleFont(12) }]}>
-                {errors.referral}
-              </Text>
+              <TouchableOpacity onPress={() => setShowConfirmPassword((v) => !v)} style={styles.eyeButton}>
+                <Feather name={showConfirmPassword ? "eye" : "eye-off"} size={scaleSize(20)} color="#aaa" />
+              </TouchableOpacity>
+            </View>
+            {errors.confirmPassword ? (
+              <Text style={[styles.errorText, { fontSize: scaleFont(12) }]}>{errors.confirmPassword}</Text>
             ) : null}
 
-            {/* Plan Selector */}
+            {/* Password Requirements */}
+            <View style={styles.passwordRequirements}>
+              <Text style={[styles.requirementText, { fontSize: scaleFont(11) }]}>Password must contain:</Text>
+              <View style={styles.requirementList}>
+                {[
+                  { label: "At least 8 characters", met: password.length >= 8 },
+                  { label: "One uppercase letter", met: /[A-Z]/.test(password) },
+                  { label: "One number", met: /[0-9]/.test(password) },
+                  { label: "One special character", met: /[!@#$%^&*(),.?\":{}|<>]/.test(password) },
+                ].map(({ label, met }) => (
+                  <Text
+                    key={label}
+                    style={[
+                      styles.requirementItem,
+                      { fontSize: scaleFont(10) },
+                      met && styles.requirementMet,
+                    ]}
+                  >
+                    • {label}
+                  </Text>
+                ))}
+              </View>
+            </View>
+
+            {/* Plan Selector — original component, Premium & Business disabled inside it */}
             <PlanSelector
               selectedPlan={plan}
               onSelect={setPlan}
               error={errors.driver_type}
             />
 
-            {/* Password Requirements */}
-            <View style={styles.passwordRequirements}>
-              <Text style={[styles.requirementText, { fontSize: scaleFont(11) }]}>
-                Password must contain:
-              </Text>
-              <View style={styles.requirementList}>
-                <Text style={[
-                  styles.requirementItem,
-                  { fontSize: scaleFont(10) },
-                  password.length >= 8 && styles.requirementMet
-                ]}>
-                  • At least 8 characters
-                </Text>
-                <Text style={[
-                  styles.requirementItem,
-                  { fontSize: scaleFont(10) },
-                  /[A-Z]/.test(password) && styles.requirementMet
-                ]}>
-                  • One uppercase letter
-                </Text>
-                <Text style={[
-                  styles.requirementItem,
-                  { fontSize: scaleFont(10) },
-                  /[0-9]/.test(password) && styles.requirementMet
-                ]}>
-                  • One number
-                </Text>
-                <Text style={[
-                  styles.requirementItem,
-                  { fontSize: scaleFont(10) },
-                  /[!@#$%^&*(),.?":{}|<>]/.test(password) && styles.requirementMet
-                ]}>
-                  • One special character
-                </Text>
-              </View>
-            </View>
-
             {/* Proceed Button */}
             <TouchableOpacity
-              style={[
-                styles.proceedBtn,
-                { paddingVertical: scaleSize(14) }
-              ]}
+              style={[styles.proceedBtn, { paddingVertical: scaleSize(14) }]}
               onPress={handleProceed}
               disabled={isPending}
             >
               {isPending ? (
                 <ActivityIndicator size="small" color="#000" />
               ) : (
-                <Text style={[
-                  styles.proceedText,
-                  { fontSize: scaleFont(16) }
-                ]}>
-                  Proceed
-                </Text>
+                <Text style={[styles.proceedText, { fontSize: scaleFont(16) }]}>Proceed</Text>
               )}
             </TouchableOpacity>
 
-            {/* Divider */}
-            <View style={[styles.dividerRow, { marginVertical: scaleSize(20) }]}>
-              <View style={styles.divider} />
-              <Text style={[
-                styles.dividerText,
-                { fontSize: scaleFont(12), marginHorizontal: scaleSize(10) }
-              ]}>
-                or
-              </Text>
-              <View style={styles.divider} />
-            </View>
-
-            {/* Google Sign In */}
-            <TouchableOpacity
-              style={[
-                styles.googleBtn,
-                { paddingVertical: scaleSize(12) }
-              ]}
-            >
-              <FontAwesome
-                name="google"
-                size={scaleSize(18)}
-                color="#fff"
-              />
-              <Text style={[
-                styles.googleText,
-                {
-                  fontSize: scaleFont(14),
-                  marginLeft: scaleSize(8)
-                }
-              ]}>
-                Sign in with Google
-              </Text>
-            </TouchableOpacity>
-
             {/* Sign In Link */}
-            <TouchableOpacity
-              onPress={handleLogin}
-              style={styles.loginLinkContainer}
-            >
-              <Text style={[
-                styles.footerText,
-                { fontSize: scaleFont(12) }
-              ]}>
+            <TouchableOpacity onPress={handleLogin} style={styles.loginLinkContainer}>
+              <Text style={[styles.footerText, { fontSize: scaleFont(12) }]}>
                 Already have an account?{" "}
                 <Text style={styles.signup}>Sign in</Text>
               </Text>
@@ -530,161 +428,80 @@ const SignUp = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  mainContainer: {
-    flex: 1,
-    backgroundColor: "#000",
-  },
-  container: {
-    flex: 1,
-    backgroundColor: "#000"
-  },
+  mainContainer: { flex: 1, backgroundColor: "#000" },
+  container: { flex: 1, backgroundColor: "#000" },
   banner: {
-    height: Math.max(200, height * 0.25),
     backgroundColor: "#0B2633",
     borderBottomLeftRadius: 40,
     borderBottomRightRadius: 40,
   },
-  scrollView: {
-    flex: 1,
-    marginTop: -40,
-  },
+  scrollView: { flex: 1, marginTop: -40 },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
+    paddingBottom: Platform.OS === "ios" ? 40 : 20,
   },
   card: {
     backgroundColor: "#000",
     borderTopLeftRadius: 40,
     borderTopRightRadius: 40,
-    paddingHorizontal: Math.max(20, width * 0.05),
-    paddingTop: Math.max(20, height * 0.02),
-    paddingBottom: Math.max(30, height * 0.03),
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 30,
     width: "100%",
     alignSelf: "center",
     maxWidth: 500,
   },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: Math.max(10, height * 0.02),
-  },
-  logoIcon: {
-    resizeMode: "contain",
-  },
-  title: {
-    fontWeight: "bold",
-    color: "#fff",
-    textAlign: "center",
-    marginBottom: Math.max(5, height * 0.01),
-  },
-  subtitle: {
-    color: "#ccc",
-    textAlign: "center",
-    marginBottom: Math.max(20, height * 0.025),
-  },
+  logoContainer: { alignItems: "center", marginBottom: 10 },
+  title: { fontWeight: "bold", color: "#fff", textAlign: "center", marginBottom: 5 },
+  subtitle: { color: "#ccc", textAlign: "center", marginBottom: 20 },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#111",
     borderRadius: 10,
     marginBottom: 5,
-    paddingHorizontal: Math.max(12, width * 0.03),
-    marginTop: Math.max(10, height * 0.012),
+    paddingHorizontal: 12,
+    marginTop: 10,
     borderWidth: 1,
-    borderColor: '#222',
+    borderColor: "#222",
   },
-  inputIcon: {
-    marginRight: Math.max(8, width * 0.02),
-  },
+  inputIcon: { marginRight: 8 },
   input: {
     flex: 1,
     color: "#fff",
-    fontSize: Math.max(14, width * 0.037),
-    paddingHorizontal: Math.max(8, width * 0.02),
+    fontSize: 14,
+    paddingHorizontal: 8,
   },
-  eyeButton: {
-    padding: Math.max(8, width * 0.02),
-    marginLeft: Math.max(5, width * 0.01),
-  },
-  errorText: {
-    color: "#ff4444",
-    marginBottom: Math.max(5, height * 0.008),
-    marginLeft: Math.max(12, width * 0.03),
-    marginTop: 2,
-  },
+  eyeButton: { padding: 8, marginLeft: 5 },
+  errorText: { color: "#ff4444", marginBottom: 5, marginLeft: 12, marginTop: 2 },
   passwordRequirements: {
-    backgroundColor: 'rgba(30, 30, 30, 0.8)',
+    backgroundColor: "rgba(30, 30, 30, 0.8)",
     borderRadius: 8,
-    padding: Math.max(10, width * 0.03),
-    marginTop: Math.max(12, height * 0.015),
-    marginBottom: Math.max(10, height * 0.015),
+    padding: 10,
+    marginTop: 12,
+    marginBottom: 10,
   },
-  requirementText: {
-    color: '#aaa',
-    marginBottom: Math.max(5, height * 0.008),
-    fontWeight: '500',
-  },
-  requirementList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  requirementItem: {
-    color: '#888',
-    marginRight: Math.max(15, width * 0.04),
-    marginBottom: Math.max(3, height * 0.004),
-  },
-  requirementMet: {
-    color: '#4CAF50',
-    fontWeight: '600',
-  },
+  requirementText: { color: "#aaa", marginBottom: 5, fontWeight: "500" },
+  requirementList: { flexDirection: "row", flexWrap: "wrap" },
+  requirementItem: { color: "#888", marginRight: 15, marginBottom: 3 },
+  requirementMet: { color: "#4CAF50", fontWeight: "600" },
   proceedBtn: {
     backgroundColor: "#fcbf24",
     borderRadius: 10,
-    marginTop: Math.max(20, height * 0.025),
+    marginTop: 20,
     alignItems: "center",
-    justifyContent: 'center',
-    minHeight: Math.max(50, height * 0.06),
-  },
-  proceedText: {
-    color: "#000",
-    fontWeight: "bold",
-  },
-  dividerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    width: '100%',
-  },
-  divider: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "#444"
-  },
-  dividerText: {
-    color: "#aaa",
-  },
-  googleBtn: {
-    flexDirection: "row",
     justifyContent: "center",
+    minHeight: 50,
+  },
+  proceedText: { color: "#000", fontWeight: "bold" },
+  loginLinkContainer: { alignItems: "center", marginTop: 12 },
+  footerText: { color: "#888" },
+  signup: { color: "#fcbf24", fontWeight: "bold" },
+  backButton: {
+    flexDirection: "row",
     alignItems: "center",
-    borderColor: "#fcbf24",
-    borderWidth: 1,
-    borderRadius: 10,
-    marginBottom: Math.max(20, height * 0.025),
-    minHeight: Math.max(45, height * 0.055),
-  },
-  googleText: {
-    color: "#fff",
-    fontWeight: '600',
-  },
-  loginLinkContainer: {
-    alignItems: 'center',
-    marginTop: Math.max(10, height * 0.012),
-  },
-  footerText: {
-    color: "#888",
-  },
-  signup: {
-    color: "#fcbf24",
-    fontWeight: "bold"
+    marginBottom: 10,
+    padding: 5,
   },
 });
 
