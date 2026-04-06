@@ -23,16 +23,26 @@ export default function App() {
       const data = response.notification.request.content.data;
       console.log("Notification clicked:", data);
 
-      // Extract screen and params from notification data
-      const screenName = data?.screen;
-      const params = data?.params || {};
+      const tryNavigate = (attempts = 0) => {
+        if (!navigationRef.isReady()) {
+          if (attempts < 10) setTimeout(() => tryNavigate(attempts + 1), 500);
+          return;
+        }
 
-      // Navigate to the specified screen with params
-      if (screenName) {
-        navigation.navigate(screenName, params);
-      }
+        const type = data?.type || data?.click_action;
+
+        if (type === "RIDE_REQUESTED") {
+          navigationRef.navigate("Mainapp", {
+            screen: "MainTabs",
+            params: { screen: "Home", params: { notificationData: data } },
+          });
+        } else if (data?.screen) {
+          navigationRef.navigate(data.screen, data.params || {});
+        }
+      };
+
+      tryNavigate();
     });
-
 
     return () => {
       subscription.remove();

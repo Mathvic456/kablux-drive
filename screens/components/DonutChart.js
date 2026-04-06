@@ -1,61 +1,62 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
-  Modal, 
-  ScrollView, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Modal,
+  ScrollView,
   Dimensions,
   useWindowDimensions,
   SafeAreaView,
   StatusBar,
-  Platform 
+  Platform
 } from 'react-native';
 import Svg, { G, Path, Text as SvgText, TSpan, Ellipse } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
-import { useGetMyBalance } from '../../services/funding.service'; 
+import { useGetMyBalance } from '../../services/funding.service';
 
 const DonutChart = () => {
   const [activeTab, setActiveTab] = useState('today');
   const [showLegendModal, setShowLegendModal] = useState(false);
+  const [balanceVisible, setBalanceVisible] = useState(false);
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
-  
+
   // Enhanced screen size detection
-  const isSmallScreen = windowWidth < 375; // iPhone SE, small Android
-  const isMediumScreen = windowWidth >= 375 && windowWidth <= 414; // iPhone 12-15, most Android
-  const isLargeScreen = windowWidth > 414; // iPhone Plus/Pro Max
+  const isSmallScreen = windowWidth < 375;
+  const isMediumScreen = windowWidth >= 375 && windowWidth <= 414;
+  const isLargeScreen = windowWidth > 414;
   const isTablet = windowWidth > 768;
   const screenHeight = Dimensions.get('window').height;
-  const isShortScreen = screenHeight < 700; // Small height devices
-  
+  const isShortScreen = screenHeight < 700;
+
   // Responsive chart sizing with Math.min to prevent overflow
   const chartSize = Math.min(
-    isSmallScreen ? windowWidth * 0.6 : 
-    isShortScreen ? windowWidth * 0.65 :
-    isTablet ? windowWidth * 0.4 : 
-    windowWidth * 0.7,
+    isSmallScreen ? windowWidth * 0.6 :
+      isShortScreen ? windowWidth * 0.65 :
+        isTablet ? windowWidth * 0.4 :
+          windowWidth * 0.7,
     350
   );
-  
+
   const strokeWidth = Math.min(
-    isSmallScreen ? chartSize * 0.085 : 
-    isShortScreen ? chartSize * 0.08 :
-    chartSize * 0.09,
+    isSmallScreen ? chartSize * 0.085 :
+      isShortScreen ? chartSize * 0.08 :
+        chartSize * 0.09,
     30
   );
-  
+
   const fontSize = Math.min(
-    isSmallScreen ? 18 : 
-    isShortScreen ? 16 :
-    isTablet ? 32 : 28,
+    isSmallScreen ? 18 :
+      isShortScreen ? 16 :
+        isTablet ? 32 : 28,
     36
   );
-  
+
   const tabFontSize = Math.min(
-    isSmallScreen ? 12 : 
-    isShortScreen ? 11 :
-    isTablet ? 16 : 14,
+    isSmallScreen ? 12 :
+      isShortScreen ? 11 :
+        isTablet ? 16 : 14,
     18
   );
 
@@ -63,44 +64,47 @@ const DonutChart = () => {
   const { data: balanceData } = useGetMyBalance();
 
   // 2. Format the balance (default to 0.00 if loading/undefined)
-  const formattedBalance = balanceData?.balance 
-    ? `₦${balanceData.balance.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` 
+  const formattedBalance = balanceData?.balance
+    ? `₦${balanceData.balance.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     : '₦0.00';
-  
+
   const radius = (chartSize - strokeWidth) / 2.2;
   const center = chartSize / 2;
 
+  // Max width for the amount text to stay inside the donut hole
+  const maxAmountWidth = radius * 1.2;
+
   // Color categories with descriptions
   const colorCategories = [
-    { 
-      color: '#FF3D3D', 
-      name: 'Ride Cancellations', 
-      description: 'Cancelled rides affecting your acceptance rate' 
+    {
+      color: '#FF3D3D',
+      name: 'Ride Cancellations',
+      description: 'Cancelled rides affecting your acceptance rate'
     },
-    { 
-      color: '#FF7A00', 
-      name: 'Fuel & Maintenance', 
-      description: 'Vehicle fuel costs and routine maintenance' 
+    {
+      color: '#FF7A00',
+      name: 'Fuel & Maintenance',
+      description: 'Vehicle fuel costs and routine maintenance'
     },
-    { 
-      color: '#00FF57', 
-      name: 'Completed Rides', 
-      description: 'Successful rides delivered to passengers' 
+    {
+      color: '#00FF57',
+      name: 'Completed Rides',
+      description: 'Successful rides delivered to passengers'
     },
-    { 
-      color: '#007AFF', 
-      name: 'In-Progress Rides', 
-      description: 'Rides currently being serviced' 
+    {
+      color: '#007AFF',
+      name: 'In-Progress Rides',
+      description: 'Rides currently being serviced'
     },
-    { 
-      color: '#E700FF', 
-      name: 'Pending Payouts', 
-      description: 'Earnings waiting for weekly withdrawal' 
+    {
+      color: '#E700FF',
+      name: 'Pending Payouts',
+      description: 'Earnings waiting for weekly withdrawal'
     },
-    { 
-      color: '#FFD966', 
-      name: 'Bonuses & Incentives', 
-      description: 'Extra earnings from promotions and bonuses' 
+    {
+      color: '#FFD966',
+      name: 'Bonuses & Incentives',
+      description: 'Extra earnings from promotions and bonuses'
     },
   ];
 
@@ -218,7 +222,7 @@ const DonutChart = () => {
         isShortScreen && styles.containerShort
       ]}>
         {/* Info Button */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[
             styles.infoButton,
             isSmallScreen && styles.infoButtonSmall,
@@ -229,10 +233,10 @@ const DonutChart = () => {
           onPress={() => setShowLegendModal(true)}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons 
-            name="information-circle" 
-            size={isSmallScreen ? 22 : isShortScreen ? 20 : 28} 
-            color="#007AFF" 
+          <Ionicons
+            name="information-circle"
+            size={isSmallScreen ? 22 : isShortScreen ? 20 : 28}
+            color="#007AFF"
           />
         </TouchableOpacity>
 
@@ -241,7 +245,7 @@ const DonutChart = () => {
           styles.chartWrapper,
           isShortScreen && styles.chartWrapperShort
         ]}>
-          <TouchableOpacity 
+          <TouchableOpacity
             activeOpacity={0.9}
             onPress={() => setShowLegendModal(true)}
             style={styles.chartTouchable}
@@ -262,12 +266,39 @@ const DonutChart = () => {
               isLargeScreen && styles.balanceTextLarge,
               isShortScreen && styles.balanceTextShort
             ]}>Total Balance</Text>
-            <Text style={[
-              styles.amount,
-              isSmallScreen && styles.amountSmall,
-              isLargeScreen && styles.amountLarge,
-              isShortScreen && styles.amountShort
-            ]}>{formattedBalance}</Text>
+
+            <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.5}
+              style={[
+                styles.amount,
+                isSmallScreen && styles.amountSmall,
+                isLargeScreen && styles.amountLarge,
+                isShortScreen && styles.amountShort,
+                { maxWidth: maxAmountWidth }
+              ]}
+            >
+              {balanceVisible ? formattedBalance : '••••••'}
+            </Text>
+
+            {/* Eye Toggle Button */}
+            <TouchableOpacity
+              onPress={() => setBalanceVisible(v => !v)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={[
+                styles.eyeButton,
+                isSmallScreen && styles.eyeButtonSmall,
+                isShortScreen && styles.eyeButtonShort,
+              ]}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={balanceVisible ? 'eye-outline' : 'eye-off-outline'}
+                size={isSmallScreen ? 14 : isShortScreen ? 13 : 18}
+                color="#666"
+              />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -279,9 +310,9 @@ const DonutChart = () => {
           isTablet && styles.tabsContainerTablet,
           isShortScreen && styles.tabsContainerShort
         ]}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
-              styles.tab, 
+              styles.tab,
               isSmallScreen && styles.tabSmall,
               isLargeScreen && styles.tabLarge,
               isShortScreen && styles.tabShort,
@@ -300,9 +331,9 @@ const DonutChart = () => {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
-              styles.tab, 
+              styles.tab,
               isSmallScreen && styles.tabSmall,
               isLargeScreen && styles.tabLarge,
               isShortScreen && styles.tabShort,
@@ -321,9 +352,9 @@ const DonutChart = () => {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
-              styles.tab, 
+              styles.tab,
               isSmallScreen && styles.tabSmall,
               isLargeScreen && styles.tabLarge,
               isShortScreen && styles.tabShort,
@@ -355,9 +386,9 @@ const DonutChart = () => {
             styles.modalOverlay,
             isTablet && styles.modalOverlayTablet
           ]}>
-            <StatusBar 
-              backgroundColor="rgba(0, 0, 0, 0.95)" 
-              barStyle="light-content" 
+            <StatusBar
+              backgroundColor="rgba(0, 0, 0, 0.95)"
+              barStyle="light-content"
               translucent={true}
             />
             <View style={[
@@ -381,19 +412,19 @@ const DonutChart = () => {
                 ]}>
                   Chart Color Legend
                 </Text>
-                <TouchableOpacity 
+                <TouchableOpacity
                   onPress={() => setShowLegendModal(false)}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Ionicons 
-                    name="close" 
-                    size={isSmallScreen ? 22 : isShortScreen ? 20 : 28} 
-                    color="#fff" 
+                  <Ionicons
+                    name="close"
+                    size={isSmallScreen ? 22 : isShortScreen ? 20 : 28}
+                    color="#fff"
                   />
                 </TouchableOpacity>
               </View>
 
-              <ScrollView 
+              <ScrollView
                 style={styles.legendScroll}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={[
@@ -413,10 +444,10 @@ const DonutChart = () => {
                   ]}>
                     What each color represents in your {activeTab} ride statistics:
                   </Text>
-                  
+
                   {colorCategories.map((category, index) => (
-                    <View 
-                      key={index} 
+                    <View
+                      key={index}
                       style={[
                         styles.legendItem,
                         isSmallScreen && styles.legendItemSmall,
@@ -452,7 +483,7 @@ const DonutChart = () => {
                       ]}>
                         {category.description}
                       </Text>
-                      
+
                       {/* Show current percentage for this color */}
                       <View style={[
                         styles.percentageRow,
@@ -477,7 +508,7 @@ const DonutChart = () => {
                 </View>
               </ScrollView>
 
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[
                   styles.closeButton,
                   isSmallScreen && styles.closeButtonSmall,
@@ -635,6 +666,20 @@ const styles = StyleSheet.create({
     fontSize: Math.min(width * 0.065, 18),
     marginTop: Math.min(height * 0.003, 2),
   },
+  eyeButton: {
+    marginTop: 6,
+    padding: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  eyeButtonSmall: {
+    marginTop: 4,
+    padding: 3,
+  },
+  eyeButtonShort: {
+    marginTop: 3,
+    padding: 2,
+  },
   tabsContainer: {
     flexDirection: 'row',
     backgroundColor: '#1a1a1a',
@@ -717,7 +762,7 @@ const styles = StyleSheet.create({
   // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
     justifyContent: 'flex-end',
   },
   modalOverlayTablet: {
