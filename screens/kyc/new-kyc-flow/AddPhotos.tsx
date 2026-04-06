@@ -19,6 +19,8 @@ import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useUploadFile } from "../../../services/fileUpload.service";
 import { useCreateVehicle, useVehicleImages } from "../../../services/createVehicle.service";
+import CentralModal from "../../components/CentralModal";
+import { useDriverKycStatus } from "../../../services/checkKyc.service";
 
 // Photo slot definitions — id maps directly to the "type" field the API expects
 const PHOTO_SLOTS = [
@@ -31,7 +33,10 @@ const PHOTO_SLOTS = [
 export default function AddPhotos() {
     const navigation = useNavigation();
     const { width, height } = useWindowDimensions();
-    const { data: vehicle } = useCreateVehicle();
+    const { data: kycData, isLoading } = useDriverKycStatus();
+
+    const [isSuccessModalVisible, setSuccessModalVisible] = useState(false);
+    console.log("vehiclllll", kycData)
 
     // FIX: scaleFont/scaleSize inleft component via useWindowDimensions
     // instead of module-level Dimensions.get() which causes stale-value flicker
@@ -69,19 +74,47 @@ export default function AddPhotos() {
     const pickImage = useCallback(async (slotId: string) => {
         try {
             // Step 1: Gallery permission — kept as-is from original
-            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if (status !== "granted") {
-                Alert.alert("Permission Required", "Permission to access photos is required.");
-                return;
-            }
-
-            // Step 2: Pick from gallery — kept as-is from original
-            const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                allowsEditing: true,
-                aspect: [4, 3],
-                quality: 0.8,
+            const choice = await new Promise<"camera" | "gallery" | null>((resolve) => {
+                Alert.alert(
+                    "Add Photo",
+                    "Choose how you'd like to add a photo",
+                    [
+                        { text: "Take Photo", onPress: () => resolve("camera") },
+                        { text: "Choose from Library", onPress: () => resolve("gallery") },
+                        { text: "Cancel", style: "cancel", onPress: () => resolve(null) },
+                    ]
+                );
             });
+
+            if (!choice) return;
+
+            let result: ImagePicker.ImagePickerResult;
+
+            if (choice === "camera") {
+                const { status } = await ImagePicker.requestCameraPermissionsAsync();
+                if (status !== "granted") {
+                    Alert.alert("Permission Required", "Permission to access the camera is required.");
+                    return;
+                }
+                result = await ImagePicker.launchCameraAsync({
+                    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                    allowsEditing: true,
+                    aspect: [4, 3],
+                    quality: 0.8,
+                });
+            } else {
+                const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                if (status !== "granted") {
+                    Alert.alert("Permission Required", "Permission to access photos is required.");
+                    return;
+                }
+                result = await ImagePicker.launchImageLibraryAsync({
+                    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                    allowsEditing: true,
+                    aspect: [4, 3],
+                    quality: 0.8,
+                });
+            }
 
             if (result.canceled || !result.assets?.length) return;
 
@@ -144,8 +177,8 @@ export default function AddPhotos() {
         }
 
         try {
-            const vehicleId = vehicle?.vehicle_id;
-            if (!vehicleId) throw new Error("vehicle_id not found");
+            const { vehicle_id } = kycData || {};
+            if (!vehicle_id) throw new Error("vehicle_id not found");
 
             const payload = PHOTO_SLOTS.map((slot) => ({
                 file: photos[slot.id]!.fileId,
@@ -155,11 +188,10 @@ export default function AddPhotos() {
             console.log("Sending payload:", payload);
 
             await postVehicleImage({
-                vehicle_id: vehicleId,
+                vehicle_id: vehicle_id,
                 images: payload,
             });
-
-            navigation.navigate("IDVerify" as never);
+            setSuccessModalVisible(true);
         } catch (error) {
             console.error("Submit images failed:", error);
             Alert.alert("Error", "Failed to submit vehicle images. Try again.");
@@ -299,6 +331,18 @@ export default function AddPhotos() {
                     </TouchableOpacity>
                 </View>
             </ScrollView>
+            <CentralModal
+                visible={isSuccessModalVisible}
+                onClose={() => navigation.navigate("IDVerify" as never)}
+                title="Success!"
+                subText="Photos uploaded successfully. Your vehicle is now under review, and you will be notified once the verification is complete."
+                icon="checkmark-circle"
+                confirmText="Proceed to ID Verification"
+                closeText=""
+                onConfirm={() => navigation.navigate("IDVerify" as never)}
+                confirmButtonColor="#fcbf24"
+                themeColor="#fcbf24"
+            />
         </SafeAreaView>
     );
 }

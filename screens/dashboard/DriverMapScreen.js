@@ -7,13 +7,13 @@ import {
   Animated,
   Dimensions,
   Image,
+  Linking,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
-import { darkMapStyle } from '../../styles/darkMapStyle';
 import { useRoute } from '@react-navigation/native';
 import { useDriverRide } from '../../context/DriverRideContext';
 import CentralModal from '../components/CentralModal';
@@ -33,9 +33,7 @@ export default function DriverMapScreen({ navigation }) {
   const { rideDetails } = route.params;
   const { status } = useDriverRide();
 
-  console.log('ride dets------------', rideDetails);
-
-  const [slideAnim] = useState(new Animated.Value(height * 0.25));
+  const [slideAnim] = useState(new Animated.Value(height * 0.35));
   const [currentDriverLocation, setCurrentDriverLocation] = useState(null);
   const [destination, setDestination] = useState(null);
   const [routeCoordinates, setRouteCoordinates] = useState([]);
@@ -47,7 +45,15 @@ export default function DriverMapScreen({ navigation }) {
 
   const locationSubscription = useRef(null);
 
-  // Slide in animation
+  // Derived rider & trip data
+  const rider = rideDetails?.rider;
+  const riderName = rider?.name || 'Rider';
+  const riderPhoto = rider?.profile_image?.file || null;
+  const riderPhone = rider?.phone_number || null;
+  const dropoffAddress =
+    rideDetails?.raw?.dropoff_address || rideDetails?.dropoff_address || 'Drop-off Location';
+
+  // Slide-in animation
   useEffect(() => {
     Animated.timing(slideAnim, {
       toValue: 0,
@@ -87,7 +93,7 @@ export default function DriverMapScreen({ navigation }) {
     };
   }, []);
 
-  // Fetch route using getDirectionsGeometry (same pattern as RideMapView)
+  // Fetch route
   useEffect(() => {
     if (currentDriverLocation && destination) {
       setLoadingRoute(true);
@@ -105,10 +111,8 @@ export default function DriverMapScreen({ navigation }) {
               longitude: lng,
             }));
             setRouteCoordinates(coords);
-
-            // Derive distance & duration from the geometry if available
-            if (geometry.distance != null) setRouteDistance(geometry.distance / 1000); // metres → km
-            if (geometry.duration != null) setRouteDuration(geometry.duration / 60);   // seconds → minutes
+            if (geometry.distance != null) setRouteDistance(geometry.distance / 1000);
+            if (geometry.duration != null) setRouteDuration(geometry.duration / 60);
           } else {
             setRouteCoordinates([]);
           }
@@ -124,12 +128,11 @@ export default function DriverMapScreen({ navigation }) {
     }
   }, [currentDriverLocation, destination]);
 
-  // Animate map to fit driver + destination whenever either changes
+  // Animate map to fit driver + destination
   useEffect(() => {
     if (!currentDriverLocation) return;
 
     if (destination) {
-      // Prefer route coordinates for a tighter fit, fall back to endpoints
       const points =
         routeCoordinates.length > 0
           ? routeCoordinates
@@ -163,14 +166,16 @@ export default function DriverMapScreen({ navigation }) {
         }
       }, 600);
     } else {
-      const newRegion = {
-        latitude: currentDriverLocation.latitude,
-        longitude: currentDriverLocation.longitude,
-        latitudeDelta: 0.05,
-        longitudeDelta: 0.05,
-      };
       setTimeout(() => {
-        mapRef.current?.animateToRegion(newRegion, 1000);
+        mapRef.current?.animateToRegion(
+          {
+            latitude: currentDriverLocation.latitude,
+            longitude: currentDriverLocation.longitude,
+            latitudeDelta: 0.05,
+            longitudeDelta: 0.05,
+          },
+          1000
+        );
       }, 600);
     }
   }, [currentDriverLocation, destination, routeCoordinates]);
@@ -187,7 +192,6 @@ export default function DriverMapScreen({ navigation }) {
     if (status === 'ride_created' || status === 'driver_on_way' || status === 'arrived') {
       const pickupLat = parseFloat(raw.pickup_lat);
       const pickupLng = parseFloat(raw.pickup_lng);
-
       if (!isNaN(pickupLat) && !isNaN(pickupLng)) {
         setDestination({
           latitude: pickupLat,
@@ -200,7 +204,6 @@ export default function DriverMapScreen({ navigation }) {
     } else if (status === 'ride_started' || status === 'started') {
       const dropoffLat = parseFloat(raw.dropoff_lat);
       const dropoffLng = parseFloat(raw.dropoff_lng);
-
       if (!isNaN(dropoffLat) && !isNaN(dropoffLng)) {
         setDestination({
           latitude: dropoffLat,
@@ -230,8 +233,11 @@ export default function DriverMapScreen({ navigation }) {
     }
   };
 
-  const getDestinationLabel = () =>
-    isHeadingToPickup ? 'Pickup Location' : 'Drop-off Location';
+  const handleCall = () => {
+    if (riderPhone) {
+      Linking.openURL(`tel:${riderPhone}`);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -243,12 +249,10 @@ export default function DriverMapScreen({ navigation }) {
         showsUserLocation={false}
         showsMyLocationButton={false}
         showsCompass={false}
-      // customMapStyle={darkMapStyle}
       >
-        {/* Route polyline — dual-layer shadow/fill trick */}
+        {/* Route polyline — shadow + fill */}
         {routeCoordinates.length > 0 && (
           <>
-            {/* Shadow layer */}
             <Polyline
               coordinates={routeCoordinates}
               strokeColor="rgba(0,0,0,0.4)"
@@ -257,7 +261,6 @@ export default function DriverMapScreen({ navigation }) {
               lineJoin="round"
               zIndex={1}
             />
-            {/* Main route line */}
             <Polyline
               coordinates={routeCoordinates}
               strokeColor="#facc15"
@@ -269,13 +272,9 @@ export default function DriverMapScreen({ navigation }) {
           </>
         )}
 
-        {/* Driver (current location) marker */}
+        {/* Driver marker */}
         {currentDriverLocation && (
-          <Marker
-            coordinate={currentDriverLocation}
-            title="You"
-            anchor={{ x: 0.5, y: 0.5 }}
-          >
+          <Marker coordinate={currentDriverLocation} title="You" anchor={{ x: 0.5, y: 0.5 }}>
             <View style={styles.driverMarker}>
               <Image
                 source={require('../../assets/curr-location.png')}
@@ -286,20 +285,14 @@ export default function DriverMapScreen({ navigation }) {
           </Marker>
         )}
 
-        {/* Destination marker — pin for pickup, flag for drop-off */}
+        {/* Destination marker */}
         {destination && (
-          <Marker
-            coordinate={destination}
-            title={getDestinationLabel()}
-            description={destination.address}
-          >
+          <Marker coordinate={destination} title={destination.address}>
             {isHeadingToPickup ? (
-              // Pickup: green-ringed circle with a navigation icon
               <View style={styles.pickupMarker}>
                 <Ionicons name="navigate" size={16} color="#facc15" />
               </View>
             ) : (
-              // Drop-off: yellow-ringed circle with a flag icon
               <View style={styles.dropoffMarker}>
                 <MaterialIcons name="flag" size={18} color="#facc15" />
               </View>
@@ -308,7 +301,7 @@ export default function DriverMapScreen({ navigation }) {
         )}
       </MapView>
 
-      {/* Loading overlay — outside MapView to avoid Fabric/JSI crash */}
+      {/* Loading overlay */}
       {(locating || loadingRoute) && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="small" color="#facc15" />
@@ -318,7 +311,7 @@ export default function DriverMapScreen({ navigation }) {
         </View>
       )}
 
-      {/* Top navigation bar */}
+      {/* Top bar */}
       <View style={styles.topBar}>
         <TouchableOpacity style={styles.iconContainer} onPress={() => navigation.goBack()}>
           <Feather name="arrow-left" size={24} color="white" />
@@ -332,6 +325,36 @@ export default function DriverMapScreen({ navigation }) {
       <Animated.View style={[styles.bottomPanel, { transform: [{ translateY: slideAnim }] }]}>
         <View style={styles.dragHandle} />
 
+        {/* ── Rider info ── */}
+        <View style={styles.riderRow}>
+          {riderPhoto ? (
+            <Image source={{ uri: riderPhoto }} style={styles.riderPhoto} />
+          ) : (
+            <View style={styles.riderPhotoPlaceholder}>
+              <Feather name="user" size={22} color="#aaa" />
+            </View>
+          )}
+
+          <View style={styles.riderInfo}>
+            <Text style={styles.riderName}>{riderName}</Text>
+            <View style={styles.dropoffRow}>
+              <MaterialIcons name="flag" size={13} color="#facc15" style={{ marginRight: 4 }} />
+              <Text style={styles.riderDropoff} numberOfLines={1}>
+                {dropoffAddress}
+              </Text>
+            </View>
+          </View>
+
+          {riderPhone && (
+            <TouchableOpacity onPress={handleCall} style={styles.callButton} activeOpacity={0.8}>
+              <Feather name="phone-call" size={18} color="#1c1c1c" />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <View style={styles.divider} />
+
+        {/* ── Distance / ETA ── */}
         <View style={styles.infoRow}>
           <View style={styles.infoBox}>
             <Text style={styles.infoLabel}>Distance</Text>
@@ -339,7 +362,7 @@ export default function DriverMapScreen({ navigation }) {
               {routeDistance != null ? `${routeDistance.toFixed(1)} km` : '—'}
             </Text>
           </View>
-          <View style={styles.separator} />
+          <View style={styles.infoSeparator} />
           <View style={styles.infoBox}>
             <Text style={styles.infoLabel}>ETA</Text>
             <Text style={styles.infoValue}>
@@ -348,18 +371,19 @@ export default function DriverMapScreen({ navigation }) {
           </View>
         </View>
 
+        {/* ── Active destination strip ── */}
         <View style={styles.destinationDisplay}>
           {isHeadingToPickup ? (
-            <Ionicons name="navigate" size={18} color="#facc15" style={{ marginRight: 10 }} />
-          ) : (
-            <MaterialIcons name="flag" size={18} color="#facc15" style={{ marginRight: 10 }} />
-          )}
-          <View style={{ flex: 1 }}>
-            <Text style={styles.destinationTitle}>{getDestinationLabel()}</Text>
-            <Text style={styles.destinationAddress} numberOfLines={2}>
-              {destination?.address || 'Loading...'}
+            <Text style={{ color: '#facc15', fontWeight: '600', marginRight: 6, textTransform: 'uppercase', fontSize: 12, textAlign: 'center' }}>
+              Pickup:
+              <Ionicons name="navigate" size={16} color="#facc15" style={{ marginRight: 10 }} />
             </Text>
-          </View>
+          ) : (
+            <MaterialIcons name="flag" size={16} color="#facc15" style={{ marginRight: 10 }} />
+          )}
+          <Text style={styles.destinationAddress} numberOfLines={2}>
+            {destination?.address || 'Loading...'}
+          </Text>
         </View>
       </Animated.View>
 
@@ -406,7 +430,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 6,
   },
-  // Matches RideMapView pickupMarker style, adapted to dark theme
   pickupMarker: {
     width: 32,
     height: 32,
@@ -422,7 +445,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
   },
-  // Matches RideMapView dropoffMarker style, adapted to dark theme
   dropoffMarker: {
     width: 32,
     height: 32,
@@ -476,8 +498,6 @@ const styles = StyleSheet.create({
     borderRadius: 50,
   },
   statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: '#facc15',
     paddingHorizontal: 15,
     paddingVertical: 8,
@@ -496,13 +516,12 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: height * 0.3,
     backgroundColor: '#1c1c1c',
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
-    paddingHorizontal: 25,
+    paddingHorizontal: 20,
     paddingTop: 10,
-    paddingBottom: 25,
+    paddingBottom: 30,
   },
   dragHandle: {
     width: 40,
@@ -510,54 +529,122 @@ const styles = StyleSheet.create({
     backgroundColor: '#333',
     borderRadius: 2,
     alignSelf: 'center',
-    marginBottom: 10,
+    marginBottom: 16,
   },
+
+  // ── Rider row ──────────────────────────────────────────────────────────────
+
+  riderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  riderPhoto: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: '#facc15',
+  },
+  riderPhotoPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#2b2b2b',
+    borderWidth: 2,
+    borderColor: '#333',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  riderInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  riderName: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  dropoffRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  riderDropoff: {
+    color: '#aaa',
+    fontSize: 12,
+    flex: 1,
+  },
+  callButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#facc15',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 10,
+    shadowColor: '#facc15',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+
+  // ── Divider ────────────────────────────────────────────────────────────────
+
+  divider: {
+    height: 1,
+    backgroundColor: '#2b2b2b',
+    marginBottom: 16,
+  },
+
+  // ── Info row ───────────────────────────────────────────────────────────────
+
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
     backgroundColor: '#2b2b2b',
     borderRadius: 15,
-    paddingVertical: 15,
-    marginBottom: 15,
+    paddingVertical: 14,
+    marginBottom: 14,
   },
   infoBox: {
     alignItems: 'center',
     flex: 1,
   },
   infoLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#aaa',
     fontWeight: '500',
     marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   infoValue: {
     fontSize: 20,
     color: 'white',
     fontWeight: 'bold',
   },
-  separator: {
+  infoSeparator: {
     width: 1,
-    height: '100%',
-    backgroundColor: '#333',
+    height: 36,
+    backgroundColor: '#3a3a3a',
   },
+
+  // ── Destination strip ──────────────────────────────────────────────────────
+
   destinationDisplay: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 15,
-    padding: 15,
+    padding: 13,
     backgroundColor: '#2b2b2b',
     borderRadius: 10,
   },
-  destinationTitle: {
-    fontSize: 12,
-    color: '#aaa',
-    fontWeight: '500',
-    marginBottom: 4,
-  },
   destinationAddress: {
-    fontSize: 15,
-    color: 'white',
-    fontWeight: '600',
+    flex: 1,
+    fontSize: 14,
+    color: '#ddd',
+    fontWeight: '500',
   },
 });

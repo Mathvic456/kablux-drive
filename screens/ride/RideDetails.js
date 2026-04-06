@@ -1,4 +1,4 @@
-import Reac, {useState} from "react";
+import Reac, { useState } from "react";
 import { View, Text, ImageBackground, StyleSheet, TouchableOpacity, Image } from "react-native";
 import { Ionicons, MaterialIcons, Entypo } from "@expo/vector-icons";
 import mapImage from "../../assets/map.png"; // rename your file if needed
@@ -7,14 +7,14 @@ import RideCompletedModal from '../../components/RideCompletedModal'
 
 export default function RideDetails() {
 
-  
-    const [showModal, setShowModal] = useState(false);
 
-  const navigation=useNavigation();
+  const [showModal, setShowModal] = useState(false);
+
+  const navigation = useNavigation();
 
   const goBack = () => {
-        navigation.goBack();
-    }
+    navigation.goBack();
+  }
 
   return (
     <View style={styles.container}>
@@ -23,9 +23,9 @@ export default function RideDetails() {
 
       {/* Overlay Bottom Sheet */}
       <View style={styles.bottomSheet}>
-        <View style={{flexDirection:'row',gap:20,alignItems: 'center',}}>
+        <View style={{ flexDirection: 'row', gap: 20, alignItems: 'center', }}>
           <TouchableOpacity onPress={goBack}>
-                              <Ionicons name="arrow-back-circle" size={32} color="white" />
+            <Ionicons name="arrow-back-circle" size={32} color="white" />
           </TouchableOpacity>
           <Text style={styles.title}>Ride Details</Text>
         </View>
@@ -74,7 +74,7 @@ export default function RideDetails() {
           <Text style={styles.sosText}>SOS</Text>
         </TouchableOpacity>
 
-              <RideCompletedModal visible={showModal} onClose={() => setShowModal(false)} />
+        <RideCompletedModal visible={showModal} onClose={() => setShowModal(false)} />
 
       </View>
     </View>

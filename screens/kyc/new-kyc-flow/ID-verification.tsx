@@ -175,15 +175,20 @@ export default function IDVerification() {
                             </Text>
 
                             {(selfieUri || kycData?.steps?.profile_completed) && !isProcessing && (
-                                <TouchableOpacity
-                                    onPress={handleTakeSelfie}
-                                    style={styles.retakeBtn}
-                                    activeOpacity={0.7}
-                                    disabled
+                                <View
+                                    style={styles.tick}
                                 >
                                     <Ionicons name="checkmark-done" size={20} color="#4CAF50" />
-                                </TouchableOpacity>
+                                    <TouchableOpacity
+                                        onPress={handleTakeSelfie}
+                                        style={styles.retakeBtn}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text style={styles.retakeText}>Retake</Text>
+                                    </TouchableOpacity>
+                                </View>
                             )}
+
                         </View>
                     </TouchableOpacity>
 
@@ -200,7 +205,7 @@ export default function IDVerification() {
                             {(kycData?.steps?.vehicle_added && kycData?.steps?.vehicle_images_completed) && (
                                 <TouchableOpacity
                                     onPress={handleTakeSelfie}
-                                    style={styles.retakeBtn}
+                                    style={styles.tick}
                                     activeOpacity={0.7}
                                     disabled
                                 >
@@ -210,7 +215,7 @@ export default function IDVerification() {
                         </View>
                     </TouchableOpacity>
 
-                    <TouchableOpacity
+                    {/* <TouchableOpacity
                         onPress={() => navigation.navigate("BankDetails" as never)}
                         activeOpacity={0.75}
                     >
@@ -220,27 +225,28 @@ export default function IDVerification() {
                                 Bank Details
                             </Text>
                         </View>
-                    </TouchableOpacity>
-                    {/* <TouchableOpacity
+                    </TouchableOpacity> */}
+                    <TouchableOpacity
                         onPress={() => navigation.navigate("BankDetails" as never)}
                         activeOpacity={0.75}
                     >
-                        <View style={[styles.actionRow, (kycData?.steps?.profile_completed) ? styles.actionRowCompleted : null]}>
+                        <View style={[styles.actionRow, (kycData?.steps?.transfer_recipient_completed) ? styles.actionRowCompleted : null]}>
                             <Ionicons name="card" size={18} color="#fff" />
                             <Text style={[styles.actionLabel, { fontSize: scaleFont(16) }]}>
                                 Bank Details
                             </Text>
-                            {kycData?.steps?.profile_completed && (
+                            {kycData?.steps?.transfer_recipient_completed && (
                                 <TouchableOpacity
-                                    onPress={handleTakeSelfie}
-                                    style={styles.retakeBtn}
+                                    // onPress={handleTakeSelfie}
+                                    style={styles.tick}
                                     activeOpacity={0.7}
+                                    disabled
                                 >
                                     <Ionicons name="checkmark-done" size={20} color="#4CAF50" />
                                 </TouchableOpacity>
                             )}
                         </View>
-                    </TouchableOpacity> */}
+                    </TouchableOpacity>
 
                 </View>
             </View>
@@ -329,11 +335,32 @@ const styles = StyleSheet.create({
         borderColor: "#4CAF50",
     },
     retakeBtn: {
+        // position: "absolute",
+        // right: 16,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: "#555",
+    },
+    // tick: {
+    //     position: "absolute",
+    //     right: 16,
+    //     paddingHorizontal: 8,
+    //     paddingVertical: 4,
+    //     borderRadius: 6,
+    //     borderWidth: 1,
+    //     borderColor: "#555",
+    // },
+    tick: {
         position: "absolute",
         right: 16,
         paddingHorizontal: 8,
         paddingVertical: 4,
         borderRadius: 6,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 5,
         // borderWidth: 1,
         // borderColor: "#555",
     },

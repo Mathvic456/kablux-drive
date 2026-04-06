@@ -28,7 +28,6 @@ export default function PersonalInfo() {
   const navigation = useNavigation();
   const editProfile = useEditProfile();
   const goBack = () => { navigation.goBack(); };
-  console.log('user ere', user)
 
   const [editingField, setEditingField] = useState(null);
   const [editValue, setEditValue] = useState("");
@@ -59,7 +58,7 @@ export default function PersonalInfo() {
     if (trimmed === original || trimmed === "") return;
 
     editProfile.mutate(
-      { id: user.id, [field]: trimmed },  // ✅ single variables object
+      { id: user.id, [field]: trimmed },
       {
         onError: (error) => {
           const message =
@@ -72,7 +71,8 @@ export default function PersonalInfo() {
     );
   }, [editValue, user, editProfile]);
 
-  const InfoRow = ({ icon, field, value, editable }) => {
+  // keyboardType prop added so phone gets numeric pad, email gets email keyboard
+  const InfoRow = ({ icon, field, value, editable, keyboardType = "default" }) => {
     const isEditing = editingField === field;
 
     return (
@@ -88,6 +88,9 @@ export default function PersonalInfo() {
               onBlur={() => handleSubmit(field)}
               autoFocus
               returnKeyType="done"
+              keyboardType={keyboardType}
+              autoCapitalize={keyboardType === "email-address" ? "none" : "sentences"}
+              autoCorrect={keyboardType !== "email-address"}
               onSubmitEditing={() => handleSubmit(field)}
             />
           ) : (
@@ -125,8 +128,9 @@ export default function PersonalInfo() {
         <View style={styles.card}>
           <InfoRow icon="person" field="first_name" value={user?.first_name} editable />
           <InfoRow icon="person" field="last_name" value={user?.last_name} editable />
-          <InfoRow icon="mail" field="email" value={user?.email} />
-          <InfoRow icon="call" field="phone_number" value={user?.phone_number} />
+          {/* ✅ email and phone_number now have editable + correct keyboard types */}
+          <InfoRow icon="mail" field="email" value={user?.email} editable keyboardType="email-address" />
+          <InfoRow icon="call" field="phone_number" value={user?.phone_number} editable keyboardType="phone-pad" />
           <InfoRow icon="location" field="address" value={user?.address} />
         </View>
 
