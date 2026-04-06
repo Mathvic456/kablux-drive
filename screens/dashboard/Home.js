@@ -263,6 +263,7 @@ export default function Home() {
     if (!isLoading && kycData?.kyc_status === "PENDING") {
       setUploadModalVisible(true);
     }
+    return () => { setUploadModalVisible(false); };
   }, [isLoading, kycData]);
 
   useEffect(() => {

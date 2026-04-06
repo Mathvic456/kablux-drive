@@ -6,6 +6,7 @@ export interface KYCSteps {
   profile_completed: boolean;
   vehicle_added: boolean;
   vehicle_images_completed: boolean;
+  transfer_recipient_completed: boolean;
 }
 
 export interface KYCStatusResponse {
@@ -14,6 +15,7 @@ export interface KYCStatusResponse {
   progress_percent: number;
   steps: KYCSteps;
   total_steps: number;
+  vehicle_id?: string | null;
 }
 
 export const useDriverKycStatus = () => {

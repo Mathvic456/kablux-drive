@@ -26,13 +26,13 @@ const HomeHeader = ({ profile, notificationCount, onMenuPress }) => {
         onPress={onMenuPress}
       >
         <MaterialCommunityIcons name="menu" size={24} color="white" />
-        {notificationCount > 0 && (
+        {/* {notificationCount > 0 && (
           <View style={styles.notificationBadge}>
             <Text style={styles.notificationBadgeText}>
               {notificationCount}
             </Text>
           </View>
-        )}
+        )} */}
       </TouchableOpacity>
     </View>
   );
