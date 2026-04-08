@@ -1,11 +1,13 @@
 import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import {
     Alert,
+    Modal,
     StatusBar,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
+    TouchableWithoutFeedback,
     View,
     Platform,
     ScrollView,
@@ -19,16 +21,26 @@ import { useState, useCallback, useMemo } from "react";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { useUploadFile } from "../../../services/fileUpload.service";
-import { useUpdateProfile } from "../../../services/profile.service";
 import { useSubmitKycDocument } from "../../../services/useSubmitKyc.service";
 import { useCreateVehicle } from "../../../services/createVehicle.service";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// FIX: Removed module-level Dimensions.get() — causes stale-value flicker.
-// scaleFont/scaleSize now use useWindowDimensions() inside the component.
+// ─── Sanitizers ───────────────────────────────────────────────────────────────
+// Allows letters, numbers, spaces only
+const stripSpecial = (text: string) => text.replace(/[^a-zA-Z0-9 ]/g, "");
+// Plate: letters, numbers, hyphens only (common plate format)
+const stripSpecialPlate = (text: string) => text.replace(/[^a-zA-Z0-9-]/g, "");
+// Year: digits only
+const stripSpecialYear = (text: string) => text.replace(/[^0-9]/g, "");
 
 // ─── File Picker Row ──────────────────────────────────────────────────────────
-const FilePicker = ({ icon, placeholder, value, onPress, error, loading }) => (
+const FilePicker = ({ icon, placeholder, value, onPress, error, loading }: {
+    icon: string;
+    placeholder: string;
+    value?: string;
+    onPress: () => void;
+    error?: string;
+    loading?: boolean;
+}) => (
     <View style={{ marginTop: 10 }}>
         <TouchableOpacity
             style={[
@@ -42,11 +54,7 @@ const FilePicker = ({ icon, placeholder, value, onPress, error, loading }) => (
             disabled={loading}
         >
             {loading ? (
-                <ActivityIndicator
-                    size="small"
-                    color="#fcbf24"
-                    style={styles.inputIcon}
-                />
+                <ActivityIndicator size="small" color="#fcbf24" style={styles.inputIcon} />
             ) : (
                 <Feather
                     name={icon}
@@ -56,10 +64,7 @@ const FilePicker = ({ icon, placeholder, value, onPress, error, loading }) => (
                 />
             )}
             <Text
-                style={[
-                    styles.filePickerText,
-                    value && styles.filePickerTextFilled,
-                ]}
+                style={[styles.filePickerText, value && styles.filePickerTextFilled]}
                 numberOfLines={1}
             >
                 {loading ? "Uploading…" : value || placeholder}
@@ -90,26 +95,20 @@ export default function CarDetails() {
         [width]
     );
 
-    // Memoize dynamic margins to prevent layout flicker
-    const inputMarginTop = useMemo(
-        () => Math.max(10, height * 0.012),
-        [height]
-    );
-    const submitMarginTop = useMemo(
-        () => Math.max(24, height * 0.03),
-        [height]
-    );
+    const inputMarginTop = useMemo(() => Math.max(10, height * 0.012), [height]);
+    const submitMarginTop = useMemo(() => Math.max(24, height * 0.03), [height]);
 
     const [plateNumber, setPlateNumber] = useState("");
     const [carModel, setCarModel] = useState("");
     const [year, setYear] = useState("");
-    const [carDocument, setCarDocument] = useState<{ id: string, name: string } | null>(null);
-    const [driversLicense, setDriversLicense] = useState<{ id: string, name: string } | null>(null);
+    const [carDocument, setCarDocument] = useState<{ id: string; name: string } | null>(null);
+    const [driversLicense, setDriversLicense] = useState<{ id: string; name: string } | null>(null);
     const [carColor, setCarColor] = useState("");
 
-    // Independent loading states per field so spinners are scoped correctly
     const [isUploadingDocument, setIsUploadingDocument] = useState(false);
     const [isUploadingLicense, setIsUploadingLicense] = useState(false);
+    const [showLicensePickerModal, setShowLicensePickerModal] = useState(false);
+    const [showDocumentPickerModal, setShowDocumentPickerModal] = useState(false);
 
     const [errors, setErrors] = useState({
         plateNumber: "",
@@ -167,8 +166,41 @@ export default function CarDetails() {
         return valid;
     };
 
-    // ── Pick car document (DocumentPicker — kept as-is) then upload ───────────
-    const pickDocument = useCallback(async () => {
+    // ── Shared document upload helper ─────────────────────────────────────────
+    const handleDocumentUpload = useCallback(
+        async (uri: string, mimeType: string, fileName: string) => {
+            setErrors((e) => ({ ...e, carDocument: "" }));
+            setCarDocument({ id: "", name: fileName });
+            setIsUploadingDocument(true);
+            try {
+                const formData = new FormData();
+                formData.append("files", {
+                    uri,
+                    type: mimeType || "application/octet-stream",
+                    name: fileName,
+                } as any);
+                formData.append("name", "car_document");
+
+                const uploadRes = await uploadFile(formData);
+                const fileId = uploadRes.data?.results?.[0]?.id;
+                console.log("CAR DOCUMENT UPLOADED", uploadRes, fileId);
+
+                if (!fileId) throw new Error("Upload succeeded but no file ID returned");
+                setCarDocument({ id: fileId, name: fileName });
+            } catch (error) {
+                console.error("Car document upload failed:", error);
+                setCarDocument(null);
+                Alert.alert("Upload Failed", "Failed to upload the car document. Please try again.");
+            } finally {
+                setIsUploadingDocument(false);
+            }
+        },
+        [uploadFile]
+    );
+
+    // ── Pick car document from file system ────────────────────────────────────
+    const pickDocumentFromFiles = useCallback(async () => {
+        setShowDocumentPickerModal(false);
         try {
             const result = await DocumentPicker.getDocumentAsync({
                 type: ["application/pdf", "image/*"],
@@ -178,48 +210,43 @@ export default function CarDetails() {
             if (result.canceled || !result.assets?.length) return;
 
             const asset = result.assets[0];
-
-            // Show filename immediately as optimistic feedback
-            setCarDocument((prev) => ({ ...prev, name: asset.name }));
-            setErrors((e) => ({ ...e, carDocument: "" }));
-            setIsUploadingDocument(true);
-
-            try {
-                const formData = new FormData();
-                formData.append("files", {
-                    uri: asset.uri,
-                    type: asset.mimeType || "application/octet-stream",
-                    name: asset.name,
-                } as any);
-                formData.append("name", "car_document");
-
-                const uploadRes = await uploadFile(formData);
-                const fileId = uploadRes.data?.results?.[0]?.id;
-                console.log("CAR DOCUMENT UPLOADED", uploadRes, fileId);
-
-                if (!fileId) throw new Error("Upload succeeded but no file ID returned");
-                setCarDocument((prev) => ({ ...prev, id: fileId }));
-
-
-            } catch (error) {
-                console.error("Car document upload failed:", error);
-                // Clear optimistic value so user knows it didn't go through
-                setCarDocument(null);
-                Alert.alert(
-                    "Upload Failed",
-                    "Failed to upload the car document. Please try again."
-                );
-            } finally {
-                setIsUploadingDocument(false);
-            }
+            await handleDocumentUpload(asset.uri, asset.mimeType || "application/octet-stream", asset.name);
         } catch (err) {
             console.error("Document pick error:", err);
             setIsUploadingDocument(false);
         }
-    }, [uploadFile]);
+    }, [handleDocumentUpload]);
 
-    // ── Pick license photo (ImagePicker gallery — kept as-is) then upload ─────
-    const pickLicensePhoto = useCallback(async () => {
+    // ── Pick car document from camera ─────────────────────────────────────────
+    const pickDocumentFromCamera = useCallback(async () => {
+        setShowDocumentPickerModal(false);
+        try {
+            const { status } = await ImagePicker.requestCameraPermissionsAsync();
+            if (status !== "granted") {
+                Alert.alert("Permission Required", "Camera permission is required.");
+                return;
+            }
+
+            const result = await ImagePicker.launchCameraAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                quality: 0.8,
+            });
+
+            if (result.canceled || !result.assets?.length) return;
+
+            const asset = result.assets[0];
+            const fileName = asset.fileName || asset.uri.split("/").pop() || "car_document.jpg";
+            await handleDocumentUpload(asset.uri, "image/jpeg", fileName);
+        } catch (err) {
+            console.error("Camera error:", err);
+            setIsUploadingDocument(false);
+        }
+    }, [handleDocumentUpload]);
+
+    // ── Pick car document from gallery ────────────────────────────────────────
+    const pickDocumentFromGallery = useCallback(async () => {
+        setShowDocumentPickerModal(false);
         try {
             const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
             if (status !== "granted") {
@@ -236,17 +263,23 @@ export default function CarDetails() {
             if (result.canceled || !result.assets?.length) return;
 
             const asset = result.assets[0];
-            const fileName = asset.fileName || asset.uri.split("/").pop() || "license.jpg";
+            const fileName = asset.fileName || asset.uri.split("/").pop() || "car_document.jpg";
+            await handleDocumentUpload(asset.uri, "image/jpeg", fileName);
+        } catch (err) {
+            console.error("Image pick error:", err);
+            setIsUploadingDocument(false);
+        }
+    }, [handleDocumentUpload]);
 
-            // Show filename immediately as optimistic feedback
-            setDriversLicense((prev) => ({ ...prev, name: fileName }));
+    // ── Shared upload helper for license ─────────────────────────────────────
+    const handleLicenseUpload = useCallback(
+        async (uri: string, fileName: string) => {
             setErrors((e) => ({ ...e, driversLicense: "" }));
             setIsUploadingLicense(true);
-
             try {
                 const formData = new FormData();
                 formData.append("files", {
-                    uri: asset.uri,
+                    uri,
                     type: "image/jpeg",
                     name: fileName,
                 } as any);
@@ -257,28 +290,77 @@ export default function CarDetails() {
                 console.log("LICENSE UPLOADED", uploadRes, fileId);
 
                 if (!fileId) throw new Error("Upload succeeded but no file ID returned");
-
-                setDriversLicense((prev) => ({ ...prev, id: fileId }));
+                setDriversLicense({ id: fileId, name: fileName });
             } catch (error) {
                 console.error("License upload failed:", error);
-                // Clear optimistic value so user knows it didn't go through
                 setDriversLicense(null);
-                Alert.alert(
-                    "Upload Failed",
-                    "Failed to upload the license photo. Please try again."
-                );
+                Alert.alert("Upload Failed", "Failed to upload the license photo. Please try again.");
             } finally {
                 setIsUploadingLicense(false);
             }
+        },
+        [uploadFile]
+    );
+
+    // ── Pick license from gallery ─────────────────────────────────────────────
+    const pickLicenseFromGallery = useCallback(async () => {
+        setShowLicensePickerModal(false);
+        try {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== "granted") {
+                Alert.alert("Permission Required", "Permission to access photos is required.");
+                return;
+            }
+
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                quality: 0.8,
+                aspect: [9, 16],
+            });
+
+            if (result.canceled || !result.assets?.length) return;
+
+            const asset = result.assets[0];
+            const fileName = asset.fileName || asset.uri.split("/").pop() || "license.jpg";
+            setDriversLicense((prev) => ({ id: prev?.id || "", name: fileName }));
+            await handleLicenseUpload(asset.uri, fileName);
         } catch (err) {
             console.error("Image pick error:", err);
             setIsUploadingLicense(false);
         }
-    }, [uploadFile]);
+    }, [handleLicenseUpload]);
+
+    // ── Pick license from camera ──────────────────────────────────────────────
+    const pickLicenseFromCamera = useCallback(async () => {
+        setShowLicensePickerModal(false);
+        try {
+            const { status } = await ImagePicker.requestCameraPermissionsAsync();
+            if (status !== "granted") {
+                Alert.alert("Permission Required", "Camera permission is required.");
+                return;
+            }
+
+            const result = await ImagePicker.launchCameraAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                quality: 0.8,
+            });
+
+            if (result.canceled || !result.assets?.length) return;
+
+            const asset = result.assets[0];
+            const fileName = asset.fileName || asset.uri.split("/").pop() || "license.jpg";
+            setDriversLicense((prev) => ({ id: prev?.id || "", name: fileName }));
+            await handleLicenseUpload(asset.uri, fileName);
+        } catch (err) {
+            console.error("Camera error:", err);
+            setIsUploadingLicense(false);
+        }
+    }, [handleLicenseUpload]);
 
     const handleSubmit = async () => {
         if (!validateForm()) return;
-        console.log({ plateNumber, carModel, year, carDocument: carDocument?.id, driversLicense: driversLicense?.id, carColor });
 
         try {
             await createVehicle({
@@ -287,7 +369,6 @@ export default function CarDetails() {
                 year: parseInt(year, 10),
                 color: carColor,
             });
-            // await AsyncStorage.setItem("vehicle_id", id);
 
             await submitKycDocument({
                 doc_type: "POLICE_CLEARANCE",
@@ -299,20 +380,86 @@ export default function CarDetails() {
                 file: driversLicense?.id || "",
             });
 
-
             navigation.navigate("AddPhotos" as never);
-
         } catch (error) {
             Alert.alert(
                 "Submission Failed",
                 "An error occurred while submitting your car details. Please try again."
             );
-            // navigation.navigate("AddPhotos" as never);
-
             console.error("Error submitting car details:", error);
         }
-
     };
+
+    // ── Reusable picker sheet ─────────────────────────────────────────────────
+    const PickerSheet = ({
+        visible,
+        onClose,
+        title,
+        onCamera,
+        onGallery,
+        onFiles,
+    }: {
+        visible: boolean;
+        onClose: () => void;
+        title: string;
+        onCamera: () => void;
+        onGallery: () => void;
+        onFiles?: () => void;
+    }) => (
+        <Modal
+            visible={visible}
+            transparent
+            animationType="slide"
+            onRequestClose={onClose}
+        >
+            <TouchableWithoutFeedback onPress={onClose}>
+                <View style={styles.pickerOverlay}>
+                    <TouchableWithoutFeedback>
+                        <View style={styles.pickerSheet}>
+                            <View style={styles.pickerHandle} />
+                            <Text style={styles.pickerTitle}>{title}</Text>
+
+                            <TouchableOpacity style={styles.pickerOption} onPress={onCamera}>
+                                <View style={styles.pickerIconWrap}>
+                                    <Ionicons name="camera" size={22} color="#fcbf24" />
+                                </View>
+                                <View>
+                                    <Text style={styles.pickerOptionText}>Take a Photo</Text>
+                                    <Text style={styles.pickerOptionSub}>Use your camera</Text>
+                                </View>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity style={styles.pickerOption} onPress={onGallery}>
+                                <View style={styles.pickerIconWrap}>
+                                    <Ionicons name="images" size={22} color="#fcbf24" />
+                                </View>
+                                <View>
+                                    <Text style={styles.pickerOptionText}>Choose from Gallery</Text>
+                                    <Text style={styles.pickerOptionSub}>Pick an existing photo</Text>
+                                </View>
+                            </TouchableOpacity>
+
+                            {onFiles && (
+                                <TouchableOpacity style={styles.pickerOption} onPress={onFiles}>
+                                    <View style={styles.pickerIconWrap}>
+                                        <Ionicons name="document-outline" size={22} color="#fcbf24" />
+                                    </View>
+                                    <View>
+                                        <Text style={styles.pickerOptionText}>Browse Files</Text>
+                                        <Text style={styles.pickerOptionSub}>Pick a PDF or document</Text>
+                                    </View>
+                                </TouchableOpacity>
+                            )}
+
+                            <TouchableOpacity style={styles.pickerCancel} onPress={onClose}>
+                                <Text style={styles.pickerCancelText}>Cancel</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </TouchableWithoutFeedback>
+                </View>
+            </TouchableWithoutFeedback>
+        </Modal>
+    );
 
     return (
         <SafeAreaView style={styles.mainContainer}>
@@ -368,7 +515,7 @@ export default function CarDetails() {
                                 placeholderTextColor="#aaa"
                                 value={plateNumber}
                                 onChangeText={(t) => {
-                                    setPlateNumber(t.toUpperCase());
+                                    setPlateNumber(stripSpecialPlate(t).toUpperCase());
                                     setErrors((e) => ({ ...e, plateNumber: "" }));
                                 }}
                                 autoCapitalize="characters"
@@ -397,7 +544,7 @@ export default function CarDetails() {
                                         placeholderTextColor="#aaa"
                                         value={carModel}
                                         onChangeText={(t) => {
-                                            setCarModel(t);
+                                            setCarModel(stripSpecial(t));
                                             setErrors((e) => ({ ...e, carModel: "" }));
                                         }}
                                         returnKeyType="next"
@@ -424,7 +571,7 @@ export default function CarDetails() {
                                         placeholderTextColor="#aaa"
                                         value={year}
                                         onChangeText={(t) => {
-                                            setYear(t);
+                                            setYear(stripSpecialYear(t));
                                             setErrors((e) => ({ ...e, year: "" }));
                                         }}
                                         keyboardType="number-pad"
@@ -440,22 +587,22 @@ export default function CarDetails() {
                             </View>
                         </View>
 
-                        {/* Car Document — DocumentPicker, now with upload */}
+                        {/* Car Document — opens bottom sheet with 3 options */}
                         <FilePicker
                             icon="file-text"
                             placeholder="Car Document (PDF / Image)"
                             value={carDocument?.name}
-                            onPress={pickDocument}
+                            onPress={() => setShowDocumentPickerModal(true)}
                             error={errors.carDocument}
                             loading={isUploadingDocument}
                         />
 
-                        {/* Driver's License — ImagePicker gallery, now with upload */}
+                        {/* Driver's License — opens bottom sheet */}
                         <FilePicker
                             icon="camera"
                             placeholder="Driver's License (Photo)"
                             value={driversLicense?.name}
-                            onPress={pickLicensePhoto}
+                            onPress={() => setShowLicensePickerModal(true)}
                             error={errors.driversLicense}
                             loading={isUploadingLicense}
                         />
@@ -474,7 +621,7 @@ export default function CarDetails() {
                                 placeholderTextColor="#aaa"
                                 value={carColor}
                                 onChangeText={(t) => {
-                                    setCarColor(t);
+                                    setCarColor(stripSpecial(t));
                                     setErrors((e) => ({ ...e, carColor: "" }));
                                 }}
                                 autoCapitalize="words"
@@ -505,15 +652,31 @@ export default function CarDetails() {
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
+
+            {/* Car Document Picker Modal — camera + gallery + files */}
+            <PickerSheet
+                visible={showDocumentPickerModal}
+                onClose={() => setShowDocumentPickerModal(false)}
+                title="Upload Car Document"
+                onCamera={pickDocumentFromCamera}
+                onGallery={pickDocumentFromGallery}
+                onFiles={pickDocumentFromFiles}
+            />
+
+            {/* License Image Source Picker Modal — camera + gallery */}
+            <PickerSheet
+                visible={showLicensePickerModal}
+                onClose={() => setShowLicensePickerModal(false)}
+                title="Upload Driver's License"
+                onCamera={pickLicenseFromCamera}
+                onGallery={pickLicenseFromGallery}
+            />
         </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
-    mainContainer: {
-        flex: 1,
-        backgroundColor: "#000",
-    },
+    mainContainer: { flex: 1, backgroundColor: "#000" },
     header: {
         flexDirection: "row",
         alignItems: "center",
@@ -521,15 +684,8 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         marginVertical: 16,
     },
-    backBtn: {
-        padding: 3,
-        borderRadius: 100,
-        backgroundColor: "#fff",
-    },
-    scrollContent: {
-        flexGrow: 1,
-        paddingBottom: Platform.OS === "ios" ? 40 : 24,
-    },
+    backBtn: { padding: 3, borderRadius: 100, backgroundColor: "#fff" },
+    scrollContent: { flexGrow: 1, paddingBottom: Platform.OS === "ios" ? 40 : 24 },
     container: {
         flex: 1,
         backgroundColor: "#000",
@@ -537,17 +693,8 @@ const styles = StyleSheet.create({
         padding: 20,
         marginHorizontal: 20,
     },
-    titleBlock: {
-        alignItems: "center",
-        gap: 10,
-        marginBottom: 6,
-    },
-    title: {
-        color: "#fff",
-        fontFamily: "Poppins-Bold",
-        fontWeight: "700",
-        letterSpacing: 0,
-    },
+    titleBlock: { alignItems: "center", gap: 10, marginBottom: 6 },
+    title: { color: "#fff", fontFamily: "Poppins-Bold", fontWeight: "700", letterSpacing: 0 },
     subtitle: {
         color: "#ccc",
         fontFamily: "Poppins-Regular",
@@ -555,11 +702,7 @@ const styles = StyleSheet.create({
         textAlign: "center",
         lineHeight: 20,
     },
-    row: {
-        flexDirection: "row",
-        gap: 10,
-        alignItems: "flex-start",
-    },
+    row: { flexDirection: "row", gap: 10, alignItems: "flex-start" },
     inputContainer: {
         flexDirection: "row",
         alignItems: "center",
@@ -570,9 +713,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: "#fff",
     },
-    inputIcon: {
-        marginRight: 8,
-    },
+    inputIcon: { marginRight: 8 },
     input: {
         flex: 1,
         color: "#fff",
@@ -580,16 +721,8 @@ const styles = StyleSheet.create({
         paddingHorizontal: 4,
         fontFamily: "Poppins-Regular",
     },
-    filePickerText: {
-        flex: 1,
-        color: "#aaa",
-        fontFamily: "Poppins-Regular",
-        fontSize: 14,
-    },
-    filePickerTextFilled: {
-        color: "#fff",
-        fontWeight: "600",
-    },
+    filePickerText: { flex: 1, color: "#aaa", fontFamily: "Poppins-Regular", fontSize: 14 },
+    filePickerTextFilled: { color: "#fff", fontWeight: "600" },
     errorText: {
         color: "#ff4444",
         marginBottom: 4,
@@ -606,12 +739,58 @@ const styles = StyleSheet.create({
         minHeight: 50,
         paddingVertical: 14,
     },
-    proceedBtnDisabled: {
-        opacity: 0.5,
+    proceedBtnDisabled: { opacity: 0.5 },
+    proceedText: { color: "#000", fontWeight: "bold", fontFamily: "Poppins-Bold" },
+    // Picker Sheet
+    pickerOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
+    pickerSheet: {
+        backgroundColor: "#1C1C1E",
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        paddingHorizontal: 20,
+        paddingBottom: 36,
+        paddingTop: 12,
     },
-    proceedText: {
-        color: "#000",
-        fontWeight: "bold",
+    pickerHandle: {
+        width: 40,
+        height: 4,
+        backgroundColor: "#444",
+        borderRadius: 2,
+        alignSelf: "center",
+        marginBottom: 16,
+    },
+    pickerTitle: {
+        color: "white",
+        fontSize: 16,
+        fontWeight: "700",
+        marginBottom: 20,
+        textAlign: "center",
         fontFamily: "Poppins-Bold",
     },
+    pickerOption: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingVertical: 14,
+        borderBottomWidth: 1,
+        borderBottomColor: "#2C2C2E",
+    },
+    pickerIconWrap: {
+        width: 44,
+        height: 44,
+        borderRadius: 12,
+        backgroundColor: "rgba(252,191,36,0.12)",
+        justifyContent: "center",
+        alignItems: "center",
+        marginRight: 14,
+    },
+    pickerOptionText: { color: "white", fontSize: 15, fontWeight: "600", fontFamily: "Poppins-Bold" },
+    pickerOptionSub: { color: "#888", fontSize: 13, marginTop: 2, fontFamily: "Poppins-Regular" },
+    pickerCancel: {
+        marginTop: 16,
+        backgroundColor: "#2C2C2E",
+        borderRadius: 12,
+        paddingVertical: 14,
+        alignItems: "center",
+    },
+    pickerCancelText: { color: "#ff4444", fontSize: 15, fontWeight: "600", fontFamily: "Poppins-Bold" },
 });

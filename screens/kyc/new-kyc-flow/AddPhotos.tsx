@@ -2,10 +2,12 @@ import { Ionicons } from "@expo/vector-icons";
 import {
     Alert,
     Image,
+    Modal,
     StatusBar,
     StyleSheet,
     Text,
     TouchableOpacity,
+    TouchableWithoutFeedback,
     View,
     Platform,
     ScrollView,
@@ -22,11 +24,10 @@ import { useCreateVehicle, useVehicleImages } from "../../../services/createVehi
 import CentralModal from "../../components/CentralModal";
 import { useDriverKycStatus } from "../../../services/checkKyc.service";
 
-// Photo slot definitions — id maps directly to the "type" field the API expects
 const PHOTO_SLOTS = [
     { id: "front", label: "Front View" },
     { id: "back", label: "Back View" },
-    { id: "left", label: "left View" },
+    { id: "left", label: "Left View" },
     { id: "interior", label: "Interior" },
 ];
 
@@ -36,10 +37,9 @@ export default function AddPhotos() {
     const { data: kycData, isLoading } = useDriverKycStatus();
 
     const [isSuccessModalVisible, setSuccessModalVisible] = useState(false);
-    console.log("vehiclllll", kycData)
+    const [activeSlot, setActiveSlot] = useState<string | null>(null);
+    const [showPickerModal, setShowPickerModal] = useState(false);
 
-    // FIX: scaleFont/scaleSize inleft component via useWindowDimensions
-    // instead of module-level Dimensions.get() which causes stale-value flicker
     const scaleFont = useCallback(
         (size: number) => Math.round(size * Math.min(width / 375, 1.3)),
         [width]
@@ -49,8 +49,6 @@ export default function AddPhotos() {
         [width]
     );
 
-    // uri: local preview uri — shown immediately after picking
-    // fileId: returned from uploadFile, used in the vehicle images API call
     const [photos, setPhotos] = useState<Record<string, { uri: string; fileId: string } | null>>({
         front: null,
         back: null,
@@ -58,7 +56,6 @@ export default function AddPhotos() {
         interior: null,
     });
 
-    // Per-slot loading state so each cell shows its own spinner independently
     const [uploading, setUploading] = useState<Record<string, boolean>>({
         front: false,
         back: false,
@@ -71,66 +68,17 @@ export default function AddPhotos() {
     const { mutateAsync: uploadFile } = useUploadFile();
     const { mutateAsync: postVehicleImage } = useVehicleImages();
 
-    const pickImage = useCallback(async (slotId: string) => {
-        try {
-            // Step 1: Gallery permission — kept as-is from original
-            const choice = await new Promise<"camera" | "gallery" | null>((resolve) => {
-                Alert.alert(
-                    "Add Photo",
-                    "Choose how you'd like to add a photo",
-                    [
-                        { text: "Take Photo", onPress: () => resolve("camera") },
-                        { text: "Choose from Library", onPress: () => resolve("gallery") },
-                        { text: "Cancel", style: "cancel", onPress: () => resolve(null) },
-                    ]
-                );
-            });
-
-            if (!choice) return;
-
-            let result: ImagePicker.ImagePickerResult;
-
-            if (choice === "camera") {
-                const { status } = await ImagePicker.requestCameraPermissionsAsync();
-                if (status !== "granted") {
-                    Alert.alert("Permission Required", "Permission to access the camera is required.");
-                    return;
-                }
-                result = await ImagePicker.launchCameraAsync({
-                    mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                    allowsEditing: true,
-                    aspect: [4, 3],
-                    quality: 0.8,
-                });
-            } else {
-                const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-                if (status !== "granted") {
-                    Alert.alert("Permission Required", "Permission to access photos is required.");
-                    return;
-                }
-                result = await ImagePicker.launchImageLibraryAsync({
-                    mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                    allowsEditing: true,
-                    aspect: [4, 3],
-                    quality: 0.8,
-                });
-            }
-
-            if (result.canceled || !result.assets?.length) return;
-
-            const asset = result.assets[0];
-            const fileName = asset.fileName || asset.uri.split("/").pop() || `${slotId}.jpg`;
-
-            // Step 3: Show preview immediately (optimistic)
-            setPhotos((prev) => ({ ...prev, [slotId]: { uri: asset.uri, fileId: "" } }));
+    // ── Shared upload helper ──────────────────────────────────────────────────
+    const handlePhotoUpload = useCallback(
+        async (slotId: string, uri: string, fileName: string) => {
+            setPhotos((prev) => ({ ...prev, [slotId]: { uri, fileId: "" } }));
             setErrors((prev) => ({ ...prev, [slotId]: false }));
             setUploading((prev) => ({ ...prev, [slotId]: true }));
 
             try {
-                // Step 4: Upload the image file, same flow as pickProfileImages
                 const formData = new FormData();
                 formData.append("files", {
-                    uri: asset.uri,
+                    uri,
                     type: "image/jpeg",
                     name: fileName,
                 } as any);
@@ -140,26 +88,86 @@ export default function AddPhotos() {
                 const fileId = uploadRes.data?.results?.[0]?.id;
                 console.log(`[AddPhotos] ${slotId} uploaded, fileId:`, fileId);
                 if (!fileId) throw new Error("No fileId returned from upload");
-                setPhotos((prev) => ({ ...prev, [slotId]: { uri: asset.uri, fileId } }));
+                setPhotos((prev) => ({ ...prev, [slotId]: { uri, fileId } }));
             } catch (error) {
                 console.error(`[AddPhotos] ${slotId} upload failed:`, error);
-                // Clear optimistic preview so user knows it didn't go through
                 setPhotos((prev) => ({ ...prev, [slotId]: null }));
-                Alert.alert(
-                    "Upload Failed",
-                    `Failed to upload the ${slotId} photo. Please try again.`
-                );
+                Alert.alert("Upload Failed", `Failed to upload the ${slotId} photo. Please try again.`);
             } finally {
                 setUploading((prev) => ({ ...prev, [slotId]: false }));
             }
+        },
+        [uploadFile]
+    );
+
+    // ── Open bottom sheet for a slot ─────────────────────────────────────────
+    const openPicker = useCallback((slotId: string) => {
+        setActiveSlot(slotId);
+        setShowPickerModal(true);
+    }, []);
+
+    // ── Camera ────────────────────────────────────────────────────────────────
+    const pickFromCamera = useCallback(async () => {
+        if (!activeSlot) return;
+        const slotId = activeSlot;
+        setShowPickerModal(false);
+
+        try {
+            const { status } = await ImagePicker.requestCameraPermissionsAsync();
+            if (status !== "granted") {
+                Alert.alert("Permission Required", "Permission to access the camera is required.");
+                return;
+            }
+
+            const result = await ImagePicker.launchCameraAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [4, 3],
+                quality: 0.8,
+            });
+
+            if (result.canceled || !result.assets?.length) return;
+
+            const asset = result.assets[0];
+            const fileName = asset.fileName || asset.uri.split("/").pop() || `${slotId}.jpg`;
+            await handlePhotoUpload(slotId, asset.uri, fileName);
+        } catch (err) {
+            console.error("Camera error:", err);
+            setUploading((prev) => ({ ...prev, [slotId]: false }));
+        }
+    }, [activeSlot, handlePhotoUpload]);
+
+    // ── Gallery ───────────────────────────────────────────────────────────────
+    const pickFromGallery = useCallback(async () => {
+        if (!activeSlot) return;
+        const slotId = activeSlot;
+        setShowPickerModal(false);
+
+        try {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== "granted") {
+                Alert.alert("Permission Required", "Permission to access photos is required.");
+                return;
+            }
+
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [9, 16],
+                quality: 0.8,
+            });
+
+            if (result.canceled || !result.assets?.length) return;
+
+            const asset = result.assets[0];
+            const fileName = asset.fileName || asset.uri.split("/").pop() || `${slotId}.jpg`;
+            await handlePhotoUpload(slotId, asset.uri, fileName);
         } catch (err) {
             console.error("Image pick error:", err);
             setUploading((prev) => ({ ...prev, [slotId]: false }));
         }
-    }, [uploadFile, postVehicleImage]);
+    }, [activeSlot, handlePhotoUpload]);
 
-    // Removing a photo clears both the local preview and the stored fileId.
-    // The user must re-pick to get a new fileId for that slot.
     const removeImage = useCallback((slotId: string) => {
         setPhotos((prev) => ({ ...prev, [slotId]: null }));
     }, []);
@@ -188,7 +196,7 @@ export default function AddPhotos() {
             console.log("Sending payload:", payload);
 
             await postVehicleImage({
-                vehicle_id: vehicle_id,
+                vehicle_id,
                 images: payload,
             });
             setSuccessModalVisible(true);
@@ -196,13 +204,13 @@ export default function AddPhotos() {
             console.error("Submit images failed:", error);
             Alert.alert("Error", "Failed to submit vehicle images. Try again.");
         }
-    }, [photos, navigation]);
+    }, [photos, kycData, postVehicleImage]);
 
     const isAnyUploading = Object.values(uploading).some(Boolean);
-    // Proceed is enabled only when all 4 slots have a confirmed fileId
     const allConfirmed = PHOTO_SLOTS.every((s) => photos[s.id]?.fileId);
 
-    const CELL_SIZE = (width - Math.max(20, width * 0.05) * 2 - Math.max(20, width * 0.05) * 2 - 12) / 2;
+    const CELL_SIZE =
+        (width - Math.max(20, width * 0.05) * 2 - Math.max(20, width * 0.05) * 2 - 12) / 2;
 
     return (
         <SafeAreaView style={styles.mainContainer}>
@@ -210,10 +218,7 @@ export default function AddPhotos() {
 
             {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity
-                    onPress={() => navigation.goBack()}
-                    style={styles.backBtn}
-                >
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
                     <Ionicons name="arrow-back" size={scaleFont(20)} color="#000" />
                 </TouchableOpacity>
                 <View />
@@ -227,7 +232,12 @@ export default function AddPhotos() {
                 bounces={false}
                 overScrollMode="never"
             >
-                <View style={[styles.container, { padding: Math.max(20, width * 0.05), margin: Math.max(20, width * 0.05) }]}>
+                <View
+                    style={[
+                        styles.container,
+                        { padding: Math.max(20, width * 0.05), margin: Math.max(20, width * 0.05) },
+                    ]}
+                >
                     {/* Title block */}
                     <View style={styles.titleBlock}>
                         <Text style={[styles.title, { fontSize: scaleFont(24) }]}>
@@ -261,10 +271,9 @@ export default function AddPhotos() {
                                             { width: CELL_SIZE, height: CELL_SIZE },
                                             hasError && styles.cellError,
                                             isConfirmed && styles.cellFilled,
-                                            // Amber border while uploading to signal activity
                                             isUploading && styles.cellUploading,
                                         ]}
-                                        onPress={() => !isUploading && pickImage(slot.id)}
+                                        onPress={() => !isUploading && openPicker(slot.id)}
                                         activeOpacity={0.75}
                                         disabled={isUploading}
                                     >
@@ -274,16 +283,19 @@ export default function AddPhotos() {
                                                     source={{ uri: photo.uri }}
                                                     style={styles.cellImage}
                                                 />
-                                                {/* Spinner overlay while uploading */}
                                                 {isUploading && (
                                                     <View style={styles.uploadingOverlay}>
                                                         <ActivityIndicator size="small" color="#fcbf24" />
-                                                        <Text style={[styles.uploadingLabel, { fontSize: scaleFont(10) }]}>
+                                                        <Text
+                                                            style={[
+                                                                styles.uploadingLabel,
+                                                                { fontSize: scaleFont(10) },
+                                                            ]}
+                                                        >
                                                             Uploading…
                                                         </Text>
                                                     </View>
                                                 )}
-                                                {/* Remove only available once upload is confirmed */}
                                                 {!isUploading && (
                                                     <TouchableOpacity
                                                         style={styles.removeBtn}
@@ -296,7 +308,12 @@ export default function AddPhotos() {
                                             </>
                                         ) : (
                                             <View style={styles.placeholder}>
-                                                <View style={[styles.crossIcon, { width: scaleSize(28), height: scaleSize(28) }]}>
+                                                <View
+                                                    style={[
+                                                        styles.crossIcon,
+                                                        { width: scaleSize(28), height: scaleSize(28) },
+                                                    ]}
+                                                >
                                                     <View style={[styles.crossH, { width: scaleSize(28) }]} />
                                                     <View style={[styles.crossV, { height: scaleSize(28) }]} />
                                                 </View>
@@ -318,7 +335,10 @@ export default function AddPhotos() {
                     <TouchableOpacity
                         style={[
                             styles.proceedBtn,
-                            { marginTop: Math.max(24, height * 0.03), minHeight: Math.max(50, height * 0.06) },
+                            {
+                                marginTop: Math.max(24, height * 0.03),
+                                minHeight: Math.max(50, height * 0.06),
+                            },
                             (!allConfirmed || isAnyUploading) && styles.proceedBtnDim,
                         ]}
                         onPress={handleProceed}
@@ -331,6 +351,8 @@ export default function AddPhotos() {
                     </TouchableOpacity>
                 </View>
             </ScrollView>
+
+            {/* Success Modal */}
             <CentralModal
                 visible={isSuccessModalVisible}
                 onClose={() => navigation.navigate("IDVerify" as never)}
@@ -343,15 +365,62 @@ export default function AddPhotos() {
                 confirmButtonColor="#fcbf24"
                 themeColor="#fcbf24"
             />
+
+            {/* Photo Source Picker Modal */}
+            <Modal
+                visible={showPickerModal}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setShowPickerModal(false)}
+            >
+                <TouchableWithoutFeedback onPress={() => setShowPickerModal(false)}>
+                    <View style={styles.pickerOverlay}>
+                        <TouchableWithoutFeedback>
+                            <View style={styles.pickerSheet}>
+                                <View style={styles.pickerHandle} />
+                                <Text style={styles.pickerTitle}>
+                                    {activeSlot
+                                        ? `Add ${PHOTO_SLOTS.find((s) => s.id === activeSlot)?.label}`
+                                        : "Add Photo"}
+                                </Text>
+
+                                <TouchableOpacity style={styles.pickerOption} onPress={pickFromCamera}>
+                                    <View style={styles.pickerIconWrap}>
+                                        <Ionicons name="camera" size={22} color="#fcbf24" />
+                                    </View>
+                                    <View>
+                                        <Text style={styles.pickerOptionText}>Take a Photo</Text>
+                                        <Text style={styles.pickerOptionSub}>Use your camera</Text>
+                                    </View>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity style={styles.pickerOption} onPress={pickFromGallery}>
+                                    <View style={styles.pickerIconWrap}>
+                                        <Ionicons name="images" size={22} color="#fcbf24" />
+                                    </View>
+                                    <View>
+                                        <Text style={styles.pickerOptionText}>Choose from Gallery</Text>
+                                        <Text style={styles.pickerOptionSub}>Pick an existing photo</Text>
+                                    </View>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={styles.pickerCancel}
+                                    onPress={() => setShowPickerModal(false)}
+                                >
+                                    <Text style={styles.pickerCancelText}>Cancel</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </TouchableWithoutFeedback>
+                    </View>
+                </TouchableWithoutFeedback>
+            </Modal>
         </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
-    mainContainer: {
-        flex: 1,
-        backgroundColor: "#000",
-    },
+    mainContainer: { flex: 1, backgroundColor: "#000" },
     header: {
         flexDirection: "row",
         alignItems: "center",
@@ -359,25 +428,10 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         marginVertical: 16,
     },
-    backBtn: {
-        padding: 6,
-        borderRadius: 100,
-        backgroundColor: "#fff",
-    },
-    scrollContent: {
-        flexGrow: 1,
-        paddingBottom: Platform.OS === "ios" ? 40 : 24,
-    },
-    container: {
-        flex: 1,
-        backgroundColor: "#000",
-        borderRadius: 20,
-        gap: 24,
-    },
-    titleBlock: {
-        alignItems: "center",
-        gap: 10,
-    },
+    backBtn: { padding: 6, borderRadius: 100, backgroundColor: "#fff" },
+    scrollContent: { flexGrow: 1, paddingBottom: Platform.OS === "ios" ? 40 : 24 },
+    container: { flex: 1, backgroundColor: "#000", borderRadius: 20, gap: 24 },
+    titleBlock: { alignItems: "center", gap: 10 },
     title: {
         color: "#fff",
         fontFamily: "Poppins-Bold",
@@ -392,20 +446,9 @@ const styles = StyleSheet.create({
         textAlign: "center",
         lineHeight: 20,
     },
-    grid: {
-        flexDirection: "row",
-        flexWrap: "wrap",
-        gap: 12,
-        justifyContent: "space-between",
-    },
-    cellWrapper: {
-        gap: 6,
-    },
-    cellLabel: {
-        color: "#fff",
-        fontFamily: "Poppins-Regular",
-        fontWeight: "600",
-    },
+    grid: { flexDirection: "row", flexWrap: "wrap", gap: 12, justifyContent: "space-between" },
+    cellWrapper: { gap: 6 },
+    cellLabel: { color: "#fff", fontFamily: "Poppins-Regular", fontWeight: "600" },
     cell: {
         backgroundColor: "#1E1E1E",
         borderRadius: 12,
@@ -415,69 +458,31 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
     },
-    cellFilled: {
-        borderColor: "#4CAF50",
-    },
-    cellUploading: {
-        borderColor: "#fcbf24",
-    },
-    cellError: {
-        borderColor: "#ff4444",
-    },
-    cellImage: {
-        width: "100%",
-        height: "100%",
-        resizeMode: "cover",
-    },
+    cellFilled: { borderColor: "#4CAF50" },
+    cellUploading: { borderColor: "#fcbf24" },
+    cellError: { borderColor: "#ff4444" },
+    cellImage: { width: "100%", height: "100%", resizeMode: "cover" },
     uploadingOverlay: {
         position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
+        top: 0, left: 0, right: 0, bottom: 0,
         backgroundColor: "rgba(0,0,0,0.55)",
         alignItems: "center",
         justifyContent: "center",
         gap: 6,
     },
-    uploadingLabel: {
-        color: "#fcbf24",
-        fontWeight: "600",
-    },
-    placeholder: {
-        flex: 1,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    crossIcon: {
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    crossH: {
-        position: "absolute",
-        height: 2,
-        backgroundColor: "#fcbf24",
-        borderRadius: 1,
-    },
-    crossV: {
-        position: "absolute",
-        width: 2,
-        backgroundColor: "#fcbf24",
-        borderRadius: 1,
-    },
+    uploadingLabel: { color: "#fcbf24", fontWeight: "600" },
+    placeholder: { flex: 1, alignItems: "center", justifyContent: "center" },
+    crossIcon: { alignItems: "center", justifyContent: "center" },
+    crossH: { position: "absolute", height: 2, backgroundColor: "#fcbf24", borderRadius: 1 },
+    crossV: { position: "absolute", width: 2, backgroundColor: "#fcbf24", borderRadius: 1 },
     removeBtn: {
         position: "absolute",
-        top: 6,
-        right: 6,
+        top: 6, right: 6,
         backgroundColor: "rgba(0,0,0,0.6)",
         borderRadius: 100,
         padding: 4,
     },
-    errorText: {
-        color: "#ff4444",
-        fontFamily: "Poppins-Regular",
-        marginTop: 2,
-    },
+    errorText: { color: "#ff4444", fontFamily: "Poppins-Regular", marginTop: 2 },
     proceedBtn: {
         backgroundColor: "#fcbf24",
         borderRadius: 10,
@@ -486,12 +491,62 @@ const styles = StyleSheet.create({
         paddingVertical: 14,
         marginTop: 4,
     },
-    proceedBtnDim: {
-        opacity: 0.5,
+    proceedBtnDim: { opacity: 0.5 },
+    proceedText: { color: "#000", fontWeight: "bold", fontFamily: "Poppins-Bold" },
+    // Photo Picker Sheet
+    pickerOverlay: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.6)",
+        justifyContent: "flex-end",
     },
-    proceedText: {
-        color: "#000",
-        fontWeight: "bold",
+    pickerSheet: {
+        backgroundColor: "#1C1C1E",
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        paddingHorizontal: 20,
+        paddingBottom: 36,
+        paddingTop: 12,
+    },
+    pickerHandle: {
+        width: 40,
+        height: 4,
+        backgroundColor: "#444",
+        borderRadius: 2,
+        alignSelf: "center",
+        marginBottom: 16,
+    },
+    pickerTitle: {
+        color: "white",
+        fontSize: 16,
+        fontWeight: "700",
+        marginBottom: 20,
+        textAlign: "center",
         fontFamily: "Poppins-Bold",
     },
+    pickerOption: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingVertical: 14,
+        borderBottomWidth: 1,
+        borderBottomColor: "#2C2C2E",
+    },
+    pickerIconWrap: {
+        width: 44,
+        height: 44,
+        borderRadius: 12,
+        backgroundColor: "rgba(252,191,36,0.12)",
+        justifyContent: "center",
+        alignItems: "center",
+        marginRight: 14,
+    },
+    pickerOptionText: { color: "white", fontSize: 15, fontWeight: "600", fontFamily: "Poppins-Bold" },
+    pickerOptionSub: { color: "#888", fontSize: 13, marginTop: 2, fontFamily: "Poppins-Regular" },
+    pickerCancel: {
+        marginTop: 16,
+        backgroundColor: "#2C2C2E",
+        borderRadius: 12,
+        paddingVertical: 14,
+        alignItems: "center",
+    },
+    pickerCancelText: { color: "#ff4444", fontSize: 15, fontWeight: "600", fontFamily: "Poppins-Bold" },
 });

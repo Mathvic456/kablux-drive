@@ -34,6 +34,7 @@ export default function Account() {
   const isTablet = width > 768;
 
   const [modalVisible, setModalVisible] = useState(false);
+  const [showImagePickerModal, setShowImagePickerModal] = useState(false);
 
   // --- Delete Account State ---
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -59,45 +60,58 @@ export default function Account() {
   const HelpAndSupport = () => navigation.navigate('HelpAndSupport');
   const Legal = () => navigation.navigate('Legal');
 
-  console.log('PROFILE======', profile)
+  const launchImagePicker = () => setShowImagePickerModal(true);
 
-  const pickProfileImages = async () => {
-    console.log("🔵 PROFILE IMAGE PICKER TRIGGERED");
+  const handleImageUpload = async (uri, fileName) => {
+    try {
+      const filename = fileName || uri.split('/').pop() || 'profile.jpg';
+      const formData = new FormData();
+      formData.append('files', { uri, type: 'image/jpeg', name: filename });
+      formData.append('name', 'profile_image');
+
+      const uploadRes = await uploadFile(formData);
+      const fileId = uploadRes.data?.results?.[0]?.id;
+      console.log("IMAGE UPLOADED", uploadRes, fileId);
+      if (!fileId) throw new Error('Upload succeeded but no file ID returned');
+      await updateProfile({ upload_id: fileId });
+    } catch (error) {
+      console.error('Profile image upload failed:', error);
+      alert('Failed to update profile image. Please try again.');
+    }
+  };
+
+  const pickFromGallery = async () => {
+    setShowImagePickerModal(false);
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
       alert('Sorry, we need camera roll permissions!');
       return;
     }
-
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: false,
       quality: 0.8,
     });
-
     if (!result.canceled && result.assets.length > 0) {
-      try {
-        const asset = result.assets[0];
-        const filename = asset.fileName || asset.uri.split('/').pop() || 'profile.jpg';
+      const asset = result.assets[0];
+      await handleImageUpload(asset.uri, asset.fileName);
+    }
+  };
 
-        const formData = new FormData();
-        formData.append('files', {
-          uri: asset.uri,
-          type: 'image/jpeg',
-          name: filename,
-        });
-        formData.append('name', 'profile_image');
-
-        const uploadRes = await uploadFile(formData);
-        const fileId = uploadRes.data?.results?.[0]?.id;
-        console.log("IMAGE UPLOADEDD", uploadRes, fileId);
-        if (!fileId) throw new Error('Upload succeeded but no file ID returned');
-
-        await updateProfile({ upload_id: fileId });
-      } catch (error) {
-        console.error('Profile image upload failed:', error);
-        alert('Failed to update profile image. Please try again.');
-      }
+  const pickFromCamera = async () => {
+    setShowImagePickerModal(false);
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      alert('Sorry, we need camera permissions!');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets.length > 0) {
+      const asset = result.assets[0];
+      await handleImageUpload(asset.uri, asset.fileName);
     }
   };
 
@@ -132,7 +146,6 @@ export default function Account() {
   // --- Delete Account Handlers ---
   const validateDeleteForm = () => {
     const errors = {};
-
     if (!deleteForm.reason || deleteForm.reason.trim().length === 0) {
       errors.reason = 'Reason is required to delete your account.';
     }
@@ -141,7 +154,6 @@ export default function Account() {
     } else if (deleteForm.password.length < 6) {
       errors.password = 'Password must be at least 6 characters.';
     }
-
     setDeleteErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -252,7 +264,11 @@ export default function Account() {
                 </View>
               )}
               {!isUploadingImage && (
-                <TouchableOpacity onPress={pickProfileImages} disabled={isUploadingImage} style={styles.cameraIconOverlay}>
+                <TouchableOpacity
+                  onPress={launchImagePicker}
+                  disabled={isUploadingImage}
+                  style={styles.cameraIconOverlay}
+                >
                   <Ionicons name="camera" size={12} color="white" />
                 </TouchableOpacity>
               )}
@@ -513,6 +529,52 @@ export default function Account() {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
+
+      {/* Image Source Picker Modal */}
+      <Modal
+        visible={showImagePickerModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowImagePickerModal(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowImagePickerModal(false)}>
+          <View style={styles.pickerOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.pickerSheet}>
+                <View style={styles.pickerHandle} />
+                <Text style={styles.pickerTitle}>Update Profile Photo</Text>
+
+                <TouchableOpacity style={styles.pickerOption} onPress={pickFromCamera}>
+                  <View style={styles.pickerIconWrap}>
+                    <Ionicons name="camera" size={22} color="#FFC107" />
+                  </View>
+                  <View>
+                    <Text style={styles.pickerOptionText}>Take a Photo</Text>
+                    <Text style={styles.pickerOptionSub}>Use your camera</Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.pickerOption} onPress={pickFromGallery}>
+                  <View style={styles.pickerIconWrap}>
+                    <Ionicons name="images" size={22} color="#FFC107" />
+                  </View>
+                  <View>
+                    <Text style={styles.pickerOptionText}>Choose from Gallery</Text>
+                    <Text style={styles.pickerOptionSub}>Pick an existing photo</Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.pickerCancel}
+                  onPress={() => setShowImagePickerModal(false)}
+                >
+                  <Text style={styles.pickerCancelText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </>
   );
 }
@@ -595,7 +657,14 @@ const styles = StyleSheet.create({
   headerSmall: { fontSize: width * 0.075, marginBottom: height * 0.015 },
   headerLarge: { fontSize: width * 0.085, marginBottom: height * 0.025 },
   headerTablet: { fontSize: width * 0.09, textAlign: 'center' },
-  profileSection: { padding: 10, borderRadius: 12, flexDirection: 'column', gap: 10, alignItems: 'center', justifyContent: 'center' },
+  profileSection: {
+    padding: 10,
+    borderRadius: 12,
+    flexDirection: 'column',
+    gap: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   profileSectionSmall: { marginBottom: height * 0.025 },
   profileSectionLarge: { marginBottom: height * 0.035 },
   profileImage: {
@@ -755,7 +824,6 @@ const styles = StyleSheet.create({
     minHeight: 70,
   },
   inputError: { borderColor: '#FF4444' },
-  errorText: { color: '#FF4444', fontSize: 12, marginTop: 4 },
   modalButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -773,4 +841,71 @@ const styles = StyleSheet.create({
   deleteButton: { backgroundColor: '#FF4444' },
   cancelButtonText: { color: '#fff', fontWeight: '600' },
   deleteButtonText: { color: '#fff', fontWeight: '600' },
+  // Image Picker Sheet
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  pickerSheet: {
+    backgroundColor: '#1C1C1E',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 36,
+    paddingTop: 12,
+  },
+  pickerHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#444',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  pickerTitle: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  pickerOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2C2C2E',
+  },
+  pickerIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,193,7,0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  pickerOptionText: {
+    color: 'white',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  pickerOptionSub: {
+    color: '#888',
+    fontSize: 13,
+    marginTop: 2,
+  },
+  pickerCancel: {
+    marginTop: 16,
+    backgroundColor: '#2C2C2E',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  pickerCancelText: {
+    color: '#FF4444',
+    fontSize: 15,
+    fontWeight: '600',
+  },
 });

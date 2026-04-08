@@ -195,7 +195,7 @@ export default function IDVerification() {
                     <TouchableOpacity
                         onPress={handleCarDetailNavigation}
                         activeOpacity={0.75}
-                    // disabled={isProcessing || (kycData?.steps?.vehicle_images_completed ?? false)}
+                        disabled={isProcessing || (kycData?.steps?.vehicle_images_completed ?? false)}
                     >
                         <View style={[styles.actionRow, (kycData?.steps?.vehicle_added && kycData?.steps?.vehicle_images_completed) ? styles.actionRowCompleted : null]}>
                             <Ionicons name="person" size={18} color="#fff" />
@@ -229,6 +229,7 @@ export default function IDVerification() {
                     <TouchableOpacity
                         onPress={() => navigation.navigate("BankDetails" as never)}
                         activeOpacity={0.75}
+                        disabled={isProcessing || (kycData?.steps?.transfer_recipient_completed ?? false)}
                     >
                         <View style={[styles.actionRow, (kycData?.steps?.transfer_recipient_completed) ? styles.actionRowCompleted : null]}>
                             <Ionicons name="card" size={18} color="#fff" />
