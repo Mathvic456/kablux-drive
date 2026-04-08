@@ -176,7 +176,7 @@ export default function Home() {
         try {
           await activeStatusMutation.mutateAsync({ is_online: true });
         } catch (error) {
-          const message = error.response?.data?.message || "Unable to go online. Please try again.";
+          const message = error.response?.data?.message || "Unable to login Please upload your credentials.";
           setOnlineErrorMessage(message);
           setOnlineErrorModalVisible(true);
           // Server rejected going online - don't open the WebSocket

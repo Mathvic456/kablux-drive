@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -12,18 +12,18 @@ import {
   Dimensions,
   Platform,
   ScrollView,
-  KeyboardAvoidingView,
 } from "react-native";
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { useForgotPassword } from "../../services/forgotPassword.service";
-import Logo from '../../assets/Logo.png';
-import CentralModal from '../components/CentralModal';
+import Logo from "../../assets/Logo.png";
+import CentralModal from "../components/CentralModal";
 
-const { width, height } = Dimensions.get('window');
+const { width, height } = Dimensions.get("window");
 
+// Keep these (they're fine)
 const scaleFont = (size) => Math.round(size * Math.min(width / 375, 1.3));
 const scaleSize = (size) => Math.round(size * Math.min(width / 375, 1.2));
 
@@ -34,12 +34,43 @@ export default function ResetPasswordEmailScreen() {
   const [emailError, setEmailError] = useState("");
   const forgotPassword = useForgotPassword();
 
-  const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  // ✅ Memoized layout values (prevents recalculation flicker)
+  const layout = useMemo(() => {
+    return {
+      bannerHeight: Math.max(200, height * 0.25),
+      paddingHorizontal: Math.max(20, width * 0.05),
+      paddingTop: Math.max(20, height * 0.02),
+      paddingBottom: Math.max(30, height * 0.03),
+      logoWidth: scaleSize(130),
+      logoHeight: scaleSize(100),
+    };
+  }, []);
 
-  const handleProceed = async () => {
+  const validateEmail = useCallback(
+    (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),
+    []
+  );
+
+  const handleEmailChange = useCallback(
+    (text) => {
+      setEmail(text);
+      if (emailError) setEmailError("");
+    },
+    [emailError]
+  );
+
+  const handleProceed = useCallback(async () => {
     setEmailError("");
-    if (!email.trim()) { setEmailError("Email is required"); return; }
-    if (!validateEmail(email)) { setEmailError("Please enter a valid email address"); return; }
+
+    if (!email.trim()) {
+      setEmailError("Email is required");
+      return;
+    }
+
+    if (!validateEmail(email)) {
+      setEmailError("Please enter a valid email address");
+      return;
+    }
 
     try {
       await forgotPassword.mutateAsync({ email });
@@ -53,105 +84,124 @@ export default function ResetPasswordEmailScreen() {
         "Failed to send OTP. Please try again."
       );
     }
-  };
+  }, [email, validateEmail, forgotPassword]);
 
-  const handleModalContinue = () => {
+  const handleModalContinue = useCallback(() => {
     setShowModal(false);
-    navigation.navigate('ResetCredentials');
-  };
-
-  const handleEmailChange = (text) => {
-    setEmail(text);
-    if (emailError) setEmailError("");
-  };
+    navigation.navigate("ResetCredentials");
+  }, [navigation]);
 
   return (
     <SafeAreaView style={styles.mainContainer}>
       <StatusBar barStyle="light-content" backgroundColor="#0B2633" />
 
-      <KeyboardAvoidingView
+      {/* ✅ Removed KeyboardAvoidingView (major flicker fix) */}
+      <ScrollView
         style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        bounces={false}
+        overScrollMode="never"
       >
-        <ScrollView
-          style={styles.flex}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          bounces={false}
-          overScrollMode="never"
+        <View style={[styles.banner, { height: layout.bannerHeight }]} />
+
+        <View
+          style={[
+            styles.card,
+            {
+              paddingHorizontal: layout.paddingHorizontal,
+              paddingTop: layout.paddingTop,
+              paddingBottom: layout.paddingBottom,
+            },
+          ]}
         >
-          <View style={styles.banner} />
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="arrow-back"
+              size={scaleSize(22)}
+              color="#fff"
+            />
+          </TouchableOpacity>
 
-          <View style={styles.card}>
+          <View style={styles.logoContainer}>
+            <Image
+              source={Logo}
+              style={{
+                width: layout.logoWidth,
+                height: layout.logoHeight,
+              }}
+              resizeMode="contain"
+            />
+          </View>
+
+          <View style={styles.envelopeContainer}>
+            <FontAwesome
+              name="envelope"
+              size={scaleSize(24)}
+              color="#fcbf24"
+            />
+          </View>
+
+          <View style={styles.bottomSection}>
+            <Text style={styles.title}>Reset Password</Text>
+
+            <Text style={styles.subtitle}>
+              Enter your email address and we'll send you a verification code
+            </Text>
+
+            <View style={styles.inputContainer}>
+              <FontAwesome
+                name="envelope"
+                size={scaleSize(20)}
+                color="#aaa"
+                style={styles.inputIcon}
+              />
+
+              <TextInput
+                style={styles.input}
+                placeholder="Email Address"
+                placeholderTextColor="#aaa"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                value={email}
+                onChangeText={handleEmailChange}
+                editable={!forgotPassword.isPending}
+                returnKeyType="done"
+                onSubmitEditing={handleProceed}
+              />
+            </View>
+
+            {!!emailError && (
+              <Text style={styles.errorText}>{emailError}</Text>
+            )}
+
             <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => navigation.goBack()}
-              activeOpacity={0.7}
+              style={[
+                styles.proceedButton,
+                (!email.trim() || forgotPassword.isPending) &&
+                styles.disabledButton,
+              ]}
+              onPress={handleProceed}
+              disabled={!email.trim() || forgotPassword.isPending}
+              activeOpacity={0.8}
             >
-              <Ionicons name="arrow-back" size={scaleSize(22)} color="#fff" />
-            </TouchableOpacity>
-
-            <View style={styles.logoContainer}>
-              <Image source={Logo} style={styles.logoIcon} resizeMode="contain" />
-            </View>
-
-            <View style={styles.envelopeContainer}>
-              <FontAwesome name="envelope" size={scaleSize(24)} color="#fcbf24" />
-            </View>
-
-            <View style={styles.bottomSection}>
-              <Text style={styles.title}>Reset Password</Text>
-
-              <Text style={styles.subtitle}>
-                Enter your email address and we'll send you a verification code
-              </Text>
-
-              <View style={styles.inputContainer}>
-                <FontAwesome
-                  name="envelope"
-                  size={scaleSize(20)}
-                  color="#aaa"
-                  style={styles.inputIcon}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Email Address"
-                  placeholderTextColor="#aaa"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  value={email}
-                  onChangeText={handleEmailChange}
-                  editable={!forgotPassword.isPending}
-                  returnKeyType="done"
-                  onSubmitEditing={handleProceed}
-                />
-              </View>
-
-              {emailError ? (
-                <Text style={styles.errorText}>{emailError}</Text>
-              ) : null}
-
-              <TouchableOpacity
-                style={[
-                  styles.proceedButton,
-                  (!email.trim() || forgotPassword.isPending) && styles.disabledButton,
-                ]}
-                onPress={handleProceed}
-                disabled={!email.trim() || forgotPassword.isPending}
-                activeOpacity={0.8}
-              >
+              {/* ✅ Fixed height to prevent flicker */}
+              <View style={styles.buttonContent}>
                 {forgotPassword.isPending ? (
                   <ActivityIndicator color="#000" size="small" />
                 ) : (
                   <Text style={styles.proceedButtonText}>Send Code</Text>
                 )}
-              </TouchableOpacity>
-            </View>
+              </View>
+            </TouchableOpacity>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </View>
+      </ScrollView>
 
       <CentralModal
         visible={showModal}
@@ -179,10 +229,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
+    paddingBottom: Platform.OS === "ios" ? 40 : 20,
   },
   banner: {
-    height: Math.max(200, height * 0.25),
     backgroundColor: "#0B2633",
     borderBottomLeftRadius: 40,
     borderBottomRightRadius: 40,
@@ -192,108 +241,100 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
     borderTopLeftRadius: 40,
     borderTopRightRadius: 40,
-    paddingHorizontal: Math.max(20, width * 0.05),
-    paddingTop: Math.max(20, height * 0.02),
-    paddingBottom: Math.max(30, height * 0.03),
-    width: '100%',
-    alignSelf: 'center',
+    width: "100%",
+    alignSelf: "center",
     maxWidth: 500,
   },
   backButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: Math.max(10, height * 0.01),
-    padding: Math.max(5, width * 0.01),
-    alignSelf: 'flex-start',
+    marginBottom: 10,
+    padding: 5,
+    alignSelf: "flex-start",
   },
   logoContainer: {
     alignItems: "center",
-    marginBottom: Math.max(10, height * 0.01),
-  },
-  logoIcon: {
-    width: scaleSize(130),
-    height: scaleSize(100),
-    alignSelf: 'center',
+    marginBottom: 10,
   },
   envelopeContainer: {
-    width: scaleSize(50),
-    height: scaleSize(50),
-    borderRadius: scaleSize(25),
-    marginTop: scaleSize(30),
-    backgroundColor: '#FEB91454',
-    alignSelf: 'center',
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginTop: 30,
+    backgroundColor: "#FEB91454",
+    alignSelf: "center",
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: '#fcbf24',
+    borderColor: "#fcbf24",
   },
   bottomSection: {
-    backgroundColor: '#000',
-    alignItems: 'center',
-    width: '100%',
-    paddingTop: scaleSize(40),
+    alignItems: "center",
+    width: "100%",
+    paddingTop: 40,
   },
   title: {
     fontSize: scaleFont(24),
     fontWeight: "bold",
-    color: '#fff',
-    marginBottom: Math.max(5, height * 0.01),
-    textAlign: 'center',
+    color: "#fff",
+    marginBottom: 5,
+    textAlign: "center",
   },
   subtitle: {
     fontSize: scaleFont(14),
-    color: '#aaa',
-    textAlign: 'center',
-    paddingHorizontal: Math.max(20, width * 0.05),
-    lineHeight: Math.max(20, width * 0.053),
-    marginBottom: scaleSize(30),
+    color: "#aaa",
+    textAlign: "center",
+    paddingHorizontal: 20,
+    lineHeight: 20,
+    marginBottom: 30,
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#111",
-    height: scaleSize(50),
-    borderRadius: scaleSize(10),
+    height: 50,
+    borderRadius: 10,
     borderWidth: 2,
-    borderColor: '#333',
-    paddingHorizontal: Math.max(10, width * 0.03),
+    borderColor: "#333",
+    paddingHorizontal: 10,
     marginBottom: 5,
-    width: '100%',
+    width: "100%",
   },
   inputIcon: {
-    marginRight: Math.max(8, width * 0.02),
+    marginRight: 8,
   },
   input: {
     flex: 1,
     color: "#fff",
     fontSize: scaleFont(14),
-    paddingHorizontal: Math.max(8, width * 0.02),
   },
   errorText: {
     fontSize: scaleFont(12),
-    color: '#ff5252',
-    alignSelf: 'flex-start',
-    marginLeft: Math.max(5, width * 0.01),
-    marginBottom: scaleSize(10),
-    fontWeight: '500',
+    color: "#ff5252",
+    alignSelf: "flex-start",
+    marginLeft: 5,
+    marginBottom: 10,
+    fontWeight: "500",
   },
   proceedButton: {
-    backgroundColor: '#fcbf24',
+    backgroundColor: "#fcbf24",
     borderRadius: 10,
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: scaleSize(15),
-    marginTop: scaleSize(20),
-    minHeight: scaleSize(50),
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 20,
+    minHeight: 50,
+  },
+  buttonContent: {
+    height: 20, // ✅ prevents layout shift
+    justifyContent: "center",
+    alignItems: "center",
   },
   disabledButton: {
-    backgroundColor: '#666',
+    backgroundColor: "#666",
     opacity: 0.6,
   },
   proceedButtonText: {
     fontSize: scaleFont(16),
-    color: '#000',
+    color: "#000",
     fontWeight: "bold",
   },
 });

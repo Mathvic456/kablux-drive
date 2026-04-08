@@ -23,12 +23,9 @@ import Logo from "../../assets/Logo.png";
 import CentralModal from "../components/CentralModal";
 import { useResendOTP } from "../../services/forgotPassword.service";
 
-// FIX: Use useWindowDimensions hook instead of module-level Dimensions.get()
-// Module-level Dimensions can return stale values on first render causing flicker.
-
 export default function ResetCredentialsScreen() {
   const navigation = useNavigation();
-  const { width, height } = useWindowDimensions(); // FIX: reactive to orientation/layout changes
+  const { width, height } = useWindowDimensions();
 
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [password, setPassword] = useState("");
@@ -53,7 +50,6 @@ export default function ResetCredentialsScreen() {
 
   const { mutateAsync: resetPassword, isPending: isLoading } = usePasswordReset();
 
-  // FIX: Move scaling functions outside render cycle with useCallback
   const scaleFont = useCallback((size) => {
     const scaleFactor = width / 375;
     return Math.round(size * Math.min(scaleFactor, 1.3));
@@ -85,7 +81,6 @@ export default function ResetCredentialsScreen() {
     return "";
   }, [password, confirmPassword]);
 
-  // FIX: memoize form validity so it doesn't recompute on every render
   const isFormValid = useMemo(() => {
     const otpString = otp.join("");
     const otpValid = otpString.length === 6 && /^\d+$/.test(otpString);
@@ -94,8 +89,20 @@ export default function ResetCredentialsScreen() {
     return otpValid && passwordValid && confirmPasswordValid;
   }, [otp, password, confirmPassword, validatePassword]);
 
+  // Supports both single-digit entry and full paste of 6 digits
   const handleOtpChange = useCallback((text, index) => {
-    const numericText = text.replace(/[^0-9]/g, "").slice(0, 1);
+    const cleaned = text.replace(/[^0-9]/g, "");
+
+    // Handle paste: distribute 6 digits across all inputs
+    if (cleaned.length === 6) {
+      const newOtp = cleaned.split("");
+      setOtp(newOtp);
+      otpRefs.current[5]?.focus();
+      setErrors((prev) => prev.otp ? { ...prev, otp: "" } : prev);
+      return;
+    }
+
+    const numericText = cleaned.slice(0, 1);
     setOtp((prev) => {
       const newOtp = [...prev];
       newOtp[index] = numericText;
@@ -132,9 +139,8 @@ export default function ResetCredentialsScreen() {
       }
 
       const res = await resendOTP.mutateAsync({ email });
-      console.log("resend res", res)
+      console.log("resend res", res);
 
-      // Start 60s cooldown
       setResendCooldown(60);
       let remaining = 60;
       cooldownRef.current = setInterval(() => {
@@ -186,7 +192,6 @@ export default function ResetCredentialsScreen() {
     navigation.navigate("Login");
   }, [navigation]);
 
-  // Dynamic styles that depend on window dimensions
   const dynStyles = useMemo(() => ({
     banner: { height: Math.max(200, height * 0.25) },
     card: {
@@ -220,7 +225,6 @@ export default function ResetCredentialsScreen() {
       <StatusBar barStyle="light-content" backgroundColor="#0B2633" />
 
       <View style={styles.container}>
-
         <KeyboardAvoidingView
           style={styles.keyboardView}
           behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -279,7 +283,7 @@ export default function ResetCredentialsScreen() {
                         ]}
                         value={value}
                         keyboardType="number-pad"
-                        maxLength={1}
+                        maxLength={index === 0 ? 6 : 1}
                         onChangeText={(text) => handleOtpChange(text, index)}
                         onKeyPress={(e) => handleOtpKeyPress(e, index)}
                         editable={!isLoading}
@@ -292,7 +296,7 @@ export default function ResetCredentialsScreen() {
                   ) : null}
                 </View>
 
-                {/* Resend OTP Button — positioned below OTP inputs */}
+                {/* Resend OTP Button */}
                 <View style={styles.resendRow}>
                   <Text style={[styles.resendLabel, { fontSize: scaleFont(13) }]}>
                     Didn't receive the code?{" "}

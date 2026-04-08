@@ -57,7 +57,7 @@ export default function IDVerification() {
         const result = await ImagePicker.launchCameraAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true,
-            aspect: [1, 1],
+            aspect: [4, 3],
             quality: 0.8,
             cameraType: ImagePicker.CameraType.front,
         });
@@ -195,7 +195,7 @@ export default function IDVerification() {
                     <TouchableOpacity
                         onPress={handleCarDetailNavigation}
                         activeOpacity={0.75}
-                        disabled={isProcessing || (kycData?.steps?.vehicle_images_completed ?? false)}
+                    // disabled={isProcessing || (kycData?.steps?.vehicle_images_completed ?? false)}
                     >
                         <View style={[styles.actionRow, (kycData?.steps?.vehicle_added && kycData?.steps?.vehicle_images_completed) ? styles.actionRowCompleted : null]}>
                             <Ionicons name="person" size={18} color="#fff" />
