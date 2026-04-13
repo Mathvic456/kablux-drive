@@ -55,11 +55,11 @@ export async function getDevicePushToken(): Promise<string | null> {
 
         if (Platform.OS === "android") {
             try {
-                await Notifications.setNotificationChannelAsync("request", {
+                await Notifications.setNotificationChannelAsync("request_v2", {
                     name: "Ride Request",
                     importance: Notifications.AndroidImportance.MAX,
-                    sound: "kablux-sound.wav",
-                    vibrationPattern: [0, 250, 250, 250],
+                    sound: "kablux-sound2.wav",
+                    vibrationPattern: [0, 500, 200, 500, 200, 500],
                     lightColor: "#FF231F7C",
                 });
             } catch (channelError) {

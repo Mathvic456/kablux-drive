@@ -183,19 +183,11 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
     setRideAcceptedAt(null);
     setTriggerEffect((prev) => prev + 1)
 
-
-
-    // persist({
-    //   status: "not_busy",
-    //   rideId: null,
-    //   riderId: null,
-    // });
   };
 
   const reset = () => {
     console.log("🔄 [DRIVER_RIDE] Resetting driver ride state");
     finishRide();
-
   };
 
   return (

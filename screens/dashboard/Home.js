@@ -10,7 +10,9 @@ import {
   Platform,
   SafeAreaView,
   StatusBar,
-  Dimensions
+  Dimensions,
+  Modal,
+  Pressable
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
@@ -32,11 +34,10 @@ import CounterOffersModal from "../components/CounterOffersModal";
 // Context & Services
 import { useProfile } from "../../services/profile.service";
 import { useDriverKycStatus } from "../../services/checkKyc.service";
-import { useStartRide, useFinishRide } from "../../services/rides.service";
+import { useStartRide, useFinishRide, useArriveRide, useCancelRide } from "../../services/rides.service";
 import { useGetMyBalance } from "../../services/funding.service";
 import { SocketContext } from "../../context/WebSocketProvider";
 import { useDriverRide } from "../../context/DriverRideContext";
-import { useArriveRide } from "../../services/rides.service";
 import { useActiveStatusEndPoint } from "../../services/auth.service";
 import { api } from "../../services/api";
 import { navigationRef } from '../context/NavigationContext';
@@ -76,6 +77,16 @@ export default function Home() {
   const [declinedOffer, setDeclinedOffer] = useState(null);
   const [lowBalanceWarningVisible, setLowBalanceWarningVisible] = useState(false);
   const [showLowBalanceBanner, setShowLowBalanceBanner] = useState(true);
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [selectedCancelReason, setSelectedCancelReason] = useState(null);
+
+  const cancelReasons = [
+    "Passenger didn't show up",
+    "Passenger requested cancellation",
+    "Vehicle issue",
+    "Emergency",
+    "Other",
+  ];
 
   const isTogglingOnlineRef = React.useRef(false);
 
@@ -124,11 +135,13 @@ export default function Home() {
   console.log('ride notessss===========', rideNotifications)
 
   const { data: kycData, isLoading } = useDriverKycStatus();
+  console.log('kyc dtae=====', kycData)
   const { data: balanceData, refetch: refetchBalance } = useGetMyBalance();
 
   const startRideMutation = useStartRide();
   const finishRideMutation = useFinishRide();
   const arriveRideMutation = useArriveRide();
+  const cancelRideMutation = useCancelRide();
   const activeStatusMutation = useActiveStatusEndPoint();
 
   const hasSufficientBalance = () => {
@@ -468,6 +481,33 @@ export default function Home() {
     }
   };
 
+  const handleCancelRide = () => {
+    setCancelModalVisible(true);
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!selectedCancelReason || !rideId) return;
+    try {
+      const cancelResponse = await cancelRideMutation.mutateAsync({ rideId, reason: selectedCancelReason });
+      setCancelModalVisible(false);
+      setSelectedCancelReason(null);
+      reset();
+      setRideDetails(null);
+      setCancelledRideInfo({
+        reason: cancelResponse?.reason || cancelResponse?.message || null,
+      });
+      setRideCancelledModalVisible(true);
+    } catch (error) {
+      console.error("❌ handleConfirmCancel:", error);
+      setAlertData({
+        title: "Cancellation Failed",
+        message: error?.response?.data?.message || error?.message || "Unable to cancel ride.",
+        isError: true,
+      });
+      setAlertModalVisible(true);
+    }
+  };
+
   const clearNegotiationUpdate = (viewId) => {
     setNegotiationUpdates(prev => {
       const updated = { ...prev };
@@ -540,9 +580,11 @@ export default function Home() {
             onArrived={handleArrived}
             onStartRide={handleStartRide}
             onFinishRide={handleFinishRide}
+            onCancelRide={handleCancelRide}
             isArriving={arriveRideMutation.isPending}
             isStarting={startRideMutation.isPending}
             isFinishing={finishRideMutation.isPending}
+            isCancelling={cancelRideMutation.isPending}
             isLoadingDetails={loadingRideDetails}
             rideAcceptedAt={rideAcceptedAt}
             expectedArrivalMinutes={expectedArrivalMinutes}
@@ -575,8 +617,8 @@ export default function Home() {
                   <Text style={styles.viewButtonText}>{balanceWarning.buttonText}</Text>
                 </TouchableOpacity>
                 {balanceWarning.type === 'critical' && (
-                  <TouchableOpacity style={styles.viewButtonOutline} onPress={() => navigation.navigate("Earnings")}>
-                    <Text style={styles.viewButtonOutlineText}>View Earnings</Text>
+                  <TouchableOpacity style={[styles.viewButton, { backgroundColor: '#facc15' }]} onPress={() => navigation.navigate("Earnings")}>
+                    <Text style={styles.viewButtonText}>View Earnings</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -860,6 +902,65 @@ export default function Home() {
         confirmButtonColor="#facc15"
         themeColor="#ff9800"
       />
+
+      {/* Cancel Ride Modal */}
+      <Modal
+        visible={cancelModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !cancelRideMutation.isPending && setCancelModalVisible(false)}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => !cancelRideMutation.isPending && setCancelModalVisible(false)}
+        >
+          <Pressable style={styles.modalCard} onPress={() => { }}>
+            <Text style={styles.modalTitle}>Cancel Ride</Text>
+            <Text style={styles.modalSubtitle}>Select a reason</Text>
+            {cancelReasons.map((reason) => {
+              const selected = selectedCancelReason === reason;
+              return (
+                <TouchableOpacity
+                  key={reason}
+                  style={[styles.reasonRow, selected && styles.reasonRowSelected]}
+                  onPress={() => setSelectedCancelReason(reason)}
+                  disabled={cancelRideMutation.isPending}
+                >
+                  <Text style={[styles.reasonText, selected && styles.reasonTextSelected]}>
+                    {reason}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalBtn, { backgroundColor: "#333" }]}
+                onPress={() => setCancelModalVisible(false)}
+                disabled={cancelRideMutation.isPending}
+              >
+                <Text style={styles.modalBtnText}>Close</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.modalBtn,
+                  {
+                    backgroundColor: "#e74c3c",
+                    opacity: !selectedCancelReason || cancelRideMutation.isPending ? 0.6 : 1,
+                  },
+                ]}
+                onPress={handleConfirmCancel}
+                disabled={!selectedCancelReason || cancelRideMutation.isPending}
+              >
+                {cancelRideMutation.isPending ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.modalBtnText}>Confirm</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -905,4 +1006,15 @@ const styles = StyleSheet.create({
   emptyText: { color: "white", fontSize: Math.max(16, width * 0.042), fontWeight: "600", marginTop: 10, textAlign: 'center' },
   emptySubtext: { color: "#999", fontSize: Math.max(12, width * 0.032), marginTop: 5, textAlign: 'center' },
   rideDetailsContainer: { width: '100%', marginVertical: 20 },
+  modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", paddingHorizontal: 24 },
+  modalCard: { backgroundColor: "#181818", borderRadius: 16, padding: 20 },
+  modalTitle: { color: "#fff", fontSize: 18, fontWeight: "bold" },
+  modalSubtitle: { color: "#aaa", fontSize: 13, marginTop: 4, marginBottom: 14 },
+  reasonRow: { paddingVertical: 12, paddingHorizontal: 14, borderRadius: 10, backgroundColor: "#222", marginBottom: 8, borderWidth: 1, borderColor: "#222" },
+  reasonRowSelected: { backgroundColor: "rgba(231,76,60,0.15)", borderColor: "#e74c3c" },
+  reasonText: { color: "#ddd", fontSize: 14 },
+  reasonTextSelected: { color: "#fff", fontWeight: "600" },
+  modalActions: { flexDirection: "row", gap: 10, marginTop: 12 },
+  modalBtn: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: "center" },
+  modalBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
 });

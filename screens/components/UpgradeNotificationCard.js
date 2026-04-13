@@ -1,6 +1,8 @@
-import React from "react";
-import { View, Text, Image, StyleSheet, Dimensions, TouchableOpacity } from "react-native";
+import React, { use } from "react";
+import { View, Text, Image, StyleSheet, Dimensions, TouchableOpacity, Alert } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { api } from "../../services/api";
+import { useSubmitKyc } from "../../services/checkKyc.service";
 
 const { width, height } = Dimensions.get('window');
 
@@ -16,12 +18,26 @@ const scaleSize = (size) => {
 const UpgradeNotificationCard = ({ status }) => {
   const navigation = useNavigation();
   console.log('statusss', status)
+  const { mutateAsync: submitKyc } = useSubmitKyc();
+
+  const handleSendForReview = async () => {
+    try {
+      const data = await submitKyc();
+      console.log('send for review response', data);
+      Alert.alert("Success", "Your documents have been sent for review. We will notify you once the review is complete.");
+    } catch (error) {
+      console.error("Error sending for review:", error);
+      Alert.alert("Error", "An error occurred while sending for review. Please try again.");
+
+    }
+  };
+
   return (
     <View style={styles.container}>
 
       {/* Top row: text + illustration */}
       <View style={styles.topRow}>
-        {status?.kyc_status !== "IN_REVIEW" ? (
+        {status?.kyc_status !== "APPROVED" ? (
           <View style={styles.textBlock}>
             <Text style={styles.title}>
               Complete Verification before receiving Rides
@@ -48,14 +64,25 @@ const UpgradeNotificationCard = ({ status }) => {
       </View>
 
       {/* Button */}
-      {status?.kyc_status !== "IN_REVIEW" && (
-        <TouchableOpacity
-          style={styles.viewButton}
-          onPress={() => navigation.navigate("IDVerify")}
-        >
-          <Text style={styles.viewButtonText}>Proceed</Text>
-        </TouchableOpacity>
-      )}
+      {status?.kyc_status === "PENDING" &&
+        !Object.values(status?.steps || {}).every(Boolean) && (
+          <TouchableOpacity
+            style={styles.viewButton}
+            onPress={() => navigation.navigate("IDVerify")}
+          >
+            <Text style={styles.viewButtonText}>Proceed</Text>
+          </TouchableOpacity>
+        )}
+
+      {status?.kyc_status === "PENDING" &&
+        Object.values(status?.steps || {}).every(Boolean) && (
+          <TouchableOpacity
+            style={[styles.viewButton, { marginTop: 8 }]}
+            onPress={handleSendForReview}
+          >
+            <Text style={styles.viewButtonText}>Send for Review</Text>
+          </TouchableOpacity>
+        )}
 
     </View>
   );
