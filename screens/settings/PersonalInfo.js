@@ -15,6 +15,7 @@ import {
   MaterialCommunityIcons,
   Ionicons,
 } from "@expo/vector-icons";
+import * as Clipboard from "expo-clipboard";
 
 import { useNavigation } from "@react-navigation/native";
 import { useProfile, useEditProfile } from "../../services/profile.service";
@@ -28,6 +29,7 @@ export default function PersonalInfo() {
   const navigation = useNavigation();
   const editProfile = useEditProfile();
   const goBack = () => { navigation.goBack(); };
+  console.log('useerrr', user)
 
   const [editingField, setEditingField] = useState(null);
   const [editValue, setEditValue] = useState("");
@@ -71,7 +73,12 @@ export default function PersonalInfo() {
     );
   }, [editValue, user, editProfile]);
 
-  // keyboardType prop added so phone gets numeric pad, email gets email keyboard
+  const copyReferral = (code) => {
+    if (!code) return;
+    Clipboard.setStringAsync(code);
+    Alert.alert("Copied", "Referral code copied to clipboard");
+  };
+
   const InfoRow = ({ icon, field, value, editable, keyboardType = "default" }) => {
     const isEditing = editingField === field;
 
@@ -128,17 +135,39 @@ export default function PersonalInfo() {
         <View style={styles.card}>
           <InfoRow icon="person" field="first_name" value={user?.first_name} editable />
           <InfoRow icon="person" field="last_name" value={user?.last_name} editable />
-          {/* ✅ email and phone_number now have editable + correct keyboard types */}
           <InfoRow icon="mail" field="email" value={user?.email} editable keyboardType="email-address" />
           <InfoRow icon="call" field="phone_number" value={user?.phone_number} editable keyboardType="phone-pad" />
           <InfoRow icon="location" field="address" value={user?.address} />
+          <View style={styles.infoRow}>
+            <View style={styles.infoLeft}>
+              <Ionicons name="gift" size={scaleSize(22)} color="#f7b731" />
+              <Text style={styles.text2}>
+                {user?.referral_code || "N/A"}
+              </Text>
+            </View>
+
+            {user?.referral_code && (
+              <TouchableOpacity
+                style={styles.pencilBtn}
+                onPress={() => copyReferral(user?.referral_code)}
+              >
+                <Ionicons name="copy-outline" size={scaleSize(22)} color="#f7b731" />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         {/* Section 2 */}
         <View style={{ flex: 1, flexDirection: 'column', gap: 15, alignItems: 'center' }}>
           <Text style={styles.text2}>Other Info</Text>
+
           <View style={[styles.card, { width: '100%' }]}>
-            <Image source={require('../../assets/images/car-red.png')} style={{ width: '100%', resizeMode: 'contain' }} />
+            {/* Referral Code */}
+
+            <Image
+              source={require('../../assets/images/car-red.png')}
+              style={{ width: '100%', resizeMode: 'contain' }}
+            />
           </View>
         </View>
       </View>
