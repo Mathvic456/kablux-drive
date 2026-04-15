@@ -68,7 +68,7 @@ export default {
       ],
       package: "com.crashingout.kabluxdrive",
       googleServicesFile: "./google-services.json",
-      versionCode: 52,
+      versionCode: 53,
     },
     web: {
       favicon: "./assets/favicon.png",
@@ -105,7 +105,7 @@ export default {
       [
         "expo-notifications",
         {
-          sound: "./assets/sounds/kablux-sound2.wav",
+          sounds: ["./assets/sounds/new_kablux_sound.wav"],
         },
       ],
       [
