@@ -37,7 +37,7 @@ const UpgradeNotificationCard = ({ status }) => {
 
       {/* Top row: text + illustration */}
       <View style={styles.topRow}>
-        {status?.kyc_status !== "APPROVED" ? (
+        {status?.kyc_status === "PENDING" ? (
           <View style={styles.textBlock}>
             <Text style={styles.title}>
               Complete Verification before receiving Rides

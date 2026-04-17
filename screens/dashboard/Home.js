@@ -626,7 +626,7 @@ export default function Home() {
           )}
 
 
-          {kycData?.kyc_status === "PENDING" && (
+          {(kycData?.kyc_status === "PENDING" || kycData?.kyc_status === "IN_REVIEW") && (
             <UpgradeNotificationCard status={kycData ? kycData : null} />
           )}
 

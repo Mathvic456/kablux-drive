@@ -9,10 +9,9 @@ import {
   ScrollView,
   Dimensions,
   Alert,
+  FlatList,
 } from "react-native";
 import {
-  FontAwesome5,
-  MaterialCommunityIcons,
   Ionicons,
 } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
@@ -24,21 +23,20 @@ const { width, height } = Dimensions.get('window');
 const isSmallScreen = width < 375;
 const isLargeScreen = width > 768;
 
+const CARD_PADDING = 20;
+const CAROUSEL_WIDTH = width - (CARD_PADDING * 2) - 40; // account for container padding + card padding
+
 export default function PersonalInfo() {
   const { data: user } = useProfile();
   const navigation = useNavigation();
   const editProfile = useEditProfile();
   const goBack = () => { navigation.goBack(); };
-  console.log('useerrr', user)
 
   const [editingField, setEditingField] = useState(null);
   const [editValue, setEditValue] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef(null);
-
-  const scaleFont = (size) => {
-    const scaleFactor = width / 375;
-    return Math.round(size * Math.min(scaleFactor, 1.3));
-  };
+  const carouselRef = useRef(null);
 
   const scaleSize = (size) => {
     const scaleFactor = width / 375;
@@ -79,6 +77,11 @@ export default function PersonalInfo() {
     Alert.alert("Copied", "Referral code copied to clipboard");
   };
 
+  const handleScroll = (event) => {
+    const index = Math.round(event.nativeEvent.contentOffset.x / CAROUSEL_WIDTH);
+    setActiveIndex(index);
+  };
+
   const InfoRow = ({ icon, field, value, editable, keyboardType = "default" }) => {
     const isEditing = editingField === field;
 
@@ -115,6 +118,15 @@ export default function PersonalInfo() {
     );
   };
 
+  const VehicleSpecRow = ({ label, value }) => (
+    <View style={styles.comp}>
+      <Text style={styles.textSmall}>{label}</Text>
+      <Text style={styles.textSmall}>{value || 'N/A'}</Text>
+    </View>
+  );
+
+  const vehicleImages = user?.vehicle?.images || [];
+
   return (
     <ScrollView
       style={styles.container}
@@ -145,7 +157,6 @@ export default function PersonalInfo() {
                 {user?.referral_code || "N/A"}
               </Text>
             </View>
-
             {user?.referral_code && (
               <TouchableOpacity
                 style={styles.pencilBtn}
@@ -157,17 +168,71 @@ export default function PersonalInfo() {
           </View>
         </View>
 
-        {/* Section 2 */}
+        {/* Section 2 - Vehicle Info */}
         <View style={{ flex: 1, flexDirection: 'column', gap: 15, alignItems: 'center' }}>
           <Text style={styles.text2}>Other Info</Text>
 
           <View style={[styles.card, { width: '100%' }]}>
-            {/* Referral Code */}
 
-            <Image
-              source={require('../../assets/images/car-red.png')}
-              style={{ width: '100%', resizeMode: 'contain' }}
-            />
+            {/* Image Carousel */}
+            {vehicleImages.length > 0 ? (
+              <View>
+                <FlatList
+                  ref={carouselRef}
+                  data={vehicleImages}
+                  horizontal
+                  pagingEnabled
+                  snapToInterval={CAROUSEL_WIDTH}
+                  decelerationRate="fast"
+                  showsHorizontalScrollIndicator={false}
+                  onScroll={handleScroll}
+                  scrollEventThrottle={16}
+                  keyExtractor={(item, index) => index.toString()}
+                  renderItem={({ item }) => (
+                    <View style={{ width: CAROUSEL_WIDTH }}>
+                      <Image
+                        source={{ uri: item.image_url }}
+                        style={styles.carouselImage}
+                        resizeMode="cover"
+                      />
+                      <View style={styles.imageTypeBadge}>
+                        <Text style={styles.imageTypeText}>{item.image_type}</Text>
+                      </View>
+                    </View>
+                  )}
+                />
+
+                {/* Dot indicators */}
+                <View style={styles.dotsContainer}>
+                  {vehicleImages.map((_, index) => (
+                    <View
+                      key={index}
+                      style={[
+                        styles.dot,
+                        index === activeIndex ? styles.dotActive : styles.dotInactive,
+                      ]}
+                    />
+                  ))}
+                </View>
+              </View>
+            ) : (
+              <Image
+                source={require('../../assets/images/car-red.png')}
+                style={{ width: '100%', resizeMode: 'contain' }}
+              />
+            )}
+
+            {/* Vehicle Specs */}
+            <View>
+              <Text style={styles.textHeader}>Specifications</Text>
+              <View style={{ flexDirection: 'column', gap: 8, marginTop: 10 }}>
+                <VehicleSpecRow label="Model" value={user?.vehicle?.model} />
+                <VehicleSpecRow label="Color" value={user?.vehicle?.color} />
+                <VehicleSpecRow label="Plate Number" value={user?.vehicle?.plate_number} />
+                <VehicleSpecRow label="Year" value={user?.vehicle?.year} />
+              </View>
+            </View>
+
           </View>
         </View>
       </View>
@@ -214,7 +279,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   card: {
-    backgroundColor: "#04223A",
+    backgroundColor: "#0B2633",
     borderRadius: 12,
     padding: 20,
     borderWidth: 1,
@@ -237,5 +302,67 @@ const styles = StyleSheet.create({
   },
   pencilBtn: {
     flexShrink: 0,
+  },
+  carouselImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 10,
+  },
+  imageTypeBadge: {
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#f7b731',
+  },
+  imageTypeText: {
+    color: '#f7b731',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  dotsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+    gap: 6,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  dotActive: {
+    backgroundColor: '#f7b731',
+    width: 20,
+    borderRadius: 4,
+  },
+  dotInactive: {
+    backgroundColor: '#555',
+  },
+  comp: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: "#000",
+    borderRadius: 8,
+    borderColor: "#1F212A",
+    borderWidth: 1,
+    padding: 15,
+  },
+  textSmall: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 20,
+  },
+  textHeader: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
   },
 });

@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TouchableOpacity, 
-  StyleSheet, 
-  Modal, 
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Modal,
   TextInput,
   ScrollView,
   FlatList
@@ -14,7 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 
 export default function BankTransferComponents() {
   const navigation = useNavigation();
-  
+
   // State for active payment method
   const [activePayment, setActivePayment] = useState({
     type: 'Bank Transfer',
@@ -137,43 +137,43 @@ export default function BankTransferComponents() {
       {/* Payment Methods */}
       <View style={styles.methodsCard}>
         {/* Mastercard */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.methodRow}
           onPress={() => togglePaymentMethod('mastercard')}
         >
           <Text style={styles.methodText}>Mastercard ****2132</Text>
-          <MaterialIcons 
-            name={selectedMethods.mastercard ? "check-box" : "check-box-outline-blank"} 
-            size={22} 
-            color="#FFC107" 
+          <MaterialIcons
+            name={selectedMethods.mastercard ? "check-box" : "check-box-outline-blank"}
+            size={22}
+            color="#FFC107"
           />
         </TouchableOpacity>
         <View style={styles.divider} />
 
         {/* Visa */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.methodRow}
           onPress={() => togglePaymentMethod('visa')}
         >
           <Text style={styles.methodText}>Visa ****2132</Text>
-          <MaterialIcons 
-            name={selectedMethods.visa ? "check-box" : "check-box-outline-blank"} 
-            size={22} 
-            color="#FFC107" 
+          <MaterialIcons
+            name={selectedMethods.visa ? "check-box" : "check-box-outline-blank"}
+            size={22}
+            color="#FFC107"
           />
         </TouchableOpacity>
         <View style={styles.divider} />
 
         {/* Crypto */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.methodRow}
           onPress={() => togglePaymentMethod('crypto')}
         >
           <Text style={styles.methodText}>Add with Crypto</Text>
-          <MaterialIcons 
-            name={selectedMethods.crypto ? "check-box" : "check-box-outline-blank"} 
-            size={22} 
-            color="#FFC107" 
+          <MaterialIcons
+            name={selectedMethods.crypto ? "check-box" : "check-box-outline-blank"}
+            size={22}
+            color="#FFC107"
           />
         </TouchableOpacity>
       </View>
@@ -190,7 +190,7 @@ export default function BankTransferComponents() {
             {/* Modal Header */}
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Edit Bank Details</Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={() => setEditModalVisible(false)}
                 style={styles.closeButton}
               >
@@ -200,7 +200,7 @@ export default function BankTransferComponents() {
 
             {/* Modal Body */}
             <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-              
+
               {/* Account Name Input */}
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Account Name</Text>
@@ -239,24 +239,24 @@ export default function BankTransferComponents() {
               {/* Bank Selection */}
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Select Bank</Text>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.bankSelector}
                   onPress={() => setShowBankDropdown(true)}
                 >
                   <Text style={editForm.bankName ? styles.bankSelectedText : styles.bankPlaceholderText}>
                     {editForm.bankName || 'Choose your bank'}
                   </Text>
-                  <Entypo 
-                    name={showBankDropdown ? "chevron-up" : "chevron-down"} 
-                    size={20} 
-                    color="#FFC107" 
+                  <Entypo
+                    name={showBankDropdown ? "chevron-up" : "chevron-down"}
+                    size={20}
+                    color="#FFC107"
                   />
                 </TouchableOpacity>
               </View>
 
               {/* Action Buttons */}
               <View style={styles.modalActions}>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[
                     styles.saveButton,
                     (!editForm.accountNumber || !editForm.bankName || !editForm.accountName || !isAccountNumberValid) && styles.saveButtonDisabled
@@ -267,7 +267,7 @@ export default function BankTransferComponents() {
                   <Text style={styles.saveButtonText}>Save Changes</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.cancelButton}
                   onPress={() => setEditModalVisible(false)}
                 >
@@ -290,14 +290,14 @@ export default function BankTransferComponents() {
           <View style={styles.bankModalContent}>
             <View style={styles.bankModalHeader}>
               <Text style={styles.bankModalTitle}>Select Bank</Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={() => setShowBankDropdown(false)}
                 style={styles.closeButton}
               >
                 <Ionicons name="close" size={24} color="#FFC107" />
               </TouchableOpacity>
             </View>
-            
+
             <FlatList
               data={banks}
               keyExtractor={(item) => item.id}
@@ -307,7 +307,7 @@ export default function BankTransferComponents() {
                   onPress={() => handleBankSelect(item)}
                 >
                   <Text style={styles.bankName}>{item.name}</Text>
-                  <Text style={styles.bankCode}>{item.code}</Text>
+                  <View />
                 </TouchableOpacity>
               )}
               showsVerticalScrollIndicator={false}

@@ -56,7 +56,7 @@ export async function getDevicePushToken(): Promise<string | null> {
         if (Platform.OS === "android") {
             try {
                 await Notifications.deleteNotificationChannelAsync("request");
-                await Notifications.setNotificationChannelAsync("request_v3", {
+                await Notifications.setNotificationChannelAsync("request", {
                     name: "Ride Request",
                     importance: Notifications.AndroidImportance.MAX,
                     sound: "new_kablux_sound.wav",
