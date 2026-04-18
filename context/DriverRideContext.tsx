@@ -142,8 +142,8 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
       setRiderId(rider_id);
       setRideAcceptedAt(Date.now());
 
-    } else if (rawEvent === "ride_cancelled") {
-      console.log("resetting from driver context");
+    } else if (event === "RIDE_CANCELLED") {
+      console.log("[DRIVER_RIDE] Ride cancelled — resetting state");
       reset();
 
     } else if (rawEvent === "negotiation_update") {
