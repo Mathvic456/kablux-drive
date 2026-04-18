@@ -9,6 +9,11 @@ import { playMessageSound } from "../utils/PlayMessageSound";
 import { authEvents } from "../utils/authEvents";
 import { fetchProfileStatus } from "../services/profile.service";
 import { parseRideRequest } from "../utils/notificationMapper";
+import {
+    startLocationBeacon,
+    stopLocationBeacon,
+    ensureBackgroundPermission,
+} from "../services/locationBeacon";
 
 const WSS_URL = process.env.EXPO_PUBLIC_WSS_URL;
 
@@ -145,6 +150,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         }
 
         stopLocationTracking();
+        stopLocationBeacon().catch(() => {});
 
         if (ws.current) {
           ws.current.close();
@@ -171,6 +177,16 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         shouldReconnect.current = true;
 
         await startLocationTracking();
+
+        // Best-effort background beacon: prompts for "Always" location the
+        // first time. If the user declines, we fall back to foreground-only
+        // tracking — going online still succeeds.
+        const bgGranted = await ensureBackgroundPermission();
+        if (bgGranted) {
+          await startLocationBeacon();
+        } else {
+          console.warn("🛰️ [BEACON] Background permission not granted; foreground-only");
+        }
 
         const validToken = await getValidToken();
         if (validToken) {
@@ -543,6 +559,12 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
           isOnlineRef.current = true;
           shouldReconnect.current = true;
           await startLocationTracking();
+          // Resume beacon silently if user already granted bg permission in a
+          // prior session. Don't re-prompt here.
+          const bg = await Location.getBackgroundPermissionsAsync();
+          if (bg.status === "granted") {
+            await startLocationBeacon();
+          }
           connectWebSocket(validToken);
         } else {
           console.log("⏸️ [INIT] Server says offline, staying offline");
@@ -558,6 +580,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
       shouldReconnect.current = false;
       ws.current?.close();
       stopLocationTracking();
+      stopLocationBeacon().catch(() => {});
       if (retryTimeout.current) clearTimeout(retryTimeout.current);
     };
   }, []);

@@ -1,7 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import * as Location from 'expo-location';
+import { openDirections } from '../../utils/openMap';
+import { USE_IN_APP_MAP } from '../../config/mapConfig';
 
 const ActiveRideSection = ({
   status,
@@ -23,6 +26,44 @@ const ActiveRideSection = ({
   const navigation = useNavigation();
 
   const isPickupPhase = status === 'ride_created' || status === 'driver_on_way';
+
+  const [openingMaps, setOpeningMaps] = useState(false);
+
+  const handleOpenInMaps = async () => {
+    const raw = rideDetails?.raw;
+    if (!raw) return;
+
+    const targetLat = isPickupPhase ? parseFloat(raw.pickup_lat) : parseFloat(raw.dropoff_lat);
+    const targetLng = isPickupPhase ? parseFloat(raw.pickup_lng) : parseFloat(raw.dropoff_lng);
+
+    if (!Number.isFinite(targetLat) || !Number.isFinite(targetLng)) {
+      Alert.alert('Location unavailable', 'Destination coordinates are missing for this ride.');
+      return;
+    }
+
+    try {
+      setOpeningMaps(true);
+      const { status: permStatus } = await Location.requestForegroundPermissionsAsync();
+      if (permStatus !== 'granted') {
+        Alert.alert(
+          'Location permission required',
+          'Enable location access so we can pass your current position to Maps.'
+        );
+        return;
+      }
+
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      await openDirections(
+        { lat: pos.coords.latitude, lng: pos.coords.longitude },
+        { lat: targetLat, lng: targetLng }
+      );
+    } catch (err) {
+      console.error('Failed to open Maps:', err);
+      Alert.alert('Could not open Maps', 'Please try again.');
+    } finally {
+      setOpeningMaps(false);
+    }
+  };
 
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
@@ -228,13 +269,27 @@ const ActiveRideSection = ({
           <Ionicons name="chatbubble-outline" size={22} color="white" />
         </TouchableOpacity>
 
-        {/* Map Button */}
-        <TouchableOpacity
-          style={styles.mapButton}
-          onPress={() => navigation.navigate('DriverMapScreen', { rideDetails })}
-        >
-          <Ionicons name="map-outline" size={22} color="white" />
-        </TouchableOpacity>
+        {/* Map / Open in Maps Button — behavior gated by USE_IN_APP_MAP */}
+        {USE_IN_APP_MAP ? (
+          <TouchableOpacity
+            style={styles.mapButton}
+            onPress={() => navigation.navigate('DriverMapScreen', { rideDetails })}
+          >
+            <Ionicons name="map-outline" size={22} color="white" />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[styles.mapButton, openingMaps && styles.buttonDisabled]}
+            onPress={handleOpenInMaps}
+            disabled={openingMaps}
+          >
+            {openingMaps ? (
+              <ActivityIndicator size="small" color="white" />
+            ) : (
+              <Ionicons name="navigate" size={22} color="white" />
+            )}
+          </TouchableOpacity>
+        )}
 
       </View>
     </View>

@@ -1,6 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { jwtDecode } from "jwt-decode";
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { clearPendingNotification } from "../hooks/useNotificationNavigator";
+import { stopLocationBeacon } from "../services/locationBeacon";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -102,6 +104,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     await AsyncStorage.removeItem("token");
     await AsyncStorage.removeItem("refreshToken");
     await AsyncStorage.removeItem("rememberMe");
+    await clearPendingNotification();
+    await stopLocationBeacon().catch(() => {});
   };
 
   const refreshAccessToken = async (): Promise<string | null> => {

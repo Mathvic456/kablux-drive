@@ -25,7 +25,12 @@ export default {
           "This app needs access to your location to share it with emergency contacts.",
         NSMicrophoneUsageDescription:
           "This app needs access to your microphone to record audio for safety purposes.",
-        UIBackgroundModes: ["audio"],
+        UIBackgroundModes: ["audio", "location"],
+        LSApplicationQueriesSchemes: ["comgooglemaps", "maps"],
+        NSLocationAlwaysAndWhenInUseUsageDescription:
+          "Kablux needs your location while the app is in the background so riders can see your position during an active trip.",
+        NSLocationAlwaysUsageDescription:
+          "Kablux needs your location while the app is in the background so riders can see your position during an active trip.",
       },
       config: {
         googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_IOS_API_KEY,
@@ -61,6 +66,9 @@ export default {
         "android.permission.RECORD_AUDIO",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
         "android.permission.CALL_PHONE",
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.RECEIVE_BOOT_COMPLETED",
@@ -95,11 +103,13 @@ export default {
         "expo-location",
         {
           locationAlwaysAndWhenInUsePermission:
-            "Allow $(PRODUCT_NAME) to use your location.",
+            "Kablux needs your location while in the background so riders can see your position during an active trip.",
           locationAlwaysPermission:
-            "Allow $(PRODUCT_NAME) to use your location.",
+            "Kablux needs your location while in the background so riders can see your position during an active trip.",
           locationWhenInUsePermission:
             "Allow $(PRODUCT_NAME) to use your location.",
+          isAndroidBackgroundLocationEnabled: true,
+          isAndroidForegroundServiceEnabled: true,
         },
       ],
       [

@@ -8,9 +8,12 @@ import { navigationRef } from './screens/context/NavigationContext';
 import { DriverRideProvider } from './context/DriverRideContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { setAuthTokenGetter } from './services/api';
-import React, { use, useEffect } from 'react';
-import * as Notifications from "expo-notifications";
+import React, { useEffect } from 'react';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { useNotificationNavigator } from './hooks/useNotificationNavigator';
+// Side-effect import: registers the background location task with TaskManager.
+// Must be imported at module load, before any start call.
+import './services/locationBeacon';
 
 
 
@@ -18,38 +21,6 @@ import { GoogleSignin } from '@react-native-google-signin/google-signin';
 const queryClient = new QueryClient();
 export default function App() {
 
-  useEffect(() => {
-    const subscription = Notifications.addNotificationResponseReceivedListener(response => {
-      const data = response.notification.request.content.data;
-      console.log("Notification clicked:", data);
-
-      const tryNavigate = (attempts = 0) => {
-        if (!navigationRef.isReady()) {
-          if (attempts < 10) setTimeout(() => tryNavigate(attempts + 1), 500);
-          return;
-        }
-
-        const type = data?.type || data?.click_action;
-
-        if (type === "RIDE_REQUESTED") {
-          navigationRef.navigate("Mainapp", {
-            screen: "MainTabs",
-            params: { screen: "Home", params: { notificationData: data } },
-          });
-        } else if (data?.screen) {
-          navigationRef.navigate(data.screen, data.params || {});
-        }
-      };
-
-      tryNavigate();
-    });
-
-    return () => {
-      subscription.remove();
-    };
-  }, []);
-
-  // const { token } = useAuth()
   useEffect(() => {
     GoogleSignin.configure({
       webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
@@ -70,11 +41,17 @@ export default function App() {
     return null;
   }
 
+  function NotificationNavigator() {
+    useNotificationNavigator();
+    return null;
+  }
+
   try {
     return (
       <NavigationContainer ref={navigationRef}>
         <AuthProvider>
           <ApiAuthConnector />
+          <NotificationNavigator />
           <DriverRideProvider>
             <WebSocketProvider>
 
