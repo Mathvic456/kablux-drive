@@ -105,7 +105,7 @@ export default {
       [
         "expo-notifications",
         {
-          sounds: ["./assets/sounds/new_kablux_sound.wav"],
+          sound: "./assets/sounds/new_kablux_sound.wav",
         },
       ],
       [

@@ -1,0 +1,33 @@
+import { Linking, Platform } from 'react-native';
+
+export const openGoogleMaps = (originLat, originLng, destLat, destLng) => {
+    const origin = `${originLat},${originLng}`;
+    const destination = `${destLat},${destLng}`;
+
+    const url = Platform.select({
+        ios: `comgooglemaps://?saddr=${origin}&daddr=${destination}&directionsmode=driving`,
+        android: `google.navigation:q=${destination}&origin=${origin}`,
+    });
+
+    const webFallback = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`;
+
+    Linking.canOpenURL(url)
+        .then((supported) => {
+            if (supported) {
+                return Linking.openURL(url); // Opens native Google Maps app
+            } else {
+                return Linking.openURL(webFallback); // Falls back to browser
+            }
+        })
+        .catch((err) => console.error('Error opening maps:', err));
+};
+
+// Example: user confirmed a ride
+// const handleStartRide = () => {
+//   openGoogleMaps(
+//     userLocation.latitude,
+//     userLocation.longitude,
+//     destination.latitude,
+//     destination.longitude
+//   );
+// };
