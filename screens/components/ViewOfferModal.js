@@ -114,7 +114,7 @@ export default function ViewOfferModal({
                     </View>
                   </View>
 
-                  <View style={styles.routeStats}>
+                  {/* <View style={styles.routeStats}>
                     <View style={styles.statItem}>
                       <Ionicons name="navigate-outline" size={scaleSize(20)} color="#888" />
                       <Text style={styles.statValue}>{offer.distance_km} km</Text>
@@ -130,7 +130,7 @@ export default function ViewOfferModal({
                       <Text style={styles.statValue}>{offer.ride_type}</Text>
                       <Text style={styles.statLabel}>Type</Text>
                     </View>
-                  </View>
+                  </View> */}
                 </View>
               </>
             )}

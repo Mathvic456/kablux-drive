@@ -16,7 +16,7 @@ import { API_URL } from "../constants/api";
  */
 
 export const LOCATION_TASK_NAME = "kablux-driver-location-beacon";
-const ENDPOINT = `${API_URL}/driver/location`;
+const ENDPOINT = `${API_URL}/rides/driver/location`;
 const TOKEN_CACHE_KEY = "token"; // same key AuthContext writes to
 
 type TaskBody = {
@@ -67,7 +67,7 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }: TaskBody) => 
             // On 401 we stop the beacon — token is expired; foreground refresh
             // will restart it on next online toggle.
             if (res.status === 401) {
-                await stopLocationBeacon().catch(() => {});
+                await stopLocationBeacon().catch(() => { });
             }
         }
     } catch (err) {
