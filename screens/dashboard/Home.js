@@ -330,9 +330,13 @@ export default function Home() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    if (rideId) await fetchRideDetails(rideId);
-    await refetchBalance();
-    setRefreshing(false);
+    try {
+      await loadPersisted();
+      if (rideId) await fetchRideDetails(rideId);
+      await refetchBalance();
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handleSessionExpiredOk = () => clearSessionExpired();

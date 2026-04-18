@@ -56,20 +56,44 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
   const [rideAcceptedAt, setRideAcceptedAt] = useState<number | null>(null);
   const expectedArrivalMinutes = 15; // Default ETA threshold in minutes
 
-  // Load persistent state
+  // Statuses the server returns for a ride that is no longer active.
+  const TERMINAL_STATUSES = new Set(["cancelled", "completed", "finished", "not_busy"]);
   const loadPersisted = async () => {
     try {
-      const saved = await api.get('rides/current/')
-      console.log('[DRIVER_RIDE] Saved state:', saved?.data);
-      if (!saved) return;
-
+      const saved = await api.get('rides/current/');
       const parsed = saved?.data;
-      setStatus(parsed?.status);
-      setRideId(parsed?.id);
-      setRiderId(parsed.rider?.user_id);
-      console.log("[DRIVER_RIDE] Rehydrated ride state:", parsed);
-    } catch (err) {
-      console.error("[DRIVER_RIDE] Failed to load persisted state:", err);
+      console.log('[DRIVER_RIDE] Reconcile payload:', parsed);
+
+      const hasActive =
+        parsed &&
+        parsed.id &&
+        parsed.status &&
+        !TERMINAL_STATUSES.has(String(parsed.status).toLowerCase());
+
+      if (!hasActive) {
+        console.log("[DRIVER_RIDE] Server has no active ride — clearing local state");
+        setStatus("not_busy");
+        setRideId(null);
+        setRiderId(null);
+        setRideAcceptedAt(null);
+        return;
+      }
+
+      setStatus(parsed.status);
+      setRideId(parsed.id);
+      setRiderId(parsed.rider?.user_id ?? null);
+      console.log("[DRIVER_RIDE] Rehydrated ride state:", parsed.id, parsed.status);
+    } catch (err: any) {
+      // 404 from `rides/current/` typically means no active ride; treat as reset.
+      if (err?.response?.status === 404) {
+        console.log("[DRIVER_RIDE] No active ride (404) — clearing local state");
+        setStatus("not_busy");
+        setRideId(null);
+        setRiderId(null);
+        setRideAcceptedAt(null);
+        return;
+      }
+      console.error("[DRIVER_RIDE] Failed to reconcile ride state:", err);
     }
   };
 
