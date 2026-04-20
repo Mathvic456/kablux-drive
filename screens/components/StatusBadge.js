@@ -129,6 +129,11 @@ const StatusBadge = ({ onToggleOnline }) => {
           <Text style={styles.toggleText}>Online</Text>
         </TouchableOpacity>
       </View>
+      <View style={{ padding: 10 }}>
+        <Text style={styles.emptySubtext}>
+          Your location is shared with riders while a trip is in progress, even when the app is running in the background. Going offline will stop location sharing.
+        </Text>
+      </View>
     </View>
   );
 };
@@ -285,6 +290,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
   },
+  emptySubtext: { color: "#999", fontSize: 12, marginTop: 5, textAlign: 'center' },
+
 });
 
 export default StatusBadge;
