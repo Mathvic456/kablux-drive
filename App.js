@@ -11,6 +11,9 @@ import { setAuthTokenGetter } from './services/api';
 import React, { useEffect } from 'react';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { useNotificationNavigator } from './hooks/useNotificationNavigator';
+import { registerDevice } from './services/deviceRegistration';
+import { requestFcmPermission } from './services/fcmHandler';
+import { useRideDeepLink } from './hooks/useRideDeepLink';
 // Side-effect import: registers the background location task with TaskManager.
 // Must be imported at module load, before any start call.
 import './services/locationBeacon';
@@ -46,14 +49,46 @@ export default function App() {
     return null;
   }
 
+  // Cold-start re-registration: whenever we have a valid auth token (either
+  // from a fresh login or a restored "remember me" session), push the current
+  // FCM token to the backend. Idempotent — deviceRegistration.ts short-circuits
+  // if the token is unchanged since the last successful register.
+  // Deep-link bridge: listens for kablux-drive://ride/:id URLs (cold-start +
+  // warm-start) and injects the matching pending ride into SocketContext so
+  // the existing foreground offer UI picks it up. Mounted inside
+  // WebSocketProvider because the hook reads SocketContext.
+  function RideDeepLinkBridge() {
+    useRideDeepLink();
+    return null;
+  }
+
+  function DeviceRegistrar() {
+    const { token } = useAuth();
+    useEffect(() => {
+      if (!token) return;
+      // Ensure notification permission is granted at the Firebase SDK
+      // level before we try to register a token. The Expo hook handles
+      // the UI prompt; this is idempotent and cheap.
+      (async () => {
+        await requestFcmPermission();
+        await registerDevice().catch((err) => {
+          console.warn("⚠️ [DeviceRegistrar] cold-start register failed:", err);
+        });
+      })();
+    }, [token]);
+    return null;
+  }
+
   try {
     return (
       <NavigationContainer ref={navigationRef}>
         <AuthProvider>
           <ApiAuthConnector />
           <NotificationNavigator />
+          <DeviceRegistrar />
           <DriverRideProvider>
             <WebSocketProvider>
+              <RideDeepLinkBridge />
 
               <QueryClientProvider client={queryClient}>
                 <AppNavigator />

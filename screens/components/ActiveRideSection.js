@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as Location from 'expo-location';
 import { openDirections } from '../../utils/openMap';
 import { USE_IN_APP_MAP } from '../../config/mapConfig';
@@ -103,6 +103,13 @@ const ActiveRideSection = ({
       minimumFractionDigits: 0,
     }).format(amount);
   };
+  const riderPhone = rideDetails?.rider?.phone_number || '';
+
+  const handleCall = () => {
+    if (riderPhone) {
+      Linking.openURL(`tel:${riderPhone}`);
+    }
+  };
 
   const showCancelButton = status !== 'ride_started' && status !== 'started';
 
@@ -172,6 +179,10 @@ const ActiveRideSection = ({
             <Text style={styles.riderLabel}>PASSENGER</Text>
             <Text style={styles.riderName}>{rideDetails.rider.name || "Passenger"}</Text>
           </View>
+
+          <TouchableOpacity style={styles.riderAvatar} onPress={handleCall}>
+            <Ionicons name="call" size={24} color="#facc15" />
+          </TouchableOpacity>
         </View>
       )}
 
@@ -209,65 +220,67 @@ const ActiveRideSection = ({
       {rideDetails?.fare !== undefined && (
         <View style={styles.fareContainer}>
           <Text style={styles.fareLabel}>Est. Fare.</Text>
-          <Text style={styles.fareValue}>{formatCurrency(rideDetails.fare)}</Text>
+          <Text style={styles.fareValue}>{formatCurrency(rideDetails?.fare)}</Text>
         </View>
       )}
 
       <View style={styles.actionsContainer}>
 
-        {/* Arrived Button */}
-        {isPickupPhase && (
-          <TouchableOpacity
-            style={[styles.actionButton, isArriving && styles.buttonDisabled]}
-            onPress={onArrived}
-            disabled={isArriving}
-          >
-            {renderButtonContent(isArriving, "location", "I Have Arrived")}
-          </TouchableOpacity>
-        )}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {/* Arrived Button */}
+          {isPickupPhase && (
+            <TouchableOpacity
+              style={[styles.actionButton, isArriving && styles.buttonDisabled]}
+              onPress={onArrived}
+              disabled={isArriving}
+            >
+              {renderButtonContent(isArriving, "location", "I Have Arrived")}
+            </TouchableOpacity>
+          )}
 
-        {/* Start Trip Button */}
-        {status === "arrived" && (
-          <TouchableOpacity
-            style={[styles.actionButton, isStarting && styles.buttonDisabled]}
-            onPress={onStartRide}
-            disabled={isStarting}
-          >
-            {renderButtonContent(isStarting, "play", "Start Trip")}
-          </TouchableOpacity>
-        )}
+          {/* Start Trip Button */}
+          {status === "arrived" && (
+            <TouchableOpacity
+              style={[styles.actionButton, isStarting && styles.buttonDisabled]}
+              onPress={onStartRide}
+              disabled={isStarting}
+            >
+              {renderButtonContent(isStarting, "play", "Start Trip")}
+            </TouchableOpacity>
+          )}
 
-        {/* Complete Ride Button */}
-        {(status === 'ride_started' || status === 'started') && (
-          <TouchableOpacity
-            style={[styles.actionButton, styles.finishButton, isFinishing && styles.buttonDisabled]}
-            onPress={onFinishRide}
-            disabled={isFinishing}
-          >
-            {renderButtonContent(isFinishing, "flag", "Complete Ride")}
-          </TouchableOpacity>
-        )}
+          {/* Complete Ride Button */}
+          {(status === 'ride_started' || status === 'started') && (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.finishButton, isFinishing && styles.buttonDisabled]}
+              onPress={onFinishRide}
+              disabled={isFinishing}
+            >
+              {renderButtonContent(isFinishing, "flag", "Complete Ride")}
+            </TouchableOpacity>
+          )}
 
-        {/* Cancel Button */}
-        {showCancelButton && onCancelRide && (
-          <TouchableOpacity
-            style={[styles.actionButton, styles.cancelButton, isCancelling && styles.buttonDisabled]}
-            onPress={onCancelRide}
-            disabled={isCancelling}
-          >
-            {renderButtonContent(isCancelling, "close", "Cancel Ride", '#fff')}
-          </TouchableOpacity>
-        )}
+          {/* Cancel Button */}
+          {showCancelButton && onCancelRide && (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.cancelButton, isCancelling && styles.buttonDisabled]}
+              onPress={onCancelRide}
+              disabled={isCancelling}
+            >
+              {renderButtonContent(isCancelling, "close", "Cancel Ride", '#fff')}
+            </TouchableOpacity>
+          )}
 
-        {/* Chat Button */}
-        <TouchableOpacity
-          style={styles.chatButton}
-          onPress={() => navigation.navigate('DriverChat', {
-            riderName: rideDetails?.rider?.name || "Passenger"
-          })}
-        >
-          <Ionicons name="chatbubble-outline" size={22} color="white" />
-        </TouchableOpacity>
+          {/* Chat Button */}
+          <TouchableOpacity
+            style={styles.chatButton}
+            onPress={() => navigation.navigate('DriverChat', {
+              riderName: rideDetails?.rider?.name || "Passenger"
+            })}
+          >
+            <Ionicons name="chatbubble-outline" size={22} color="white" />
+          </TouchableOpacity>
+        </View>
 
         {/* Map / Open in Maps Button — behavior gated by USE_IN_APP_MAP */}
         {USE_IN_APP_MAP ? (
@@ -276,6 +289,7 @@ const ActiveRideSection = ({
             onPress={() => navigation.navigate('DriverMapScreen', { rideDetails })}
           >
             <Ionicons name="map-outline" size={22} color="white" />
+
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
@@ -286,7 +300,11 @@ const ActiveRideSection = ({
             {openingMaps ? (
               <ActivityIndicator size="small" color="white" />
             ) : (
-              <Ionicons name="navigate" size={22} color="white" />
+              // <Ionicons name="navigate" size={22} color="white" />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Ionicons name="navigate" size={18} color="white" />
+                <Text style={{ color: '#fff' }}>Open Map</Text>
+              </View>
             )}
           </TouchableOpacity>
         )}
@@ -505,10 +523,9 @@ const styles = StyleSheet.create({
      - flexShrink: 0      → icon-only buttons never get crushed
   */
   actionsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
     flexWrap: 'wrap',
     gap: 10,
+    flex: 1,
   },
   actionButton: {
     flex: 1,
@@ -541,7 +558,7 @@ const styles = StyleSheet.create({
     borderColor: '#444',
   },
   mapButton: {
-    width: 50,
+    // width: 50,
     height: 50,
     flexShrink: 0,
     backgroundColor: '#2a2a2a',
@@ -550,6 +567,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#444',
+    paddingHorizontal: 5,
+    flex: 1
   },
   primaryButtonText: {
     fontWeight: 'bold',

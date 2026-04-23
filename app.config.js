@@ -69,10 +69,17 @@ export default {
         "android.permission.ACCESS_BACKGROUND_LOCATION",
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_LOCATION",
+        "android.permission.FOREGROUND_SERVICE_PHONE_CALL",
         "android.permission.CALL_PHONE",
+        "android.permission.READ_PHONE_STATE",
+        "android.permission.MANAGE_OWN_CALLS",
+        "android.permission.BIND_TELECOM_CONNECTION_SERVICE",
+        "android.permission.USE_FULL_SCREEN_INTENT",
+        "android.permission.POST_NOTIFICATIONS",
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE",
+        "android.permission.WAKE_LOCK",
       ],
       package: "com.crashingout.kabluxdrive",
       googleServicesFile: "./google-services.json",
@@ -82,6 +89,16 @@ export default {
       favicon: "./assets/favicon.png",
     },
     plugins: [
+      "@react-native-firebase/app",
+      "@react-native-firebase/messaging",
+      [
+        "expo-build-properties",
+        {
+          ios: {
+            useFrameworks: "static",
+          },
+        },
+      ],
       [
         "expo-image-picker",
         {
