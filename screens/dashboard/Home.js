@@ -898,7 +898,7 @@ export default function Home() {
         visible={onlineErrorModalVisible}
         onClose={() => setOnlineErrorModalVisible(false)}
         title="Cannot Go Online"
-        subText={onlineErrorMessage}
+        subText={onlineErrorMessage || 'Unable to go online. Please upload your credentials.'}
         icon="alert-circle"
         confirmText="Proceed"
         closeText="Later"

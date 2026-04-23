@@ -8,7 +8,7 @@ export default {
     icon: "./assets/r-logo.png",
     userInterfaceStyle: "light",
     newArchEnabled: true,
-    owner: "agbaby02",
+    owner: "agbaby",
     splash: {
       image: "./assets/adaptive-icon.png",
       resizeMode: "contain",
@@ -91,6 +91,7 @@ export default {
     plugins: [
       "@react-native-firebase/app",
       "@react-native-firebase/messaging",
+      "./plugins/withFirebaseMessagingFix",
       [
         "expo-build-properties",
         {
@@ -146,7 +147,7 @@ export default {
     ],
     extra: {
       eas: {
-        projectId: "67453bc9-908b-4dea-8b94-d45f405b60d5",
+        projectId: "07dff6e6-f4c1-4796-ad30-39fa35e57744",
       },
     },
   },
