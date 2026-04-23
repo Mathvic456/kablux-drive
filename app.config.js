@@ -74,7 +74,6 @@ export default {
         "android.permission.CALL_PHONE",
         "android.permission.READ_PHONE_STATE",
         "android.permission.MANAGE_OWN_CALLS",
-        "android.permission.BIND_TELECOM_CONNECTION_SERVICE",
         "android.permission.USE_FULL_SCREEN_INTENT",
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.MODIFY_AUDIO_SETTINGS",
@@ -92,6 +91,7 @@ export default {
     plugins: [
       "@react-native-firebase/app",
       "@react-native-firebase/messaging",
+      "@config-plugins/react-native-callkeep",
       [
         "expo-build-properties",
         {
