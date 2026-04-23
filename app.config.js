@@ -14,9 +14,10 @@ export default {
       resizeMode: "contain",
       backgroundColor: "#ffffff",
     },
-    notification: {
-      color: "#ffffff",
-    },
+    // NOTE: top-level `notification.color` removed — it injected a
+    // `com.google.firebase.messaging.default_notification_color` meta-data
+    // entry that collided with the one from @react-native-firebase/messaging,
+    // failing the Android manifest merger. Firebase's default (white) applies.
     ios: {
       buildNumber: "5",
       supportsTablet: true,
