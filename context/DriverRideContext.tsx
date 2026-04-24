@@ -146,18 +146,18 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
       console.log("[DRIVER_RIDE] Ride cancelled — resetting state");
 
       // Cross-channel dedup: mark cancelled so any in-flight native
-      // presentation (CallKeep) for this ride gets suppressed, and tear
-      // down the CallKeep session if one is active.
+      // presentation is suppressed, and dismiss the ringing notification
+      // if one is currently shown for this ride.
       try {
         const rideKey =
           msg.data?.ride_request_id ?? msg.data?.ride_id ?? msg.ride_request_id ?? msg.ride_id;
         if (rideKey) {
           // Lazy require to avoid a circular import at module load.
           const { markCancelled } = require("../services/rideDedup");
-          const { endCallForRide } = require("../services/callkeep");
+          const { cancelRingingNotification } = require("../services/ringingNotification");
           markCancelled(String(rideKey));
-          endCallForRide(String(rideKey)).catch((err: any) =>
-            console.warn("[DRIVER_RIDE] endCallForRide failed:", err)
+          cancelRingingNotification(String(rideKey)).catch((err: any) =>
+            console.warn("[DRIVER_RIDE] cancelRingingNotification failed:", err)
           );
         }
       } catch (err) {

@@ -3,7 +3,7 @@ import messaging, {
 } from "@react-native-firebase/messaging";
 import { shouldPresent } from "./rideDedup";
 import { registerDevice } from "./deviceRegistration";
-import { displayRideCall } from "./callkeep";
+import { displayRingingNotification } from "./ringingNotification";
 
 /**
  * FCM message handler + token lifecycle.
@@ -40,10 +40,16 @@ function parseRidePayload(
   const type = data.type || data.event;
   if (type !== "RIDE_REQUESTED") return null;
 
+  // Backend sends `ride_id` as the canonical field for ride dispatch.
+  // The other names are accepted as defensive fallbacks.
   const rideRequestId =
-    data.ride_request_id ?? data.rideRequestId ?? data.id ?? null;
+    data.ride_id ??
+    data.ride_request_id ??
+    data.rideRequestId ??
+    data.id ??
+    null;
   if (!rideRequestId) {
-    console.warn("[FCM] RIDE_REQUESTED payload missing ride_request_id:", data);
+    console.warn("[FCM] RIDE_REQUESTED payload missing ride id:", data);
     return null;
   }
 
@@ -51,16 +57,21 @@ function parseRidePayload(
 }
 
 /**
- * Present a ride via the native call UI.
+ * Present a ride via a notifee ringing notification.
  *
- * Invokes CallKeep to show the full-screen incoming-call UI regardless
- * of lock state. On user response, the answer/end handlers in
- * services/callkeep.ts take over.
+ * On locked devices the OS promotes this to a full-screen takeover
+ * (fullScreenAction). On unlocked devices it shows as a heads-up
+ * banner with Accept / Decline action buttons. Either way, tap
+ * opens our custom RN ride-offer screen via deep link.
  */
 async function presentRide(ride: FcmRidePayload): Promise<void> {
-  await displayRideCall({
+  await displayRingingNotification({
     rideRequestId: ride.ride_request_id,
     riderName: typeof ride.rider_name === "string" ? ride.rider_name : undefined,
+    fare: ride.fare,
+    distance: ride.distance,
+    pickup: typeof ride.pickup === "string" ? ride.pickup : undefined,
+    destination: typeof ride.destination === "string" ? ride.destination : undefined,
   });
 }
 
@@ -74,10 +85,23 @@ async function handleRemoteMessage(
     return;
   }
 
-  // Cross-channel dedup: if WS already delivered this ride, skip the native
-  // presentation. In killed-state, the JS runtime is fresh and dedup is
-  // empty, so this always claims — which is correct (WS couldn't have
-  // delivered in a dead runtime).
+  // In foreground, the WS-driven modal is the primary UX. Backend
+  // dual-sends (WS + FCM), so the FCM copy here is redundant — firing
+  // CallKeep would slam a full-screen incoming-call UI over the app the
+  // driver is already using. Claim dedup so a late-arriving WS event for
+  // the same ride is not double-presented, then stop here. WS will
+  // present via the existing rideNotifications flow.
+  if (origin === "foreground") {
+    shouldPresent(ride.ride_request_id, `fcm:${origin}`);
+    console.log(
+      `🪟 [FCM/foreground] Deferring to WS modal for ride ${ride.ride_request_id}`
+    );
+    return;
+  }
+
+  // Background / killed: native CallKeep UI is the only way to reach the
+  // driver. Dedup guards the (rare) race where WS reconnects and
+  // redelivers the same ride before CallKeep finishes presenting.
   if (!shouldPresent(ride.ride_request_id, `fcm:${origin}`)) {
     console.log(
       `🟰 [FCM/${origin}] Ride ${ride.ride_request_id} already claimed, skipping`

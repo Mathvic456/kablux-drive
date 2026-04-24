@@ -105,9 +105,13 @@ export async function setupCallKeep(): Promise<void> {
         cancelButton: "Cancel",
         okButton: "OK",
         imageName: "ic_launcher",
-        // Uses the telecom framework with a self-managed connection service.
+        // selfManaged:false => Android Telecom draws the full-screen
+        // incoming-call UI (ringer, Answer/Decline buttons). In
+        // self-managed mode, the system renders nothing and expects the
+        // app to launch its own Activity — which is why we were seeing a
+        // white flash and the UI disappearing.
         additionalPermissions: [],
-        selfManaged: true,
+        selfManaged: false,
         foregroundService: {
           channelId: "kablux.ride.callkeep",
           channelName: "Incoming Ride Requests",
@@ -126,7 +130,7 @@ export async function setupCallKeep(): Promise<void> {
         okButton: "OK",
         imageName: "ic_launcher",
         additionalPermissions: [],
-        selfManaged: true,
+        selfManaged: false,
       } as any);
     }
 
