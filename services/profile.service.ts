@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api";
+import { useAuth } from "../context/AuthContext";
 
 export interface ProfileResponse {
   id: string;
@@ -27,7 +28,12 @@ export const fetchProfileStatus = async (): Promise<{ is_online: boolean }> => {
   return { is_online: data?.is_online ?? false };
 };
 
-export const useProfile = (token?: string) => {
+export const useProfile = (tokenOverride?: string) => {
+  // Default: read token from AuthContext so the query auto-enables once the
+  // user is authenticated. Callers can still pass an explicit token to force.
+  const { token: contextToken } = useAuth();
+  const token = tokenOverride ?? contextToken;
+
   return useQuery({
     queryKey: ["profile"],
     queryFn: async () => {

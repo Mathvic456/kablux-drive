@@ -1,0 +1,6 @@
+R_DEF: Internal format may change without notice
+local
+drawable bubble_background
+id bubble_fare
+id bubble_status
+layout bubble_view

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bubble_background"
+    android:paddingStart="14dp"
+    android:paddingEnd="14dp"
+    android:paddingTop="10dp"
+    android:paddingBottom="10dp"
+    android:elevation="8dp">
+
+    <TextView
+        android:id="@+id/bubble_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@android:color/white"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        android:maxWidth="180dp"
+        android:singleLine="true"
+        android:ellipsize="end"
+        android:text="Driver online" />
+
+    <TextView
+        android:id="@+id/bubble_fare"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#FFFFFF"
+        android:textSize="12sp"
+        android:layout_marginTop="2dp"
+        android:visibility="gone" />
+
+</LinearLayout>

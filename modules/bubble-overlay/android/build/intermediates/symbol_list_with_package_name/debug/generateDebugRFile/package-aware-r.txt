@@ -1,0 +1,5 @@
+expo.modules.bubbleoverlay
+drawable bubble_background
+id bubble_fare
+id bubble_status
+layout bubble_view
