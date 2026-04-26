@@ -86,7 +86,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
   const [, forceUpdate] = useState(0);
   const [locationPermission, setLocationPermission] = useState<string>('undetermined');
   const { token, getValidToken, clearTokens } = useAuth();
-  const { rideId, handleWsEvent, setStatus } = useDriverRide();
+  const { rideId, handleWsEvent } = useDriverRide();
   const [chatMessages, setChatMessages] = useState<Record<string, any[]>>({});
 
 
@@ -395,8 +395,8 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
               return [...prev, notification];
             });
           }
-        } if (msg.event === "ride_cancelled") {
-          setStatus("ride_cancelled");
+        } else if (msg.event === "ride_cancelled") {
+          handleWsEvent(msg);
         } else if (msg.type === "error" && msg.message?.includes("expired")) {
           console.error("🔑 [WS_DRIVER] Auth expired");
           handleLogout();

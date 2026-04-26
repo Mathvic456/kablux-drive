@@ -9,6 +9,12 @@ type DriverRideStatus =
   | "ride_started"
   | "ride_cancelled";
 
+interface CancellationNotice {
+  reason: string;
+  rideId: string | null;
+  timestamp?: string;
+}
+
 interface DriverRideContextValue {
   status: DriverRideStatus;
   rideId: string | null;
@@ -24,6 +30,8 @@ interface DriverRideContextValue {
   rideAcceptedAt: number | null;
   expectedArrivalMinutes: number;
   setStatus: React.Dispatch<React.SetStateAction<DriverRideStatus>>;
+  cancellationNotice: CancellationNotice | null;
+  dismissCancellation: () => void;
 }
 
 const DriverRideContext = createContext<DriverRideContextValue>({
@@ -41,6 +49,8 @@ const DriverRideContext = createContext<DriverRideContextValue>({
   rideAcceptedAt: null,
   expectedArrivalMinutes: 15,
   setStatus: () => { },
+  cancellationNotice: null,
+  dismissCancellation: () => { },
 });
 
 export const useDriverRide = () => useContext(DriverRideContext);
@@ -57,6 +67,7 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
   const [triggerEffect, setTriggerEffect] = useState(0);
   const [negotiationUpdates, setNegotiationUpdates] = useState([]);
   const [rideAcceptedAt, setRideAcceptedAt] = useState<number | null>(null);
+  const [cancellationNotice, setCancellationNotice] = useState<CancellationNotice | null>(null);
   const expectedArrivalMinutes = 15; // Default ETA threshold in minutes
 
   // Statuses the server returns for a ride that is no longer active.
@@ -146,15 +157,23 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
       setRideAcceptedAt(Date.now());
 
     } else if (event === "RIDE_CANCELLED") {
-      console.log("[DRIVER_RIDE] Ride cancelled — resetting state");
+      console.log("[DRIVER_RIDE] Ride cancelled — capturing notice");
+      const p = msg.payload || msg.data || {};
+      const rideKey =
+        p.ride_request_id ?? p.ride_id ?? msg.ride_request_id ?? msg.ride_id ?? null;
+      const reason = p.reason ?? "No reason provided";
+
       setStatus("ride_cancelled");
+      setCancellationNotice({
+        reason,
+        rideId: rideKey ? String(rideKey) : null,
+        timestamp: p.timestamp,
+      });
 
       // Cross-channel dedup: mark cancelled so any in-flight native
       // presentation (CallKeep) for this ride gets suppressed, and tear
       // down the CallKeep session if one is active.
       try {
-        const rideKey =
-          msg.data?.ride_request_id ?? msg.data?.ride_id ?? msg.ride_request_id ?? msg.ride_id;
         if (rideKey) {
           // Lazy require to avoid a circular import at module load.
           const { markCancelled } = require("../services/rideDedup");
@@ -167,8 +186,6 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
       } catch (err) {
         console.warn("[DRIVER_RIDE] RIDE_CANCELLED cleanup failed (non-fatal):", err);
       }
-
-      reset();
 
     } else if (rawEvent === "negotiation_update") {
       console.log("[DRIVER_RIDE] Negotiation update received:", msg.data);
@@ -238,6 +255,12 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
     finishRide();
   };
 
+  const dismissCancellation = () => {
+    console.log("[DRIVER_RIDE] Dismissing cancellation notice");
+    setCancellationNotice(null);
+    finishRide();
+  };
+
   return (
     <DriverRideContext.Provider
       value={{
@@ -254,6 +277,9 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
         negotiationUpdates,
         rideAcceptedAt,
         expectedArrivalMinutes,
+        setStatus,
+        cancellationNotice,
+        dismissCancellation,
       }}
     >
       {children}

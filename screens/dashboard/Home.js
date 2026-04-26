@@ -70,7 +70,6 @@ export default function Home() {
   const [acceptedRide, setAcceptedRide] = useState(null);
   const [acceptedModalVisible, setAcceptedModalVisible] = useState(false);
   const [rideCancelledModalVisible, setRideCancelledModalVisible] = useState(false);
-  const [cancelledModalVisible, setCancelledModalVisible] = useState(false);
   const [cancelledRideInfo, setCancelledRideInfo] = useState(null);
   const [rideDetails, setRideDetails] = useState(null);
   const [loadingRideDetails, setLoadingRideDetails] = useState(false);
@@ -110,6 +109,8 @@ export default function Home() {
     rideAcceptedAt,
     expectedArrivalMinutes,
     setStatus,
+    cancellationNotice,
+    dismissCancellation,
   } = useDriverRide();
 
   const {
@@ -297,11 +298,14 @@ export default function Home() {
       setAcceptedModalVisible(true);
       setRideNotifications([]);
       setNegotiationUpdates({});
-    } if (status === "ride_cancelled") {
-      console.log('cancelleddddddd')
-      setCancelledModalVisible(true);
     }
   }, [status]);
+
+  useEffect(() => {
+    if (!cancellationNotice) return;
+    setCancelledRideInfo({ reason: cancellationNotice.reason });
+    setRideCancelledModalVisible(true);
+  }, [cancellationNotice]);
 
   useEffect(() => {
     const notificationData = route.params?.notificationData;
@@ -434,7 +438,11 @@ export default function Home() {
 
   const handleCancelledRideOk = async () => {
     try {
-      reset();
+      if (cancellationNotice) {
+        dismissCancellation();
+      } else {
+        reset();
+      }
       setRideDetails(null);
       setCancelledRideInfo(null);
       setRideCancelledModalVisible(false);
@@ -805,19 +813,6 @@ export default function Home() {
         themeColor="#facc15"
         hideCloseButton
       />
-      {/* Cancelled Ride Modal */}
-      <CentralModal
-        visible={cancelledModalVisible}
-        onClose={() => { setStatus("not_busy"); setCancelledModalVisible(false); }}
-        title="Ride Cancelled"
-        subText="Your ride has been cancelled."
-        icon="close-circle"
-        iconColor="#f44336"
-        confirmText="Got it!"
-        themeColor="#facc15"
-        hideCloseButton
-      />
-
       {/* Driver Offer Declined Modal */}
       <CentralModal
         visible={declineModalVisible}
