@@ -6,6 +6,7 @@ import { CREATEACCOUNT_TYPE } from "./type";
 import { registerDevice, unregisterDevice } from "./deviceRegistration";
 
 
+
 export const useRegisterEndPoint = () => {
   return useMutation<AxiosResponse<any>, any, CREATEACCOUNT_TYPE>({
     mutationFn: (data) => api.post("auth/register/", data),
@@ -75,7 +76,7 @@ export const useLoginEndPoint = (
       }
 
       try {
-        const pendingRes = await api.get("rides/pending_requests/");
+        const pendingRes = await api.get("rides/ride_orders/");
         const pendingRequests = pendingRes.data?.results || pendingRes.data || [];
         if (pendingRequests.length > 0) {
           console.log(`🔔 [LOGIN] Found ${pendingRequests.length} pending ride request(s)`);
@@ -124,11 +125,14 @@ export const useActiveStatusEndPoint = () => {
 export const useLogoutEndPoint = (
   clearTokens: () => Promise<void>
 ) => {
+  const activeStatusMutation = useActiveStatusEndPoint();
   return useMutation<boolean, any, void>({
     mutationFn: async () => {
       // Unregister the device BEFORE clearing tokens so the request still
       // authenticates. Best-effort — we continue the logout even on failure.
       try {
+        console.log('loging out')
+        await activeStatusMutation.mutateAsync({ is_online: false });
         await unregisterDevice();
       } catch (err) {
         console.warn("⚠️ [LOGOUT] unregisterDevice failed (continuing):", err);

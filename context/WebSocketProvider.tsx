@@ -12,9 +12,9 @@ import { parseRideRequest } from "../utils/notificationMapper";
 import { shouldPresent, markCancelled } from "../services/rideDedup";
 import { requestBatteryOptimizationExemption } from "../services/batteryOptimization";
 import {
-    startLocationBeacon,
-    stopLocationBeacon,
-    ensureBackgroundPermission,
+  startLocationBeacon,
+  stopLocationBeacon,
+  ensureBackgroundPermission,
 } from "../services/locationBeacon";
 
 const WSS_URL = process.env.EXPO_PUBLIC_WSS_URL;
@@ -86,8 +86,9 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
   const [, forceUpdate] = useState(0);
   const [locationPermission, setLocationPermission] = useState<string>('undetermined');
   const { token, getValidToken, clearTokens } = useAuth();
-  const { rideId, handleWsEvent } = useDriverRide();
+  const { rideId, handleWsEvent, setStatus } = useDriverRide();
   const [chatMessages, setChatMessages] = useState<Record<string, any[]>>({});
+
 
   useEffect(() => {
     console.log("🔄 [WSP_DRIVER] rideId changed:", rideId);
@@ -152,7 +153,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         }
 
         stopLocationTracking();
-        stopLocationBeacon().catch(() => {});
+        stopLocationBeacon().catch(() => { });
 
         if (ws.current) {
           ws.current.close();
@@ -394,6 +395,8 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
               return [...prev, notification];
             });
           }
+        } if (msg.event === "ride_cancelled") {
+          setStatus("ride_cancelled");
         } else if (msg.type === "error" && msg.message?.includes("expired")) {
           console.error("🔑 [WS_DRIVER] Auth expired");
           handleLogout();
@@ -601,7 +604,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
       shouldReconnect.current = false;
       ws.current?.close();
       stopLocationTracking();
-      stopLocationBeacon().catch(() => {});
+      stopLocationBeacon().catch(() => { });
       if (retryTimeout.current) clearTimeout(retryTimeout.current);
     };
   }, []);

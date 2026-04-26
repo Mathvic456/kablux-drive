@@ -59,7 +59,7 @@ export function useRideDeepLink() {
 
         // Hydrate via existing pending-requests endpoint. No new backend
         // surface needed for Phase 1c.
-        const res = await api.get("rides/pending_requests/");
+        const res = await api.get("rides/ride_orders/");
         const pending = res.data?.results || res.data || [];
         const match = pending.find((r: any) => {
           const id = r.ride_request_id ?? r.id;

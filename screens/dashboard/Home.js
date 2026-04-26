@@ -70,6 +70,7 @@ export default function Home() {
   const [acceptedRide, setAcceptedRide] = useState(null);
   const [acceptedModalVisible, setAcceptedModalVisible] = useState(false);
   const [rideCancelledModalVisible, setRideCancelledModalVisible] = useState(false);
+  const [cancelledModalVisible, setCancelledModalVisible] = useState(false);
   const [cancelledRideInfo, setCancelledRideInfo] = useState(null);
   const [rideDetails, setRideDetails] = useState(null);
   const [loadingRideDetails, setLoadingRideDetails] = useState(false);
@@ -108,6 +109,7 @@ export default function Home() {
     negotiationUpdates,
     rideAcceptedAt,
     expectedArrivalMinutes,
+    setStatus,
   } = useDriverRide();
 
   const {
@@ -187,11 +189,13 @@ export default function Home() {
       if (goingOnline) {
         // 1. Update server status FIRST so the server knows we're coming online
         try {
-          await activeStatusMutation.mutateAsync({ is_online: true });
+          const res = await activeStatusMutation.mutateAsync({ is_online: true });
+          console.log('response from going online', res)
         } catch (error) {
+          console.log('going online error', error)
           const message = error.response?.data?.message || "Unable to login Please upload your credentials.";
           setOnlineErrorMessage(message);
-          setOnlineErrorModalVisible(true);
+          // setOnlineErrorModalVisible(true);
           // Server rejected going online - don't open the WebSocket
           return;
         }
@@ -293,6 +297,9 @@ export default function Home() {
       setAcceptedModalVisible(true);
       setRideNotifications([]);
       setNegotiationUpdates({});
+    } if (status === "ride_cancelled") {
+      console.log('cancelleddddddd')
+      setCancelledModalVisible(true);
     }
   }, [status]);
 
@@ -557,11 +564,10 @@ export default function Home() {
           profile={profile}
           notificationCount={rideNotifications.length + negotiationArray.length}
           onMenuPress={handleOpenMenu}
-          onToggleOnline={handleToggleOnline}
           isConnected={isConnected}
         />
 
-        <StatusBadge onToggleOnline={handleToggleOnline} />
+        <StatusBadge status={profile?.is_online} onToggleOnline={handleToggleOnline} />
         <ScrollView
           style={styles.scrollContainer}
           contentContainerStyle={styles.scrollContentContainer}
@@ -796,7 +802,19 @@ export default function Home() {
         icon="checkmark-circle"
         iconColor="#4CAF50"
         confirmText="Got it!"
-        themeColor="#4CAF50"
+        themeColor="#facc15"
+        hideCloseButton
+      />
+      {/* Cancelled Ride Modal */}
+      <CentralModal
+        visible={cancelledModalVisible}
+        onClose={() => { setStatus("not_busy"); setCancelledModalVisible(false); }}
+        title="Ride Cancelled"
+        subText="Your ride has been cancelled."
+        icon="close-circle"
+        iconColor="#f44336"
+        confirmText="Got it!"
+        themeColor="#facc15"
         hideCloseButton
       />
 

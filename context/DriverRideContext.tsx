@@ -6,7 +6,8 @@ type DriverRideStatus =
   | "not_busy"
   | "ride_created"
   | "arrived"
-  | "ride_started";
+  | "ride_started"
+  | "ride_cancelled";
 
 interface DriverRideContextValue {
   status: DriverRideStatus;
@@ -22,6 +23,7 @@ interface DriverRideContextValue {
   negotiationUpdates: any[];
   rideAcceptedAt: number | null;
   expectedArrivalMinutes: number;
+  setStatus: React.Dispatch<React.SetStateAction<DriverRideStatus>>;
 }
 
 const DriverRideContext = createContext<DriverRideContextValue>({
@@ -38,6 +40,7 @@ const DriverRideContext = createContext<DriverRideContextValue>({
   negotiationUpdates: [],
   rideAcceptedAt: null,
   expectedArrivalMinutes: 15,
+  setStatus: () => { },
 });
 
 export const useDriverRide = () => useContext(DriverRideContext);
@@ -144,6 +147,7 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
 
     } else if (event === "RIDE_CANCELLED") {
       console.log("[DRIVER_RIDE] Ride cancelled — resetting state");
+      setStatus("ride_cancelled");
 
       // Cross-channel dedup: mark cancelled so any in-flight native
       // presentation (CallKeep) for this ride gets suppressed, and tear

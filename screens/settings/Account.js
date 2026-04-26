@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { MaterialIcons, FontAwesome5, Feather, Entypo, Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { useLogoutEndPoint } from '../../services/auth.service';
+import { useActiveStatusEndPoint, useLogoutEndPoint } from '../../services/auth.service';
 import { useProfile, useUpdateProfile } from '../../services/profile.service';
 import { useUploadFile } from '../../services/fileUpload.service';
 import { SocketContext } from '../../context/WebSocketProvider';
@@ -49,6 +49,8 @@ export default function Account() {
   const { socket } = useContext(SocketContext);
   const { mutateAsync: uploadFile, isPending: isUploading } = useUploadFile();
   const { mutateAsync: updateProfile, isPending: isUpdating } = useUpdateProfile();
+  const activeStatusMutation = useActiveStatusEndPoint();
+
   const isUploadingImage = isUploading || isUpdating;
 
   const LoginAndSecurity = () => navigation.navigate('LoginAndSecurity');

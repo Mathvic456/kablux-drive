@@ -10,7 +10,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { SocketContext } from "../../context/WebSocketProvider";
 
-const StatusBadge = ({ onToggleOnline }) => {
+const StatusBadge = ({ onToggleOnline, status }) => {
   const { isConnected, currentLocation, locationPermission } = useContext(SocketContext);
   const [isLoading, setIsLoading] = useState(false);
   const [badgeHeight, setBadgeHeight] = useState(56);
@@ -108,34 +108,36 @@ const StatusBadge = ({ onToggleOnline }) => {
     );
   }
   // State 4: Connected and online
-  return (
-    <View style={styles.container}>  {/* just normal container, no absolute */}
-      <View style={styles.switchContainer}>
-        <View style={styles.switchInfo}>
-          <View style={styles.locationInfo}>
-            <View style={[styles.statusDot, styles.onlineDot]} />
-            <Text style={styles.onlineStatus}>Online & Receiving Rides</Text>
+  if (isConnected && status) {
+    return (
+      <View style={styles.container}>  {/* just normal container, no absolute */}
+        <View style={styles.switchContainer}>
+          <View style={styles.switchInfo}>
+            <View style={styles.locationInfo}>
+              <View style={[styles.statusDot, styles.onlineDot]} />
+              <Text style={styles.onlineStatus}>Online & Receiving Rides</Text>
+            </View>
           </View>
-        </View>
 
-        <TouchableOpacity
-          style={styles.switchToggle}
-          onPress={handleToggle}
-          activeOpacity={0.7}
-        >
-          <View style={styles.toggleTrack}>
-            <View style={styles.toggleThumbOnline} />
-          </View>
-          <Text style={styles.toggleText}>Online</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.switchToggle}
+            onPress={handleToggle}
+            activeOpacity={0.7}
+          >
+            <View style={styles.toggleTrack}>
+              <View style={styles.toggleThumbOnline} />
+            </View>
+            <Text style={styles.toggleText}>Online</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={{ padding: 10 }}>
+          <Text style={styles.emptySubtext}>
+            Your location is shared with riders while a trip is in progress, even when the app is running in the background. Going offline will stop location sharing.
+          </Text>
+        </View>
       </View>
-      <View style={{ padding: 10 }}>
-        <Text style={styles.emptySubtext}>
-          Your location is shared with riders while a trip is in progress, even when the app is running in the background. Going offline will stop location sharing.
-        </Text>
-      </View>
-    </View>
-  );
+    );
+  }
 };
 
 const styles = StyleSheet.create({
