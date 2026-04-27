@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as Location from 'expo-location';
 import { openDirections } from '../../utils/openMap';
@@ -64,6 +64,16 @@ const ActiveRideSection = ({
       setOpeningMaps(false);
     }
   };
+
+  const autoOpenedRideRef = useRef(null);
+  useEffect(() => {
+    if (USE_IN_APP_MAP) return;
+    if (status !== 'ride_created') return;
+    if (!rideId || !rideDetails?.raw) return;
+    if (autoOpenedRideRef.current === rideId) return;
+    autoOpenedRideRef.current = rideId;
+    handleOpenInMaps();
+  }, [status, rideId, rideDetails?.raw]);
 
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
