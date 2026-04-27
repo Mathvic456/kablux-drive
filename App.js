@@ -13,7 +13,6 @@ import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { useNotificationNavigator } from './hooks/useNotificationNavigator';
 import { registerDevice } from './services/deviceRegistration';
 import { requestFcmPermission } from './services/fcmHandler';
-import { useRideDeepLink } from './hooks/useRideDeepLink';
 // Side-effect import: registers the background location task with TaskManager.
 // Must be imported at module load, before any start call.
 import './services/locationBeacon';
@@ -53,15 +52,6 @@ export default function App() {
   // from a fresh login or a restored "remember me" session), push the current
   // FCM token to the backend. Idempotent — deviceRegistration.ts short-circuits
   // if the token is unchanged since the last successful register.
-  // Deep-link bridge: listens for kablux-drive://ride/:id URLs (cold-start +
-  // warm-start) and injects the matching pending ride into SocketContext so
-  // the existing foreground offer UI picks it up. Mounted inside
-  // WebSocketProvider because the hook reads SocketContext.
-  function RideDeepLinkBridge() {
-    useRideDeepLink();
-    return null;
-  }
-
   function DeviceRegistrar() {
     const { token } = useAuth();
     useEffect(() => {

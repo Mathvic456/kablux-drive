@@ -170,23 +170,6 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
         timestamp: p.timestamp,
       });
 
-      // Cross-channel dedup: mark cancelled so any in-flight native
-      // presentation (CallKeep) for this ride gets suppressed, and tear
-      // down the CallKeep session if one is active.
-      try {
-        if (rideKey) {
-          // Lazy require to avoid a circular import at module load.
-          const { markCancelled } = require("../services/rideDedup");
-          const { endCallForRide } = require("../services/callkeep");
-          markCancelled(String(rideKey));
-          endCallForRide(String(rideKey)).catch((err: any) =>
-            console.warn("[DRIVER_RIDE] endCallForRide failed:", err)
-          );
-        }
-      } catch (err) {
-        console.warn("[DRIVER_RIDE] RIDE_CANCELLED cleanup failed (non-fatal):", err);
-      }
-
     } else if (rawEvent === "negotiation_update") {
       console.log("[DRIVER_RIDE] Negotiation update received:", msg.data);
       setNegotiationUpdates((prev) => {

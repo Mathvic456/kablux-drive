@@ -9,7 +9,6 @@ import { playMessageSound } from "../utils/PlayMessageSound";
 import { authEvents } from "../utils/authEvents";
 import { fetchProfileStatus } from "../services/profile.service";
 import { parseRideRequest } from "../utils/notificationMapper";
-import { shouldPresent, markCancelled } from "../services/rideDedup";
 import { requestBatteryOptimizationExemption } from "../services/batteryOptimization";
 import {
   startLocationBeacon,
@@ -375,17 +374,6 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
           const notification = parseRideNotification(rawData);
 
           if (notification) {
-            // Cross-channel dedup: if this ride was already presented by the
-            // native layer (CallKeep via FCM while backgrounded), suppress the
-            // WS-side modal so the driver doesn't see both. Non-invasive —
-            // existing WS-internal dedup below still applies when this is the
-            // first arrival of the ride.
-            const rideKey = String(notification.ride_request_id);
-            if (!shouldPresent(rideKey, "ws")) {
-              console.log("🟰 [WS_DRIVER] Ride already handled by native layer, skipping WS modal:", rideKey);
-              return;
-            }
-
             setRideNotifications(prev => {
               if (prev.some(n => n.ride_request_id === notification.ride_request_id)) {
                 console.log("⚠️ [WS_DRIVER] Duplicate notification, ignoring:", notification.ride_request_id);
