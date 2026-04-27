@@ -15,6 +15,7 @@ import {
   stopLocationBeacon,
   ensureBackgroundPermission,
 } from "../services/locationBeacon";
+import { useNotifications } from "../services/notification.service";
 
 const WSS_URL = process.env.EXPO_PUBLIC_WSS_URL;
 
@@ -87,6 +88,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
   const { token, getValidToken, clearTokens } = useAuth();
   const { rideId, handleWsEvent } = useDriverRide();
   const [chatMessages, setChatMessages] = useState<Record<string, any[]>>({});
+  const { data: notifications } = useNotifications();
 
 
   useEffect(() => {

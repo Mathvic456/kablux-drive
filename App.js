@@ -77,14 +77,11 @@ export default function App() {
           <NotificationNavigator />
           <DeviceRegistrar />
           <DriverRideProvider>
-            <WebSocketProvider>
-              <RideDeepLinkBridge />
-
-              <QueryClientProvider client={queryClient}>
+            <QueryClientProvider client={queryClient}>
+              <WebSocketProvider>
                 <AppNavigator />
-              </QueryClientProvider>
-
-            </WebSocketProvider>
+              </WebSocketProvider>
+            </QueryClientProvider>
           </DriverRideProvider>
         </AuthProvider>
       </NavigationContainer>
