@@ -16,14 +16,15 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
-import android.widget.TextView
 import androidx.core.app.NotificationCompat
 import kotlin.math.abs
 
 class BubbleService : Service() {
   private var bubbleView: View? = null
+  private var trashView: View? = null
   private var windowManager: WindowManager? = null
   private var layoutParams: WindowManager.LayoutParams? = null
+  private var trashLayoutParams: WindowManager.LayoutParams? = null
 
   override fun onBind(intent: Intent?): IBinder? = null
 
@@ -33,11 +34,7 @@ class BubbleService : Service() {
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-    val rider = intent?.getStringExtra(EXTRA_RIDER) ?: ""
-    val fare = intent?.getStringExtra(EXTRA_FARE) ?: ""
-    val status = intent?.getStringExtra(EXTRA_STATUS) ?: "incoming"
     ensureBubbleAttached()
-    applyPayload(rider, fare, status)
     return START_STICKY
   }
 
@@ -95,23 +92,24 @@ class BubbleService : Service() {
     )
   }
 
-  private fun ensureBubbleAttached() {
-    if (bubbleView != null) return
-
-    val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
-    val view = LayoutInflater.from(this).inflate(R.layout.bubble_view, null, false)
-
-    val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+  private fun overlayWindowType(): Int =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
     } else {
       @Suppress("DEPRECATION")
       WindowManager.LayoutParams.TYPE_PHONE
     }
 
+  private fun ensureBubbleAttached() {
+    if (bubbleView != null) return
+
+    val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+    val view = LayoutInflater.from(this).inflate(R.layout.bubble_view, null, false)
+
     val params = WindowManager.LayoutParams(
       WindowManager.LayoutParams.WRAP_CONTENT,
       WindowManager.LayoutParams.WRAP_CONTENT,
-      type,
+      overlayWindowType(),
       WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
         or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
       PixelFormat.TRANSLUCENT,
@@ -140,14 +138,16 @@ class BubbleService : Service() {
     params: WindowManager.LayoutParams,
     wm: WindowManager,
   ) {
-    val touchSlop = (view.context.resources.displayMetrics.density * 8).toInt()
+    val density = view.context.resources.displayMetrics.density
+    val touchSlop = (density * 8).toInt()
+    val dismissRadiusPx = density * DISMISS_RADIUS_DP
     var initialX = 0
     var initialY = 0
     var initialTouchX = 0f
     var initialTouchY = 0f
     var moved = false
 
-    view.setOnTouchListener { _, event ->
+    view.setOnTouchListener { v, event ->
       when (event.action) {
         MotionEvent.ACTION_DOWN -> {
           initialX = params.x
@@ -162,18 +162,26 @@ class BubbleService : Service() {
           val dy = (event.rawY - initialTouchY).toInt()
           if (!moved && (abs(dx) > touchSlop || abs(dy) > touchSlop)) {
             moved = true
+            showTrashZone(wm)
           }
           if (moved) {
             params.x = initialX + dx
             params.y = initialY + dy
             try {
-              wm.updateViewLayout(view, params)
+              wm.updateViewLayout(v, params)
             } catch (_: Exception) { /* view may be detached */ }
+            updateTrashHighlight(v, params, dismissRadiusPx)
           }
           true
         }
-        MotionEvent.ACTION_UP -> {
-          if (!moved) {
+        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+          val wasMoved = moved
+          val overTrash = wasMoved && isOverTrashZone(v, params, dismissRadiusPx)
+          hideTrashZone(wm)
+          if (overTrash) {
+            broadcastDismissed()
+            stopSelf()
+          } else if (!wasMoved) {
             try {
               startActivity(launchAppIntent())
             } catch (e: Exception) {
@@ -187,6 +195,84 @@ class BubbleService : Service() {
     }
   }
 
+  private fun showTrashZone(wm: WindowManager) {
+    if (trashView != null) return
+    val view = LayoutInflater.from(this).inflate(R.layout.bubble_trash_zone, null, false)
+    val metrics = resources.displayMetrics
+    val density = metrics.density
+    val params = WindowManager.LayoutParams(
+      WindowManager.LayoutParams.WRAP_CONTENT,
+      WindowManager.LayoutParams.WRAP_CONTENT,
+      overlayWindowType(),
+      WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+        or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+      PixelFormat.TRANSLUCENT,
+    ).apply {
+      gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+      y = (density * TRASH_BOTTOM_MARGIN_DP).toInt()
+    }
+    try {
+      wm.addView(view, params)
+      trashView = view
+      trashLayoutParams = params
+    } catch (e: Exception) {
+      e.printStackTrace()
+    }
+  }
+
+  private fun hideTrashZone(wm: WindowManager) {
+    val view = trashView ?: return
+    try { wm.removeView(view) } catch (_: Exception) { /* already detached */ }
+    trashView = null
+    trashLayoutParams = null
+  }
+
+  private fun bubbleCenter(view: View, params: WindowManager.LayoutParams): Pair<Float, Float> {
+    val cx = params.x + view.width / 2f
+    val cy = params.y + view.height / 2f
+    return cx to cy
+  }
+
+  private fun trashCenter(): Pair<Float, Float>? {
+    val view = trashView ?: return null
+    val metrics = resources.displayMetrics
+    val cx = metrics.widthPixels / 2f
+    val cy = metrics.heightPixels - (resources.displayMetrics.density * TRASH_BOTTOM_MARGIN_DP) - view.height / 2f
+    return cx to cy
+  }
+
+  private fun isOverTrashZone(
+    view: View,
+    params: WindowManager.LayoutParams,
+    radiusPx: Float,
+  ): Boolean {
+    val (bx, by) = bubbleCenter(view, params)
+    val (tx, ty) = trashCenter() ?: return false
+    val dx = bx - tx
+    val dy = by - ty
+    return (dx * dx + dy * dy) <= radiusPx * radiusPx
+  }
+
+  private fun updateTrashHighlight(
+    view: View,
+    params: WindowManager.LayoutParams,
+    radiusPx: Float,
+  ) {
+    val trash = trashView ?: return
+    val active = isOverTrashZone(view, params, radiusPx)
+    trash.scaleX = if (active) 1.2f else 1f
+    trash.scaleY = if (active) 1.2f else 1f
+    trash.alpha = if (active) 1f else 0.85f
+  }
+
+  private fun broadcastDismissed() {
+    val intent = Intent(ACTION_DISMISSED).apply {
+      setPackage(packageName)
+    }
+    sendBroadcast(intent)
+  }
+
   private fun launchAppIntent(): Intent {
     val launch = packageManager.getLaunchIntentForPackage(packageName)
       ?: Intent(Intent.ACTION_MAIN).apply {
@@ -198,26 +284,9 @@ class BubbleService : Service() {
     }
   }
 
-  private fun applyPayload(rider: String, fare: String, status: String) {
-    val view = bubbleView ?: return
-    val statusText = view.findViewById<TextView>(R.id.bubble_status)
-    val fareText = view.findViewById<TextView>(R.id.bubble_fare)
-    statusText?.text = humanReadableStatus(status, rider)
-    fareText?.text = if (fare.isNotBlank()) "₦$fare" else ""
-    fareText?.visibility = if (fare.isNotBlank()) View.VISIBLE else View.GONE
-  }
-
-  private fun humanReadableStatus(status: String, rider: String): String =
-    when (status) {
-      "incoming" -> if (rider.isNotBlank()) "New ride • $rider" else "New ride"
-      "accepted" -> "Heading to pickup"
-      "arrived" -> "Arrived at pickup"
-      "on_trip" -> "On trip"
-      "idle" -> "Driver online"
-      else -> "Driver online"
-    }
-
   override fun onDestroy() {
+    val wm = windowManager
+    if (wm != null) hideTrashZone(wm)
     detachBubble()
     super.onDestroy()
   }
@@ -236,17 +305,15 @@ class BubbleService : Service() {
   companion object {
     private const val CHANNEL_ID = "bubble_status"
     private const val FG_NOTIFICATION_ID = 9912
-    private const val EXTRA_RIDER = "rider"
-    private const val EXTRA_FARE = "fare"
-    private const val EXTRA_STATUS = "status"
     private const val ACTION_STOP = "expo.modules.bubbleoverlay.STOP"
+    private const val DISMISS_RADIUS_DP = 56f
+    private const val TRASH_BOTTOM_MARGIN_DP = 96f
 
-    fun start(context: Context, payload: Map<String, Any?>, replace: Boolean) {
+    const val ACTION_DISMISSED = "expo.modules.bubbleoverlay.DISMISSED"
+
+    fun start(context: Context, replace: Boolean) {
       val intent = Intent(context, BubbleService::class.java).apply {
-        putExtra(EXTRA_RIDER, payload["rider"]?.toString().orEmpty())
-        putExtra(EXTRA_FARE, payload["fare"]?.toString().orEmpty())
-        putExtra(EXTRA_STATUS, payload["status"]?.toString().orEmpty())
-        if (replace) action = "UPDATE" else action = "SHOW"
+        action = if (replace) "UPDATE" else "SHOW"
       }
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         context.startForegroundService(intent)

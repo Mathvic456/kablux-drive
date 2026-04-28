@@ -1,15 +1,15 @@
 import { requireOptionalNativeModule } from 'expo-modules-core';
+import type { EventSubscription } from 'expo-modules-core';
 import { Platform } from 'react-native';
-
-import type { BubblePayload } from './BubbleOverlay.types';
 
 type NativeModule = {
   hasPermission(): boolean;
   requestPermission(): Promise<boolean>;
-  show(payload: BubblePayload): void;
-  update(payload: BubblePayload): void;
+  show(): void;
+  update(): void;
   hide(): void;
   openApp(deeplink?: string | null): void;
+  addListener(eventName: 'onDismissed', listener: () => void): EventSubscription;
 };
 
 const native =
@@ -45,19 +45,19 @@ export const BubbleOverlay = {
     }
   },
 
-  show: (payload: BubblePayload) => {
-    console.log('🫧 [BubbleOverlay] show', payload);
+  show: () => {
+    console.log('🫧 [BubbleOverlay] show');
     try {
-      native?.show(payload);
+      native?.show();
     } catch (e) {
       console.warn('🫧 [BubbleOverlay] show threw', e);
     }
   },
 
-  update: (payload: BubblePayload) => {
-    console.log('🫧 [BubbleOverlay] update', payload);
+  update: () => {
+    console.log('🫧 [BubbleOverlay] update');
     try {
-      native?.update(payload);
+      native?.update();
     } catch (e) {
       console.warn('🫧 [BubbleOverlay] update threw', e);
     }
@@ -83,6 +83,19 @@ export const BubbleOverlay = {
       console.warn('🫧 [BubbleOverlay] openApp threw', e);
     }
   },
+
+  // Fires when the user drags the bubble onto the trash zone to dismiss it.
+  // Returns a subscription with .remove(); no-op on platforms without the module.
+  addDismissListener: (listener: () => void): { remove: () => void } => {
+    if (!native?.addListener) return { remove: () => {} };
+    try {
+      const sub = native.addListener('onDismissed', listener);
+      return { remove: () => sub.remove() };
+    } catch (e) {
+      console.warn('🫧 [BubbleOverlay] addDismissListener threw', e);
+      return { remove: () => {} };
+    }
+  },
 };
 
-export type { BubblePayload, BubbleStatus } from './BubbleOverlay.types';
+export type { BubbleEvents } from './BubbleOverlay.types';

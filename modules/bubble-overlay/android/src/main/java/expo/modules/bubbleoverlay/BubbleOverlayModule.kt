@@ -1,6 +1,9 @@
 package expo.modules.bubbleoverlay
 
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
@@ -9,8 +12,40 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
 class BubbleOverlayModule : Module() {
+  private var dismissReceiver: BroadcastReceiver? = null
+
   override fun definition() = ModuleDefinition {
     Name("BubbleOverlay")
+
+    Events("onDismissed")
+
+    OnCreate {
+      val ctx = appContext.reactContext ?: return@OnCreate
+      val receiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+          if (intent?.action == BubbleService.ACTION_DISMISSED) {
+            sendEvent("onDismissed", emptyMap<String, Any>())
+          }
+        }
+      }
+      val filter = IntentFilter(BubbleService.ACTION_DISMISSED)
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        ctx.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+      } else {
+        @Suppress("UnspecifiedRegisterReceiverFlag")
+        ctx.registerReceiver(receiver, filter)
+      }
+      dismissReceiver = receiver
+    }
+
+    OnDestroy {
+      val ctx = appContext.reactContext
+      val receiver = dismissReceiver
+      if (ctx != null && receiver != null) {
+        try { ctx.unregisterReceiver(receiver) } catch (_: Exception) { /* not registered */ }
+      }
+      dismissReceiver = null
+    }
 
     Function("hasPermission") {
       val ctx = appContext.reactContext ?: return@Function false
@@ -35,18 +70,18 @@ class BubbleOverlayModule : Module() {
       promise.resolve(false)
     }
 
-    Function("show") { payload: Map<String, Any?> ->
+    Function("show") {
       val ctx = appContext.reactContext
       if (ctx != null &&
         (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(ctx))) {
-        BubbleService.start(ctx, payload, replace = false)
+        BubbleService.start(ctx, replace = false)
       }
     }
 
-    Function("update") { payload: Map<String, Any?> ->
+    Function("update") {
       val ctx = appContext.reactContext
       if (ctx != null) {
-        BubbleService.start(ctx, payload, replace = true)
+        BubbleService.start(ctx, replace = true)
       }
     }
 

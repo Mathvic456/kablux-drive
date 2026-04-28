@@ -1,34 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:orientation="vertical"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/bubble_root"
+    android:layout_width="56dp"
+    android:layout_height="56dp"
     android:background="@drawable/bubble_background"
-    android:paddingStart="14dp"
-    android:paddingEnd="14dp"
-    android:paddingTop="10dp"
-    android:paddingBottom="10dp"
     android:elevation="8dp">
 
-    <TextView
-        android:id="@+id/bubble_status"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textColor="@android:color/white"
-        android:textSize="13sp"
-        android:textStyle="bold"
-        android:maxWidth="180dp"
-        android:singleLine="true"
-        android:ellipsize="end"
-        android:text="Driver online" />
+    <ImageView
+        android:id="@+id/bubble_logo"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_gravity="center"
+        android:src="@drawable/bubble_logo"
+        android:contentDescription="Kablux Drive"
+        android:scaleType="fitCenter" />
 
-    <TextView
-        android:id="@+id/bubble_fare"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textColor="#FFFFFF"
-        android:textSize="12sp"
-        android:layout_marginTop="2dp"
-        android:visibility="gone" />
-
-</LinearLayout>
+</FrameLayout>
