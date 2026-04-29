@@ -1,6 +1,11 @@
 R_DEF: Internal format may change without notice
 local
 drawable bubble_background
-id bubble_fare
-id bubble_status
+drawable bubble_logo
+drawable bubble_trash_background
+id bubble_logo
+id bubble_root
+id trash_icon
+id trash_root
+layout bubble_trash_zone
 layout bubble_view
