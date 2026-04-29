@@ -88,7 +88,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
   const { token, getValidToken, clearTokens } = useAuth();
   const { rideId, handleWsEvent } = useDriverRide();
   const [chatMessages, setChatMessages] = useState<Record<string, any[]>>({});
-  const { data: notifications } = useNotifications();
+  const { data: notifications } = useNotifications(!!token);
 
 
   useEffect(() => {

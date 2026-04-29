@@ -6,11 +6,13 @@ const fetchNotifications = async () => {
   return response.data;
 };
 
-export const useNotifications = () => {
+export const useNotifications = (enabled = true) => {
   return useQuery({
     queryKey: ["notifications"],
     queryFn: fetchNotifications,
-    refetchInterval: 5000, 
+    refetchInterval: enabled ? 5000 : false,
     refetchOnWindowFocus: false,
+    enabled,
+    retry: false,
   });
 };

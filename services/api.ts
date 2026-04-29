@@ -92,7 +92,8 @@ api.interceptors.response.use(
 
       if (error.response.status === 401) {
         console.error(`🔐 [API Error ${requestId}] AUTHENTICATION ERROR - Invalid or missing token`);
-        if (!error.config?.url?.includes("auth/")) {
+        const hadToken = !!error.config?.headers?.Authorization;
+        if (hadToken && !error.config?.url?.includes("auth/")) {
           authEvents.emitLogout();
         }
       } else if (error.response.status === 404) {

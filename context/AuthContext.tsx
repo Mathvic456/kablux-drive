@@ -58,7 +58,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     initAuth();
-  }, [token]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isTokenExpired = (token: string): boolean => {
     try {

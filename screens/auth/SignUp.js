@@ -23,6 +23,7 @@ import { useRegisterEndPoint } from "../../services/auth.service";
 import Logo from "../../assets/Logo.png";
 import CentralModal from "../components/CentralModal";
 import PlanSelector from "../../components/PlanSelector";
+import GooglePlacesInput from "../../components/GooglePlacesInput";
 
 // FIX: Removed module-level Dimensions.get('window') — returns stale values
 // before layout is measured, causing a re-render flicker.
@@ -300,20 +301,12 @@ const SignUp = ({ navigation }) => {
             ) : null}
 
             {/* Address */}
-            <View style={styles.inputContainer}>
-              <Feather name="map-pin" size={scaleSize(20)} color="#aaa" style={styles.inputIcon} />
-              <TextInput
-                style={[styles.input, dynStyles.inputHeight]}
-                placeholder="Address"
-                placeholderTextColor="#aaa"
-                value={address}
-                onChangeText={setAddress}
-                returnKeyType="next"
-              />
-            </View>
-            {errors.address ? (
-              <Text style={[styles.errorText, { fontSize: scaleFont(12) }]}>{errors.address}</Text>
-            ) : null}
+            <GooglePlacesInput
+              value={address}
+              onChangeText={setAddress}
+              placeholder="Address"
+              error={errors.address}
+            />
 
             {/* Password */}
             <View style={styles.inputContainer}>
