@@ -78,7 +78,6 @@ export default function App() {
           <DeviceRegistrar />
           <DriverRideProvider>
             <WebSocketProvider>
-              <RideDeepLinkBridge />
 
               <QueryClientProvider client={queryClient}>
                 <AppNavigator />
