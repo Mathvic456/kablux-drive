@@ -59,7 +59,6 @@ export default {
         "android.permission.WRITE_CONTACTS",
         "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT",
-        "android.permission.SYSTEM_ALERT_WINDOW",
       ],
       permissions: [
         "android.permission.CAMERA",
@@ -69,10 +68,14 @@ export default {
         "android.permission.ACCESS_BACKGROUND_LOCATION",
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_LOCATION",
+        "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.USE_FULL_SCREEN_INTENT",
+        "android.permission.POST_NOTIFICATIONS",
         "android.permission.WAKE_LOCK",
       ],
       package: "com.crashingout.kabluxdrive",
@@ -138,6 +141,10 @@ export default {
         },
       ],
       "expo-font",
+      "./plugins/withRideAlertManifest.js",
+      "./plugins/withBubbleOverlay.js",
+      "./plugins/withNotifeeMavenRepo.js",
+      "./plugins/withNotificationIcon.js",
     ],
     extra: {
       eas: {

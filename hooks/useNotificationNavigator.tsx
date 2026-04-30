@@ -3,6 +3,11 @@ import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { navigationRef } from "../screens/context/NavigationContext";
 import { useAuth } from "../context/AuthContext";
+import {
+    displayFullScreenNotification,
+    displayRideAlertNotification,
+    isRideRequestPayload,
+} from "../services/fcm.background";
 
 const PENDING_KEY = "pendingNotificationPayload";
 const NAV_READY_MAX_ATTEMPTS = 20;
@@ -115,6 +120,55 @@ export function useNotificationNavigator() {
         });
         return () => sub.remove();
     }, [getValidToken]);
+
+    // Re-display EVERY incoming notification via Notifee with a
+    // full-screen-intent so the device wakes and the activity launches over
+    // the lock screen — even when the app is in background-not-killed.
+    // No filtering for now. Heavy logging so we can see exactly what arrives.
+    useEffect(() => {
+        const sub = Notifications.addNotificationReceivedListener(async (n) => {
+            const content = n.request.content;
+            const data = (content.data ?? {}) as Record<string, any>;
+
+            console.log("🔔 [NOTIFICATION] ========== RECEIVED ==========");
+            console.log("🔔 [NOTIFICATION] identifier:", n.request.identifier);
+            console.log("🔔 [NOTIFICATION] title:", content.title);
+            console.log("🔔 [NOTIFICATION] body:", content.body);
+            console.log("🔔 [NOTIFICATION] subtitle:", content.subtitle);
+            console.log("🔔 [NOTIFICATION] sound:", content.sound);
+            console.log("🔔 [NOTIFICATION] badge:", content.badge);
+            console.log("🔔 [NOTIFICATION] data keys:", Object.keys(data));
+            console.log("🔔 [NOTIFICATION] data:", JSON.stringify(data, null, 2));
+            console.log("🔔 [NOTIFICATION] full request:", JSON.stringify(n.request, null, 2));
+            console.log("🔔 [NOTIFICATION] isRideRequestPayload:", isRideRequestPayload(data));
+            console.log("🔔 [NOTIFICATION] ================================");
+
+            try {
+                await Notifications.dismissNotificationAsync(n.request.identifier);
+                console.log("✅ [NOTIFICATION] Dismissed expo-notification, going Notifee full-screen");
+            } catch (e) {
+                console.warn("⚠️ [NOTIFICATION] dismissNotificationAsync failed:", e);
+            }
+
+            try {
+                if (isRideRequestPayload(data)) {
+                    console.log("🚖 [NOTIFICATION] Routing to displayRideAlertNotification (Accept/Decline)");
+                    await displayRideAlertNotification(data as Record<string, string>);
+                } else {
+                    console.log("📣 [NOTIFICATION] Routing to displayFullScreenNotification (generic)");
+                    await displayFullScreenNotification({
+                        title: content.title ?? undefined,
+                        body: content.body ?? undefined,
+                        data,
+                    });
+                }
+                console.log("✅ [NOTIFICATION] Notifee display call returned");
+            } catch (err) {
+                console.warn("⚠️ [NOTIFICATION] Notifee full-screen display failed:", err);
+            }
+        });
+        return () => sub.remove();
+    }, []);
 
     // Cold-start: app launched from a notification tap.
     useEffect(() => {

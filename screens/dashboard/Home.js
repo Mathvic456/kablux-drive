@@ -45,6 +45,7 @@ import { navigationRef } from '../context/NavigationContext';
 import { useAuth } from "../../context/AuthContext";
 import { scaleSize } from "../../utils/scaling";
 import { mapNotificationToAction } from "../../utils/notificationMapper";
+import { ensureDriverPermissions } from "../../services/driverPermissions";
 
 const { width, height } = Dimensions.get('window');
 
@@ -127,6 +128,8 @@ export default function Home() {
     sentOffers,
     getSentOffer,
     toggleOnlineStatus,
+    pendingOfferRideId,
+    consumePendingOfferRideId,
   } = useContext(SocketContext);
 
   const {
@@ -188,6 +191,10 @@ export default function Home() {
 
     try {
       if (goingOnline) {
+        // Prompt for the bubble + full-screen-intent permissions before
+        // committing to going online. Non-blocking — driver can skip.
+        await ensureDriverPermissions();
+
         // 1. Update server status FIRST so the server knows we're coming online
         try {
           const res = await activeStatusMutation.mutateAsync({ is_online: true });
@@ -356,6 +363,20 @@ export default function Home() {
     setSelectedOffer(offer);
     setViewOfferModalVisible(true);
   };
+
+  // When the app was launched/foregrounded by an incoming ride request,
+  // WebSocketProvider sets pendingOfferRideId. Find the matching offer in
+  // rideNotifications and open the View Offer modal automatically.
+  useEffect(() => {
+    if (!pendingOfferRideId) return;
+    const offer = rideNotifications.find(
+      (n) => n.ride_request_id === pendingOfferRideId,
+    );
+    if (!offer) return; // wait for the WS payload to be parsed into rideNotifications
+    console.log("📲 [HOME] Auto-opening View Offer for ride", pendingOfferRideId);
+    handleViewOffer(offer);
+    consumePendingOfferRideId?.();
+  }, [pendingOfferRideId, rideNotifications]);
 
   const removeRideNotification = (id) => {
     setRideNotifications(prev =>

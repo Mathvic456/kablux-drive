@@ -5,6 +5,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { navigationRef } from "../screens/context/NavigationContext";
 import { useDriverRide } from "./DriverRideContext";
 import { useAuth } from "./AuthContext";
+import { BubbleOverlay } from "../modules/bubble-overlay/src";
+import { ensureOverlayPermission } from "../services/driverPermissions";
+import {
+    displayFullScreenNotification,
+    displayRideAlertNotification,
+    isRideRequestPayload,
+} from "../services/fcm.background";
 import { playMessageSound } from "../utils/PlayMessageSound";
 import { authEvents } from "../utils/authEvents";
 import { fetchProfileStatus } from "../services/profile.service";
@@ -55,6 +62,11 @@ interface SocketContextValue {
   // Exposed so Home can call the server-side status update alongside the WS toggle
   goOnlineOnServer: () => Promise<void>;
   goOfflineOnServer: () => Promise<void>;
+  // When the app is launched from background by an incoming ride, this holds
+  // the ride id so Home can auto-open the View Offer modal. Consume by
+  // calling consumePendingOfferRideId() once handled.
+  pendingOfferRideId: string | null;
+  consumePendingOfferRideId: () => void;
 }
 
 export const SocketContext = createContext<SocketContextValue | undefined>(undefined);
@@ -74,11 +86,15 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
   const isOnlineRef = useRef(false); // tracks user intent (online/offline)
   const sentOffersRef = useRef<Map<string, RideNotification>>(new Map());
   const currentRideIdRef = useRef<string | null>(null);
+  // Set when the driver dismisses the bubble via the trash zone. Cleared on
+  // the next incoming ride event so the bubble re-appears for new offers.
+  const userDismissedBubbleRef = useRef(false);
 
   const isTogglingRef = useRef(false);
 
   // State
   const [isConnected, setIsConnected] = useState(false);
+  const [isOnline, setIsOnline] = useState(false);
   const [rideNotifications, setRideNotifications] = useState<RideNotification[]>([]);
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; long: number } | null>(null);
   const [sessionExpired, setSessionExpired] = useState(false);
@@ -87,6 +103,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
   const { token, getValidToken, clearTokens } = useAuth();
   const { rideId, handleWsEvent } = useDriverRide();
   const [chatMessages, setChatMessages] = useState<Record<string, any[]>>({});
+  const [pendingOfferRideId, setPendingOfferRideId] = useState<string | null>(null);
 
 
   useEffect(() => {
@@ -111,6 +128,9 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
     }
 
     stopLocationTracking();
+    BubbleOverlay.hide();
+    userDismissedBubbleRef.current = false;
+    setIsOnline(false);
     await clearTokens();
     setSessionExpired(true);
 
@@ -159,8 +179,12 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
           ws.current = null;
         }
 
+        BubbleOverlay.hide();
+        userDismissedBubbleRef.current = false;
+
         // State is set AFTER cleanup, not before, to prevent flicker.
         setIsConnected(false);
+        setIsOnline(false);
         setRideNotifications([]);
 
       } else {
@@ -177,6 +201,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
 
         isOnlineRef.current = true;
         shouldReconnect.current = true;
+        setIsOnline(true);
 
         await startLocationTracking();
 
@@ -197,6 +222,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
           console.error("❌ [TOGGLE] No valid token, reverting online intent");
           isOnlineRef.current = false;
           shouldReconnect.current = false;
+          setIsOnline(false);
         }
 
         // One-shot (cooldown-gated) prompt to whitelist the app from
@@ -357,6 +383,45 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         console.log("[WS_DRIVER] Type:", msg.type);
         console.log("[WS_DRIVER] Full payload:", JSON.stringify(msg, null, 2));
 
+        // When app is backgrounded-not-killed and a ride request comes in,
+        // bring the app to the foreground (using SYSTEM_ALERT_WINDOW
+        // exemption) so the driver lands directly on the accept/decline UI.
+        // For other event types we fall back to a Notifee full-screen-intent
+        // notification so the driver still sees something.
+        const currentAppState = AppState.currentState;
+        const data = (msg.data ?? {}) as Record<string, any>;
+        console.log("📲 [WS->FOREGROUND] AppState:", currentAppState, "msg.type:", msg.type);
+        if (currentAppState !== "active") {
+          if (isRideRequestPayload(data)) {
+            const rideId = data.ride_id || data.ride_request_id;
+            const deeplink = rideId ? `ride/${rideId}` : undefined;
+            console.log("📲 [WS->FOREGROUND] Ride request — opening app", deeplink);
+            // Stash so Home can auto-open the View Offer modal once mounted/active.
+            if (rideId) setPendingOfferRideId(rideId);
+            try {
+              BubbleOverlay.openApp(deeplink);
+            } catch (e) {
+              console.warn("⚠️ [WS->FOREGROUND] openApp failed:", e);
+            }
+          } else {
+            console.log("📲 [WS->NOTIFEE] Non-ride event — Notifee full-screen");
+            (async () => {
+              try {
+                await displayFullScreenNotification({
+                  title: data.title || msg.type,
+                  body: data.message || data.body || JSON.stringify(data).slice(0, 120),
+                  data,
+                });
+                console.log("✅ [WS->NOTIFEE] dispatch complete");
+              } catch (e) {
+                console.warn("⚠️ [WS->NOTIFEE] failed:", e);
+              }
+            })();
+          }
+        } else {
+          console.log("📲 [WS->FOREGROUND] App is foreground — no-op");
+        }
+
         // Forward ALL notify events to DriverRideContext
         if ((msg.type === "notify" || msg.type === "negotiation_update") && msg.data) {
           console.log("🔔 [WS_DRIVER] Forwarding to DriverRideContext:", msg.data.type);
@@ -380,6 +445,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
                 return prev;
               }
               console.log("✅ [WS_DRIVER] Adding notification:", notification.ride_request_id);
+              userDismissedBubbleRef.current = false;
               return [...prev, notification];
             });
           }
@@ -542,6 +608,47 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
     };
   }, [getValidToken]);
 
+  // --- BUBBLE OVERLAY ---
+  // Show a circular logo bubble whenever the driver is online and the app is
+  // backgrounded. Dragging the bubble onto the trash zone dismisses it; the
+  // next incoming ride event clears the dismiss flag and the bubble returns.
+  useEffect(() => {
+    if (!BubbleOverlay.isSupported()) return;
+
+    const showIfEligible = () => {
+      if (!isOnlineRef.current) return;
+      if (userDismissedBubbleRef.current) return;
+      if (!BubbleOverlay.hasPermission()) return;
+      BubbleOverlay.show();
+    };
+
+    const onChange = (state: AppStateStatus) => {
+      if (state === "active") {
+        BubbleOverlay.hide();
+        ensureOverlayPermission();
+      } else {
+        showIfEligible();
+      }
+    };
+
+    if (!isOnline) {
+      BubbleOverlay.hide();
+    } else if (AppState.currentState !== "active") {
+      showIfEligible();
+    }
+
+    const dismissSub = BubbleOverlay.addDismissListener(() => {
+      console.log("🫧 [BubbleOverlay] user dismissed via trash zone");
+      userDismissedBubbleRef.current = true;
+    });
+
+    const sub = AppState.addEventListener("change", onChange);
+    return () => {
+      sub.remove();
+      dismissSub.remove();
+    };
+  }, [isOnline, rideNotifications]);
+
   // --- MOUNT / UNMOUNT ---
   useEffect(() => {
     console.log("🎬 [LIFECYCLE] Driver WebSocketProvider Mounted");
@@ -570,6 +677,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
           console.log("✅ [INIT] Server says online, reconnecting...");
           isOnlineRef.current = true;
           shouldReconnect.current = true;
+          setIsOnline(true);
           await startLocationTracking();
           // Resume beacon silently if user already granted bg permission in a
           // prior session. Don't re-prompt here.
@@ -621,6 +729,8 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         goOfflineOnServer,
         chatMessages,
         sendChatMessage,
+        pendingOfferRideId,
+        consumePendingOfferRideId: () => setPendingOfferRideId(null),
       }}
     >
       {children}
