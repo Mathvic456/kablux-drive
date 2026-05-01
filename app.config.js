@@ -68,6 +68,7 @@ export default {
         "android.permission.ACCESS_BACKGROUND_LOCATION",
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_LOCATION",
+        "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.RECEIVE_BOOT_COMPLETED",
@@ -79,7 +80,7 @@ export default {
       ],
       package: "com.crashingout.kabluxdrive",
       googleServicesFile: "./google-services.json",
-      versionCode: 60,
+      versionCode: 61,
     },
     web: {
       favicon: "./assets/favicon.png",
