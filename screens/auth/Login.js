@@ -103,7 +103,7 @@ const Login = ({ navigation }) => {
     if (fcmToken) payload.fcm_token = fcmToken;
 
     login(payload, {
-      onSuccess: () => console.log("Login successful"),
+      onSuccess: () => console.log("Login successfull", payload),
       onError: (error) => {
         if (error?.response?.status === 401) {
           setAuthError("Invalid email or password");

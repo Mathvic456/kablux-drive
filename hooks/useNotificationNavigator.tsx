@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import * as Notifications from "expo-notifications";
+import messaging from "@react-native-firebase/messaging";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { navigationRef } from "../screens/context/NavigationContext";
 import { useAuth } from "../context/AuthContext";
@@ -120,6 +121,24 @@ export function useNotificationNavigator() {
         });
         return () => sub.remove();
     }, [getValidToken]);
+
+    // Foreground FCM messages from @react-native-firebase — fires when the app
+    // is active and a Firebase message arrives. expo-notifications does not
+    // intercept these; this is the only handler that sees them in the foreground.
+    useEffect(() => {
+        return messaging().onMessage(async (remoteMessage) => {
+            const data = (remoteMessage.data ?? {}) as Record<string, string>;
+            if (isRideRequestPayload(data)) {
+                await displayRideAlertNotification(data);
+            } else {
+                await displayFullScreenNotification({
+                    title: remoteMessage.notification?.title ?? undefined,
+                    body: remoteMessage.notification?.body ?? undefined,
+                    data,
+                });
+            }
+        });
+    }, []);
 
     // Re-display EVERY incoming notification via Notifee with a
     // full-screen-intent so the device wakes and the activity launches over

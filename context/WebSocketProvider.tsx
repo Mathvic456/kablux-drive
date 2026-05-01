@@ -432,6 +432,12 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
           (msg.type === "notify" && msg.data?.type === "RIDE_REQUESTED") ||
           msg.type === "RIDE_REQUESTED";
 
+        const isCounterOffer = msg.type === "negotiation_update";
+
+        if (isRideRequested || isCounterOffer) {
+          playMessageSound();
+        }
+
         if (isRideRequested) {
           console.log("🚗 [WS_DRIVER] New ride request detected!");
           // Data can be at msg.data or msg itself
@@ -487,8 +493,6 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         console.log("📩 [WS_DRIVER] ================================");
       } catch (err) {
         console.error("❌ [WS_DRIVER] Message parse error:", err);
-      } finally {
-        playMessageSound()
       }
     };
 

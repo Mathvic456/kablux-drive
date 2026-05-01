@@ -13,9 +13,30 @@ import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { useNotificationNavigator } from './hooks/useNotificationNavigator';
 import { registerDevice } from './services/deviceRegistration';
 import { requestFcmPermission } from './services/fcmHandler';
+import messaging from '@react-native-firebase/messaging';
+import {
+  displayRideAlertNotification,
+  displayFullScreenNotification,
+  isRideRequestPayload,
+} from './services/fcm.background';
 // Side-effect import: registers the background location task with TaskManager.
 // Must be imported at module load, before any start call.
 import './services/locationBeacon';
+
+// Must be registered at module load time (before React mounts) so Firebase can
+// wake the app and invoke this handler for background/killed-state FCM messages.
+messaging().setBackgroundMessageHandler(async (remoteMessage) => {
+  const data = remoteMessage.data ?? {};
+  if (isRideRequestPayload(data)) {
+    await displayRideAlertNotification(data);
+  } else {
+    await displayFullScreenNotification({
+      title: remoteMessage.notification?.title,
+      body: remoteMessage.notification?.body,
+      data,
+    });
+  }
+});
 
 
 

@@ -4,7 +4,10 @@ import notifee, {
   AndroidVisibility,
 } from '@notifee/react-native';
 
-export const RIDE_ALERT_CHANNEL_ID = 'ride_alert';
+// v2: bumped from 'ride_alert' to force Android to create a new channel with
+// sound. Android locks channel settings at creation time; the old channel had
+// no sound configured and cannot be patched in-place.
+export const RIDE_ALERT_CHANNEL_ID = 'ride_alert_v2';
 const RIDE_NOTIFICATION_TTL_MS = 25_000;
 
 let channelEnsured: Promise<void> | null = null;
@@ -22,8 +25,10 @@ export async function ensureRideAlertChannel(): Promise<void> {
       vibrationPattern: [300, 500, 300, 500],
       bypassDnd: true,
       visibility: AndroidVisibility.PUBLIC,
+      sound: 'new_kablux_sound',
     });
   })();
+  channelEnsured.catch(() => { channelEnsured = null; });
   return channelEnsured;
 }
 
