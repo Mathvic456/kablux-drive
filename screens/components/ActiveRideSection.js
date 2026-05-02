@@ -1,7 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Image, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import * as Location from 'expo-location';
+import { openDirections } from '../../utils/openMap';
+import { USE_IN_APP_MAP } from '../../config/mapConfig';
 
 const ActiveRideSection = ({
   status,
@@ -9,8 +12,10 @@ const ActiveRideSection = ({
   rideDetails,
   onStartRide,
   onFinishRide,
+  onCancelRide,
   isStarting = false,
   isFinishing = false,
+  isCancelling = false,
   isLoadingDetails = false,
   onArrived,
   isArriving,
@@ -22,6 +27,54 @@ const ActiveRideSection = ({
 
   const isPickupPhase = status === 'ride_created' || status === 'driver_on_way';
 
+  const [openingMaps, setOpeningMaps] = useState(false);
+
+  const handleOpenInMaps = async () => {
+    const raw = rideDetails?.raw;
+    if (!raw) return;
+
+    const targetLat = isPickupPhase ? parseFloat(raw.pickup_lat) : parseFloat(raw.dropoff_lat);
+    const targetLng = isPickupPhase ? parseFloat(raw.pickup_lng) : parseFloat(raw.dropoff_lng);
+
+    if (!Number.isFinite(targetLat) || !Number.isFinite(targetLng)) {
+      Alert.alert('Location unavailable', 'Destination coordinates are missing for this ride.');
+      return;
+    }
+
+    try {
+      setOpeningMaps(true);
+      const { status: permStatus } = await Location.requestForegroundPermissionsAsync();
+      if (permStatus !== 'granted') {
+        Alert.alert(
+          'Location permission required',
+          'Enable location access so we can pass your current position to Maps.'
+        );
+        return;
+      }
+
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      await openDirections(
+        { lat: pos.coords.latitude, lng: pos.coords.longitude },
+        { lat: targetLat, lng: targetLng }
+      );
+    } catch (err) {
+      console.error('Failed to open Maps:', err);
+      Alert.alert('Could not open Maps', 'Please try again.');
+    } finally {
+      setOpeningMaps(false);
+    }
+  };
+
+  const autoOpenedRideRef = useRef(null);
+  useEffect(() => {
+    if (USE_IN_APP_MAP) return;
+    if (status !== 'ride_created') return;
+    if (!rideId || !rideDetails?.raw) return;
+    if (autoOpenedRideRef.current === rideId) return;
+    autoOpenedRideRef.current = rideId;
+    handleOpenInMaps();
+  }, [status, rideId, rideDetails?.raw]);
+
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   useEffect(() => {
@@ -30,7 +83,6 @@ const ActiveRideSection = ({
       return;
     }
 
-    // Calculate elapsed immediately
     const calcElapsed = () => Math.floor((Date.now() - rideAcceptedAt) / 1000);
     setElapsedSeconds(calcElapsed());
 
@@ -61,13 +113,26 @@ const ActiveRideSection = ({
       minimumFractionDigits: 0,
     }).format(amount);
   };
+  const riderPhone = rideDetails?.rider?.phone_number || '';
 
-  const renderButtonContent = (loading, icon, text) => {
-    if (loading) return <ActivityIndicator color="black" size="small" />;
+  const handleCall = () => {
+    if (riderPhone) {
+      Linking.openURL(`tel:${riderPhone}`);
+    }
+  };
+
+  const showCancelButton = status !== 'ride_started' && status !== 'started';
+
+  // FIX: Removed the inner <View> wrapper that was clipping text.
+  // Icon size reduced to 18 to give text more room.
+  const renderButtonContent = (loading, icon, text, textColor = 'black') => {
+    if (loading) return <ActivityIndicator color={textColor} size="small" />;
     return (
       <>
-        <Ionicons name={icon} size={20} color="black" style={{ marginRight: 8 }} />
-        <Text style={styles.primaryButtonText}>{text}</Text>
+        <Ionicons name={icon} size={18} color={textColor} style={{ marginRight: 6, flexShrink: 0 }} />
+        <Text style={[styles.primaryButtonText, { color: textColor }]} numberOfLines={1}>
+          {text}
+        </Text>
       </>
     );
   };
@@ -124,6 +189,10 @@ const ActiveRideSection = ({
             <Text style={styles.riderLabel}>PASSENGER</Text>
             <Text style={styles.riderName}>{rideDetails.rider.name || "Passenger"}</Text>
           </View>
+
+          <TouchableOpacity style={styles.riderAvatar} onPress={handleCall}>
+            <Ionicons name="call" size={24} color="#facc15" />
+          </TouchableOpacity>
         </View>
       )}
 
@@ -161,60 +230,94 @@ const ActiveRideSection = ({
       {rideDetails?.fare !== undefined && (
         <View style={styles.fareContainer}>
           <Text style={styles.fareLabel}>Est. Fare.</Text>
-          <Text style={styles.fareValue}>{formatCurrency(rideDetails.fare)}</Text>
+          <Text style={styles.fareValue}>{formatCurrency(rideDetails?.fare)}</Text>
         </View>
       )}
 
       <View style={styles.actionsContainer}>
 
-        {/* Main Action Button */}
-        {isPickupPhase && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {/* Arrived Button */}
+          {isPickupPhase && (
+            <TouchableOpacity
+              style={[styles.actionButton, isArriving && styles.buttonDisabled]}
+              onPress={onArrived}
+              disabled={isArriving}
+            >
+              {renderButtonContent(isArriving, "location", "I Have Arrived")}
+            </TouchableOpacity>
+          )}
+
+          {/* Start Trip Button */}
+          {status === "arrived" && (
+            <TouchableOpacity
+              style={[styles.actionButton, isStarting && styles.buttonDisabled]}
+              onPress={onStartRide}
+              disabled={isStarting}
+            >
+              {renderButtonContent(isStarting, "play", "Start Trip")}
+            </TouchableOpacity>
+          )}
+
+          {/* Complete Ride Button */}
+          {(status === 'ride_started' || status === 'started') && (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.finishButton, isFinishing && styles.buttonDisabled]}
+              onPress={onFinishRide}
+              disabled={isFinishing}
+            >
+              {renderButtonContent(isFinishing, "flag", "Complete Ride")}
+            </TouchableOpacity>
+          )}
+
+          {/* Cancel Button */}
+          {showCancelButton && onCancelRide && (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.cancelButton, isCancelling && styles.buttonDisabled]}
+              onPress={onCancelRide}
+              disabled={isCancelling}
+            >
+              {renderButtonContent(isCancelling, "close", "Cancel Ride", '#fff')}
+            </TouchableOpacity>
+          )}
+
+          {/* Chat Button */}
           <TouchableOpacity
-            style={[styles.actionButton, isArriving && styles.buttonDisabled]}
-            onPress={onArrived}
-            disabled={isArriving}
+            style={styles.chatButton}
+            onPress={() => navigation.navigate('DriverChat', {
+              riderName: rideDetails?.rider?.name || "Passenger"
+            })}
           >
-            {renderButtonContent(isArriving, "location", "I Have Arrived")}
+            <Ionicons name="chatbubble-outline" size={22} color="white" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Map / Open in Maps Button — behavior gated by USE_IN_APP_MAP */}
+        {USE_IN_APP_MAP ? (
+          <TouchableOpacity
+            style={styles.mapButton}
+            onPress={() => navigation.navigate('DriverMapScreen', { rideDetails })}
+          >
+            <Ionicons name="map-outline" size={22} color="white" />
+
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[styles.mapButton, openingMaps && styles.buttonDisabled]}
+            onPress={handleOpenInMaps}
+            disabled={openingMaps}
+          >
+            {openingMaps ? (
+              <ActivityIndicator size="small" color="white" />
+            ) : (
+              // <Ionicons name="navigate" size={22} color="white" />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Ionicons name="navigate" size={18} color="white" />
+                <Text style={{ color: '#fff' }}>Open Map</Text>
+              </View>
+            )}
           </TouchableOpacity>
         )}
-
-        {status === "arrived" && (
-          <TouchableOpacity
-            style={[styles.actionButton, isStarting && styles.buttonDisabled]}
-            onPress={onStartRide}
-            disabled={isStarting}
-          >
-            {renderButtonContent(isStarting, "play", "Start Trip")}
-          </TouchableOpacity>
-        )}
-
-        {(status === 'ride_started' || status === 'started') && (
-          <TouchableOpacity
-            style={[styles.actionButton, styles.finishButton, isFinishing && styles.buttonDisabled]}
-            onPress={onFinishRide}
-            disabled={isFinishing}
-          >
-            {renderButtonContent(isFinishing, "flag", "Complete Ride")}
-          </TouchableOpacity>
-        )}
-
-        <TouchableOpacity
-          style={styles.chatButton}
-          onPress={() => navigation.navigate('DriverChat', {
-            riderName: rideDetails?.rider?.name || "Passenger"
-          })}
-        >
-          <Ionicons name="chatbubble-outline" size={24} color="white" />
-        </TouchableOpacity>
-
-
-        {/* Map Button */}
-        <TouchableOpacity
-          style={styles.mapButton}
-          onPress={() => { console.log('ride detsss', rideDetails); navigation.navigate('DriverMapScreen', { rideDetails }) }}
-        >
-          <Ionicons name="map-outline" size={24} color="white" />
-        </TouchableOpacity>
 
       </View>
     </View>
@@ -421,27 +524,42 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 
-  /* BUTTONS */
+  /* BUTTONS — KEY FIXES:
+     - flexWrap: 'wrap'   → buttons reflow instead of overflowing on narrow screens
+     - minWidth: 120      → action buttons never shrink below readable size
+     - minHeight: 50      → consistent tap target height
+     - paddingHorizontal  → text has breathing room inside button
+     - overflow: 'hidden' → belt-and-suspenders clipping guard
+     - flexShrink: 0      → icon-only buttons never get crushed
+  */
   actionsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+    flexWrap: 'wrap',
+    gap: 10,
+    flex: 1,
   },
   actionButton: {
     flex: 1,
-    height: 54,
+    minWidth: 120,
+    minHeight: 50,
     backgroundColor: '#facc15',
     borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    overflow: 'hidden',
   },
   finishButton: {
     backgroundColor: '#4CAF50',
   },
+  cancelButton: {
+    backgroundColor: '#f44336',
+  },
   chatButton: {
-    width: 54,
-    height: 54,
+    width: 50,
+    height: 50,
+    flexShrink: 0,
     backgroundColor: '#2a2a2a',
     borderRadius: 12,
     justifyContent: 'center',
@@ -450,20 +568,24 @@ const styles = StyleSheet.create({
     borderColor: '#444',
   },
   mapButton: {
-    width: 54,
-    height: 54,
+    // width: 50,
+    height: 50,
+    flexShrink: 0,
     backgroundColor: '#2a2a2a',
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#444',
+    paddingHorizontal: 5,
+    flex: 1
   },
   primaryButtonText: {
-    color: 'black',
     fontWeight: 'bold',
-    fontSize: 15,
+    fontSize: 13,
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    flexShrink: 1,
   },
   buttonDisabled: {
     opacity: 0.6,

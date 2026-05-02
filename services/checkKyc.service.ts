@@ -1,6 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, QueryClient, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api";
-
 export interface KYCSteps {
   documents_completed: boolean;
   profile_completed: boolean;
@@ -31,3 +30,19 @@ export const useDriverKycStatus = () => {
     refetchOnWindowFocus: false,
   });
 };
+
+export const useSubmitKyc = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      const res = await api.post("/drivers/kyc/submit/");
+      return res.data;
+    },
+    onSuccess: (data) => {
+      // console.log("KYC submission successful:", data);
+      queryClient.invalidateQueries({ queryKey: ["driver-kyc-status"] });
+    }
+  });
+};
+

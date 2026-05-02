@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/trash_root"
+    android:layout_width="72dp"
+    android:layout_height="72dp"
+    android:background="@drawable/bubble_trash_background"
+    android:elevation="8dp">
+
+    <TextView
+        android:id="@+id/trash_icon"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:text="✕"
+        android:textColor="@android:color/white"
+        android:textSize="28sp"
+        android:textStyle="bold"
+        android:includeFontPadding="false" />
+
+</FrameLayout>

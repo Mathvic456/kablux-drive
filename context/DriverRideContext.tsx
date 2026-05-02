@@ -6,7 +6,14 @@ type DriverRideStatus =
   | "not_busy"
   | "ride_created"
   | "arrived"
-  | "ride_started";
+  | "ride_started"
+  | "ride_cancelled";
+
+interface CancellationNotice {
+  reason: string;
+  rideId: string | null;
+  timestamp?: string;
+}
 
 interface DriverRideContextValue {
   status: DriverRideStatus;
@@ -22,6 +29,9 @@ interface DriverRideContextValue {
   negotiationUpdates: any[];
   rideAcceptedAt: number | null;
   expectedArrivalMinutes: number;
+  setStatus: React.Dispatch<React.SetStateAction<DriverRideStatus>>;
+  cancellationNotice: CancellationNotice | null;
+  dismissCancellation: () => void;
 }
 
 const DriverRideContext = createContext<DriverRideContextValue>({
@@ -38,6 +48,9 @@ const DriverRideContext = createContext<DriverRideContextValue>({
   negotiationUpdates: [],
   rideAcceptedAt: null,
   expectedArrivalMinutes: 15,
+  setStatus: () => { },
+  cancellationNotice: null,
+  dismissCancellation: () => { },
 });
 
 export const useDriverRide = () => useContext(DriverRideContext);
@@ -54,22 +67,47 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
   const [triggerEffect, setTriggerEffect] = useState(0);
   const [negotiationUpdates, setNegotiationUpdates] = useState([]);
   const [rideAcceptedAt, setRideAcceptedAt] = useState<number | null>(null);
+  const [cancellationNotice, setCancellationNotice] = useState<CancellationNotice | null>(null);
   const expectedArrivalMinutes = 15; // Default ETA threshold in minutes
 
-  // Load persistent state
+  // Statuses the server returns for a ride that is no longer active.
+  const TERMINAL_STATUSES = new Set(["cancelled", "completed", "finished", "not_busy"]);
   const loadPersisted = async () => {
     try {
-      const saved = await api.get('rides/current/')
-      console.log('[DRIVER_RIDE] Saved state:', saved?.data);
-      if (!saved) return;
-
+      const saved = await api.get('rides/current/');
       const parsed = saved?.data;
-      setStatus(parsed?.status);
-      setRideId(parsed?.id);
-      setRiderId(parsed.rider?.user_id);
-      console.log("[DRIVER_RIDE] Rehydrated ride state:", parsed);
-    } catch (err) {
-      console.error("[DRIVER_RIDE] Failed to load persisted state:", err);
+      console.log('[DRIVER_RIDE] Reconcile payload:', parsed);
+
+      const hasActive =
+        parsed &&
+        parsed.id &&
+        parsed.status &&
+        !TERMINAL_STATUSES.has(String(parsed.status).toLowerCase());
+
+      if (!hasActive) {
+        console.log("[DRIVER_RIDE] Server has no active ride — clearing local state");
+        setStatus("not_busy");
+        setRideId(null);
+        setRiderId(null);
+        setRideAcceptedAt(null);
+        return;
+      }
+
+      setStatus(parsed.status);
+      setRideId(parsed.id);
+      setRiderId(parsed.rider?.user_id ?? null);
+      console.log("[DRIVER_RIDE] Rehydrated ride state:", parsed.id, parsed.status);
+    } catch (err: any) {
+      // 404 from `rides/current/` typically means no active ride; treat as reset.
+      if (err?.response?.status === 404) {
+        console.log("[DRIVER_RIDE] No active ride (404) — clearing local state");
+        setStatus("not_busy");
+        setRideId(null);
+        setRiderId(null);
+        setRideAcceptedAt(null);
+        return;
+      }
+      console.error("[DRIVER_RIDE] Failed to reconcile ride state:", err);
     }
   };
 
@@ -118,9 +156,19 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
       setRiderId(rider_id);
       setRideAcceptedAt(Date.now());
 
-    } else if (rawEvent === "ride_cancelled") {
-      console.log("resetting from driver context");
-      reset();
+    } else if (event === "RIDE_CANCELLED") {
+      console.log("[DRIVER_RIDE] Ride cancelled — capturing notice");
+      const p = msg.payload || msg.data || {};
+      const rideKey =
+        p.ride_request_id ?? p.ride_id ?? msg.ride_request_id ?? msg.ride_id ?? null;
+      const reason = p.reason ?? "No reason provided";
+
+      setStatus("ride_cancelled");
+      setCancellationNotice({
+        reason,
+        rideId: rideKey ? String(rideKey) : null,
+        timestamp: p.timestamp,
+      });
 
     } else if (rawEvent === "negotiation_update") {
       console.log("[DRIVER_RIDE] Negotiation update received:", msg.data);
@@ -183,19 +231,17 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
     setRideAcceptedAt(null);
     setTriggerEffect((prev) => prev + 1)
 
-
-
-    // persist({
-    //   status: "not_busy",
-    //   rideId: null,
-    //   riderId: null,
-    // });
   };
 
   const reset = () => {
     console.log("🔄 [DRIVER_RIDE] Resetting driver ride state");
     finishRide();
+  };
 
+  const dismissCancellation = () => {
+    console.log("[DRIVER_RIDE] Dismissing cancellation notice");
+    setCancellationNotice(null);
+    finishRide();
   };
 
   return (
@@ -214,6 +260,9 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
         negotiationUpdates,
         rideAcceptedAt,
         expectedArrivalMinutes,
+        setStatus,
+        cancellationNotice,
+        dismissCancellation,
       }}
     >
       {children}

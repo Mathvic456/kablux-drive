@@ -46,6 +46,13 @@ const updateFare = async (rideId: string, fare: number) => {
   return data;
 };
 
+const cancelRide = async (rideId: string, reason?: string) => {
+  console.log(`❌ Cancelling ride: ${rideId}${reason ? `, reason: ${reason}` : ''}`);
+  const { data } = await api.post(`rides/${rideId}/cancel_ride/`, reason ? { reason } : {});
+  console.log("✅ Ride cancelled successfully");
+  return data;
+};
+
 // ==================== Hooks ====================
 
 /**
@@ -150,6 +157,21 @@ export const useUpdateFare = () => {
     },
     onError: (error: any) => {
       console.error("❌ Error updating fare:", error);
+    },
+  });
+};
+
+export const useCancelRide = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ rideId, reason }: { rideId: string; reason?: string }) => cancelRide(rideId, reason),
+    onSuccess: (data, { rideId }) => {
+      console.log("✅ Ride cancellation mutation successful");
+      queryClient.invalidateQueries({ queryKey: rideKeys.details(rideId) });
+      queryClient.invalidateQueries({ queryKey: rideKeys.active() });
+    },
+    onError: (error: any) => {
+      console.error("❌ Error cancelling ride:", error);
     },
   });
 };

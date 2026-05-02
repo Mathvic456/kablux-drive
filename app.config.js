@@ -8,7 +8,7 @@ export default {
     icon: "./assets/r-logo.png",
     userInterfaceStyle: "light",
     newArchEnabled: true,
-    owner: "agbaby02",
+    owner: "agbaby",
     splash: {
       image: "./assets/adaptive-icon.png",
       resizeMode: "contain",
@@ -25,7 +25,12 @@ export default {
           "This app needs access to your location to share it with emergency contacts.",
         NSMicrophoneUsageDescription:
           "This app needs access to your microphone to record audio for safety purposes.",
-        UIBackgroundModes: ["audio"],
+        UIBackgroundModes: ["audio", "location"],
+        LSApplicationQueriesSchemes: ["comgooglemaps", "maps"],
+        NSLocationAlwaysAndWhenInUseUsageDescription:
+          "Kablux needs your location while the app is in the background so riders can see your position during an active trip.",
+        NSLocationAlwaysUsageDescription:
+          "Kablux needs your location while the app is in the background so riders can see your position during an active trip.",
       },
       config: {
         googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_IOS_API_KEY,
@@ -54,26 +59,44 @@ export default {
         "android.permission.WRITE_CONTACTS",
         "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT",
-        "android.permission.SYSTEM_ALERT_WINDOW",
       ],
       permissions: [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.CALL_PHONE",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
+        "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
+        "android.permission.POST_NOTIFICATIONS",
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.USE_FULL_SCREEN_INTENT",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.WAKE_LOCK",
       ],
       package: "com.crashingout.kabluxdrive",
       googleServicesFile: "./google-services.json",
-      versionCode: 50,
+      versionCode: 61,
     },
     web: {
       favicon: "./assets/favicon.png",
     },
     plugins: [
+      "@react-native-firebase/app",
+      "@react-native-firebase/messaging",
+      "./plugins/withFirebaseMessagingFix",
+      [
+        "expo-build-properties",
+        {
+          ios: {
+            useFrameworks: "static",
+          },
+        },
+      ],
       [
         "expo-image-picker",
         {
@@ -95,17 +118,19 @@ export default {
         "expo-location",
         {
           locationAlwaysAndWhenInUsePermission:
-            "Allow $(PRODUCT_NAME) to use your location.",
+            "Kablux needs your location while in the background so riders can see your position during an active trip.",
           locationAlwaysPermission:
-            "Allow $(PRODUCT_NAME) to use your location.",
+            "Kablux needs your location while in the background so riders can see your position during an active trip.",
           locationWhenInUsePermission:
             "Allow $(PRODUCT_NAME) to use your location.",
+          isAndroidBackgroundLocationEnabled: true,
+          isAndroidForegroundServiceEnabled: true,
         },
       ],
       [
         "expo-notifications",
         {
-          sound: "./assets/sounds/kablux-sound.wav",
+          sound: "./assets/sounds/new_kablux_sound.wav",
         },
       ],
       [
@@ -116,10 +141,14 @@ export default {
         },
       ],
       "expo-font",
+      "./plugins/withRideAlertManifest.js",
+      "./plugins/withBubbleOverlay.js",
+      "./plugins/withNotifeeMavenRepo.js",
+      "./plugins/withNotificationIcon.js",
     ],
     extra: {
       eas: {
-        projectId: "67453bc9-908b-4dea-8b94-d45f405b60d5",
+        projectId: "07dff6e6-f4c1-4796-ad30-39fa35e57744",
       },
     },
   },

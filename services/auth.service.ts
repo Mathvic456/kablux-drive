@@ -3,6 +3,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AxiosResponse } from "axios";
 import { api } from "./api";
 import { CREATEACCOUNT_TYPE } from "./type";
+import { registerDevice, unregisterDevice } from "./deviceRegistration";
+
 
 
 export const useRegisterEndPoint = () => {
@@ -62,8 +64,19 @@ export const useLoginEndPoint = (
       // Navigate to Mainapp
       navigation.replace("Mainapp");
 
+      // Register device token against this user on the backend.
+      // Additive to the fcm_token sent in the login payload — this path also
+      // handles token refresh mid-session and keeps device<->user binding
+      // explicit rather than implicit-from-login.
       try {
-        const pendingRes = await api.get("rides/pending_requests/");
+        const loginToken = (res.config?.data && JSON.parse(res.config.data)?.fcm_token) || null;
+        await registerDevice(loginToken, { force: true });
+      } catch (regErr) {
+        console.warn("⚠️ [LOGIN] Device registration failed (non-fatal):", regErr);
+      }
+
+      try {
+        const pendingRes = await api.get("rides/ride_orders/");
         const pendingRequests = pendingRes.data?.results || pendingRes.data || [];
         if (pendingRequests.length > 0) {
           console.log(`🔔 [LOGIN] Found ${pendingRequests.length} pending ride request(s)`);
@@ -112,8 +125,19 @@ export const useActiveStatusEndPoint = () => {
 export const useLogoutEndPoint = (
   clearTokens: () => Promise<void>
 ) => {
+  const activeStatusMutation = useActiveStatusEndPoint();
   return useMutation<boolean, any, void>({
     mutationFn: async () => {
+      // Unregister the device BEFORE clearing tokens so the request still
+      // authenticates. Best-effort — we continue the logout even on failure.
+      try {
+        console.log('loging out')
+        await activeStatusMutation.mutateAsync({ is_online: false });
+        await unregisterDevice();
+      } catch (err) {
+        console.warn("⚠️ [LOGOUT] unregisterDevice failed (continuing):", err);
+      }
+
       await clearTokens();
       await AsyncStorage.multiRemove(["userId", "pendingEmail", "driverRideState"]);
 

@@ -1,19 +1,19 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { api } from "./api"; 
+import { api } from "./api";
 
+// ---------- Payload & Response Types ----------
 export type FundWalletPayload = {
   amount: number;
-  channel: "card";
+  channel: "bank";
 };
 
 export type WalletBalanceResponse = {
   balance: number;
 };
 
-
-// --- New Types for Withdrawal ---
 export type WithdrawPayload = {
   amount: number;
+  recipient_code: string;
 };
 
 export type WithdrawResponse = {
@@ -28,8 +28,7 @@ export type Transaction = {
   direction: "credit" | "debit" | "";
   reference: string;
   status: "success" | "pending" | "failed";
-  type: string; // Empty in your data
-  // Add date?: string; if you update the backend
+  type: string;
 };
 
 export type TransactionsResponse = {
@@ -39,64 +38,51 @@ export type TransactionsResponse = {
   status: "success" | "error";
 };
 
+export type CreateRecipientPayload = {
+  account_number: string;
+  bank_code: string;
+  account_name: string;
+};
+
 export type CreateRecipientResponse = {
   status: number;
   message: string;
-  data: {
-    recipient_code: string;
-  };
+  account_number: string; // Direct properties, not nested in data
+  recipient_code: string;
+  bank_name?: string;
 };
 
-const useFundWalletEndPoint = () => {
+// ---------- React Query Hooks ----------
+
+// Fund Wallet
+export const useFundWalletEndPoint = () => {
   return useMutation({
-    mutationFn: async (data: FundWalletPayload) => {
-      return api.post("/wallets/fund_initiate/", data);
-    },
+    mutationFn: async (data: FundWalletPayload) => api.post("/wallets/fund_initiate/", data),
     onSuccess: (res) => {
       const paystackUrl = res.data?.authorization_url;
       console.log("Paystack checkout URL:", paystackUrl);
     },
-    onError: (error: any) => {
-      console.error("Wallet funding error:", error);
-    },
+    onError: (err: any) => console.error("Wallet funding error:", err),
   });
 };
 
-const useGetMyBalance = () => {
-  return useQuery({
+// Get Wallet Balance
+export const useGetMyBalance = () => {
+  return useQuery<WalletBalanceResponse>({
     queryKey: ["balance"],
     queryFn: async () => {
       const res = await api.get("/wallets/my_balance/");
-
-      console.log("💰 Wallet balance raw response:", res.data);
-
-      // Handle common backend shapes
-      if (!res.data) {
-        throw new Error("No wallet balance data returned");
-      }
-
-      // If backend returns { data: {...} }
-      if (res.data.data) {
-        return res.data.data;
-      }
-
-      // If backend returns {...} directly
-      return res.data;
+      return res.data ?? { balance: 0 };
     },
   });
 };
 
-
-const useGetMyTransactions = (
-  options?: { enabled?: boolean; refetchInterval?: number }
-) => {
-  return useQuery({
+// Get Wallet Transactions
+export const useGetMyTransactions = (options?: { enabled?: boolean; refetchInterval?: number }) => {
+  return useQuery<TransactionsResponse>({
     queryKey: ["myTransactions"],
     queryFn: async () => {
-      const res = await api.get<TransactionsResponse>(
-        "/wallets/my_transactions/"
-      );
-      console.log("Transactions data:", res.data);
+      const res = await api.get("/wallets/my_transactions/");
       return res.data;
     },
     ...options,
@@ -104,48 +90,79 @@ const useGetMyTransactions = (
 };
 
 
-const useWithdrawFunds = () => {
+
+
+export type ResolveAccountPayload = {
+  account_number: string;
+  bank_code: string;
+};
+
+export type ResolveAccountResponse = {
+  data: {
+    account_name: string;
+    account_number: string;
+    bank_id: number;
+  };
+  status: string;
+};
+
+
+export const useResolveAccount = () => {
+  return useMutation({
+    mutationFn: async ({ account_number, bank_code }: ResolveAccountPayload) => {
+      const response = await api.post<ResolveAccountResponse>('/wallets/resolve-account/', {
+        account_number,
+        bank_code,
+      });
+
+      console.log('🔍 Full resolve response:', response.data);
+
+      // Return the entire response data (which includes data and status)
+      return response.data;
+    },
+  });
+};
+
+
+// Create Transfer Recipient
+export const useCreateTransferRecipient = () => {
+  return useMutation({
+    mutationFn: async (data: CreateRecipientPayload) =>
+      api.post<CreateRecipientResponse>("/wallets/create_transfer_recipient/", data),
+    onSuccess: (res) => console.log("Transfer recipient created:", res.data),
+    onError: (err: any) => console.error("Transfer recipient creation failed:", err),
+  });
+};
+
+// Get Saved Recipient(s) from Backend
+export const useGetTransferRecipient = () => {
+  return useQuery<CreateRecipientResponse[]>({
+    queryKey: ["transferRecipient"],
+    queryFn: async () => {
+      const res = await api.get("/wallets/transfer_recipient/");
+      return res.data?.data ?? [];
+    },
+    staleTime: 1000 * 60 * 5, // cache 5 min
+    refetchOnWindowFocus: false,
+  });
+};
+
+// Withdraw Funds// Withdraw Funds
+export const useWithdrawFunds = () => {
   return useMutation({
     mutationFn: async (data: WithdrawPayload) => {
-      return api.post<WithdrawResponse>("/wallets/withdraw/", data);
+      console.log("💰 Withdraw payload being sent:", data);
+      
+      const response = await api.post<WithdrawResponse>("/wallets/withdraw/", data);
+      
+      console.log("💰 Withdraw response received:", response.data);
+      return response.data;
     },
-    onSuccess: (res) => {
-      console.log("Withdrawal successful:", res.data.message);
-    },
-    onError: (error: any) => {
-      console.error("Withdrawal error:", error);
-    },
-  });
-};
-
-
-export type CreateRecipientPayload = {
-    account_number: string;
-    bank_code: string;
-};
-
-const useCreateTransferRecipient = () => {
-  return useMutation({
-    mutationFn: async (data: CreateRecipientPayload) => {
-      return api.post<CreateRecipientResponse>(
-        "/wallets/create_transfer_recipient/",
-        data
-      );
-    },
-    onSuccess: (res) => {
-      console.log("Transfer recipient creation successful:", res.data);
-    },
-    onError: (error: any) => {
-      console.error("Transfer recipient creation error:", error);
+    onSuccess: (res) => console.log("✅ Withdrawal successful:", res.message),
+    onError: (err: any) => {
+      console.error("❌ Withdrawal failed:", err);
+      console.error("Error details:", err?.response?.data);
+      console.error("Request payload:", err?.config?.data);
     },
   });
-};
-
-
-export {
-  useFundWalletEndPoint,
-  useGetMyBalance,
-  useGetMyTransactions,
-  useWithdrawFunds,
-  useCreateTransferRecipient,
 };
