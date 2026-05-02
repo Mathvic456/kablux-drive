@@ -57,7 +57,7 @@ export default function IDVerification() {
         const result = await ImagePicker.launchCameraAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true,
-            aspect: [1, 1],
+            aspect: [4, 3],
             quality: 0.8,
             cameraType: ImagePicker.CameraType.front,
         });
@@ -229,6 +229,7 @@ export default function IDVerification() {
                     <TouchableOpacity
                         onPress={() => navigation.navigate("BankDetails" as never)}
                         activeOpacity={0.75}
+                        disabled={isProcessing || (kycData?.steps?.transfer_recipient_completed ?? false)}
                     >
                         <View style={[styles.actionRow, (kycData?.steps?.transfer_recipient_completed) ? styles.actionRowCompleted : null]}>
                             <Ionicons name="card" size={18} color="#fff" />

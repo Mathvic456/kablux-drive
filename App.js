@@ -8,8 +8,14 @@ import { navigationRef } from './screens/context/NavigationContext';
 import { DriverRideProvider } from './context/DriverRideContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { setAuthTokenGetter } from './services/api';
-import React, { use, useEffect } from 'react';
-import * as Notifications from "expo-notifications";
+import React, { useEffect } from 'react';
+import { useNotificationNavigator } from './hooks/useNotificationNavigator';
+import { registerDevice } from './services/deviceRegistration';
+import { requestFcmPermission } from './services/fcmHandler';
+// Side-effect import: registers the background location task with TaskManager.
+// Must be imported at module load, before any start call.
+import './services/locationBeacon';
+
 
 
 
@@ -48,6 +54,13 @@ export default function App() {
   }, []);
 
   // const { token } = useAuth()
+  useEffect(() => {
+    GoogleSignin.configure({
+      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+      iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+      offlineAccess: true, // required for idToken to be non-null
+    });
+  }, []);
 
   function ApiAuthConnector() {
     const { getValidToken, token } = useAuth();
@@ -61,11 +74,39 @@ export default function App() {
     return null;
   }
 
+  function NotificationNavigator() {
+    useNotificationNavigator();
+    return null;
+  }
+
+  // Cold-start re-registration: whenever we have a valid auth token (either
+  // from a fresh login or a restored "remember me" session), push the current
+  // FCM token to the backend. Idempotent — deviceRegistration.ts short-circuits
+  // if the token is unchanged since the last successful register.
+  function DeviceRegistrar() {
+    const { token } = useAuth();
+    useEffect(() => {
+      if (!token) return;
+      // Ensure notification permission is granted at the Firebase SDK
+      // level before we try to register a token. The Expo hook handles
+      // the UI prompt; this is idempotent and cheap.
+      (async () => {
+        await requestFcmPermission();
+        await registerDevice().catch((err) => {
+          console.warn("⚠️ [DeviceRegistrar] cold-start register failed:", err);
+        });
+      })();
+    }, [token]);
+    return null;
+  }
+
   try {
     return (
       <NavigationContainer ref={navigationRef}>
         <AuthProvider>
           <ApiAuthConnector />
+          <NotificationNavigator />
+          <DeviceRegistrar />
           <DriverRideProvider>
             <WebSocketProvider>
 

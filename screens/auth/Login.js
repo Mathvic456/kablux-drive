@@ -84,12 +84,17 @@ const Login = ({ navigation }) => {
       try {
         fcmToken = await getPushToken();
       } catch (error) {
-        fcmToken = "";
+        fcmToken = null;
         console.warn("Failed to get push token, proceeding without it:", error);
       }
     }
 
-    const payload = { email, password, role: "driver", type: "android" };
+    const payload = {
+      email,
+      password,
+      role: "driver",
+      type: Platform.OS === "ios" ? "ios" : "android",
+    };
     if (fcmToken) payload.fcm_token = fcmToken;
 
     login(payload, {

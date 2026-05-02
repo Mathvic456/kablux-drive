@@ -12,8 +12,9 @@ import {
 import { Ionicons, FontAwesome5, Feather } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { SocketContext } from '../../context/WebSocketProvider';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { darkMapStyle } from '../../styles/darkMapStyle';
+import { getDirectionsGeometry } from '../../utils/googleDirections';
 import * as Location from 'expo-location';
 import CentralModal from '../components/CentralModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -24,6 +25,7 @@ export default function OrderScreen() {
 
   const { socket } = useContext(SocketContext);
   const { item, onCounterSubmitted } = route.params || {};
+  console.log('itemmmmmmm', item)
 
   const [counterAmount, setCounterAmount] = useState(item?.offer_amount || 0);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -37,10 +39,14 @@ export default function OrderScreen() {
     latitudeDelta: 0.01,
     longitudeDelta: 0.01,
   });
+  const [pickupLocation, setPickupLocation] = useState(null);
+  const [dropoffLocation, setDropoffLocation] = useState(null);
+  const [routeCoordinates, setRouteCoordinates] = useState([]);
   const [isGeocoding, setIsGeocoding] = useState(true);
 
   const mapRef = useRef(null);
   const originalOffer = item?.offer_amount || 0;
+
 
   // 🛡️ Guard Clause
   if (!item || !item.ride_request_id) {
@@ -105,37 +111,111 @@ export default function OrderScreen() {
   const difference = counterAmount - originalOffer;
   const hasAdjusted = counterAmount !== originalOffer;
 
-  // Geocode pickup address
+  // Geocode pickup and dropoff addresses
   useEffect(() => {
     (async () => {
-      if (item?.address) {
-        try {
-          setIsGeocoding(true);
-          const geocoded = await Location.geocodeAsync(item.address);
-          if (geocoded.length > 0) {
-            const newRegion = {
-              latitude: geocoded[0].latitude,
-              longitude: geocoded[0].longitude,
-              latitudeDelta: 0.01,
-              longitudeDelta: 0.01,
-            };
-            setMapRegion(newRegion);
+      if (!item) {
+        setIsGeocoding(false);
+        return;
+      }
 
-            // Animate map to new location
-            if (mapRef.current) {
-              mapRef.current.animateToRegion(newRegion, 1000);
-            }
+      try {
+        setIsGeocoding(true);
+
+        // Geocode pickup address
+        if (item.address || item.pickup) {
+          const pickupAddress = item.address || item.pickup;
+          const pickupGeocoded = await Location.geocodeAsync(pickupAddress);
+          if (pickupGeocoded.length > 0) {
+            const pickupCoords = {
+              latitude: pickupGeocoded[0].latitude,
+              longitude: pickupGeocoded[0].longitude,
+              address: pickupAddress,
+            };
+            setPickupLocation(pickupCoords);
           }
-        } catch (e) {
-          console.log("Geocoding failed, using default location:", e);
-        } finally {
-          setIsGeocoding(false);
         }
-      } else {
+
+        // Geocode dropoff address
+        if (item.dropoff) {
+          const dropoffGeocoded = await Location.geocodeAsync(item.dropoff);
+          if (dropoffGeocoded.length > 0) {
+            const dropoffCoords = {
+              latitude: dropoffGeocoded[0].latitude,
+              longitude: dropoffGeocoded[0].longitude,
+              address: item.dropoff,
+            };
+            setDropoffLocation(dropoffCoords);
+          }
+        }
+
+        // Set map region to fit both locations if available
+        const locations = [];
+        if (pickupLocation) locations.push(pickupLocation);
+        if (dropoffLocation) locations.push(dropoffLocation);
+
+        if (locations.length > 0) {
+          const allLatitudes = locations.map((loc) => loc.latitude);
+          const allLongitudes = locations.map((loc) => loc.longitude);
+
+          const minLat = Math.min(...allLatitudes);
+          const maxLat = Math.max(...allLatitudes);
+          const minLng = Math.min(...allLongitudes);
+          const maxLng = Math.max(...allLongitudes);
+
+          const latDiff = maxLat - minLat;
+          const lngDiff = maxLng - minLng;
+
+          const newRegion = {
+            latitude: (minLat + maxLat) / 2,
+            longitude: (minLng + maxLng) / 2,
+            latitudeDelta: Math.max(latDiff * 1.5, 0.01),
+            longitudeDelta: Math.max(lngDiff * 1.5, 0.01),
+          };
+
+          setMapRegion(newRegion);
+
+          // Animate map to new region
+          if (mapRef.current) {
+            mapRef.current.animateToRegion(newRegion, 1000);
+          }
+        }
+      } catch (e) {
+        console.log("Geocoding failed:", e);
+      } finally {
         setIsGeocoding(false);
       }
     })();
-  }, [item?.address]);
+  }, [item]);
+
+  // Fetch route between pickup and dropoff
+  useEffect(() => {
+    if (pickupLocation && dropoffLocation) {
+      getDirectionsGeometry(
+        pickupLocation.longitude,
+        pickupLocation.latitude,
+        dropoffLocation.longitude,
+        dropoffLocation.latitude
+      )
+        .then((geometry) => {
+          if (geometry && geometry.coordinates) {
+            const coords = geometry.coordinates.map(([lng, lat]) => ({
+              latitude: lat,
+              longitude: lng,
+            }));
+            setRouteCoordinates(coords);
+          } else {
+            setRouteCoordinates([]);
+          }
+        })
+        .catch((error) => {
+          console.error('Error fetching route:', error);
+          setRouteCoordinates([]);
+        });
+    } else {
+      setRouteCoordinates([]);
+    }
+  }, [pickupLocation, dropoffLocation]);
 
   return (
     <View style={styles.container}>
@@ -154,14 +234,34 @@ export default function OrderScreen() {
           pitchEnabled={true}
           rotateEnabled={true}
         >
-          <Marker coordinate={{
-            latitude: mapRegion.latitude,
-            longitude: mapRegion.longitude,
-          }}>
-            <View style={styles.mapMarkerContainer}>
-              <FontAwesome5 name="map-pin" size={16} color="#1c1c1c" />
-            </View>
-          </Marker>
+          {/* Route line between pickup and dropoff */}
+          {routeCoordinates.length > 0 && (
+            <Polyline
+              coordinates={routeCoordinates}
+              strokeColor="#facc15"
+              strokeWidth={3}
+              lineCap="round"
+              lineJoin="round"
+            />
+          )}
+
+          {/* Pickup marker */}
+          {pickupLocation && (
+            <Marker coordinate={pickupLocation} title="Pickup Location">
+              <View style={styles.pickupMarker}>
+                <FontAwesome5 name="map-pin" size={16} color="#1c1c1c" />
+              </View>
+            </Marker>
+          )}
+
+          {/* Dropoff marker */}
+          {dropoffLocation && (
+            <Marker coordinate={dropoffLocation} title="Drop-off Location">
+              <View style={styles.dropoffMarker}>
+                <Ionicons name="flag" size={18} color="#1c1c1c" />
+              </View>
+            </Marker>
+          )}
         </MapView>
 
 
@@ -200,12 +300,30 @@ export default function OrderScreen() {
                   <View style={styles.innerDot} />
                 </View>
                 <Text style={styles.addressText} numberOfLines={2}>
-                  {item.address || "Pickup Location"}
+                  {item.address || item.pickup || "Pickup Location"}
                 </Text>
               </View>
             </View>
 
             <View style={styles.divider} />
+
+            {/* Dropoff Location Info */}
+            {item.dropoff && (
+              <>
+                <View style={styles.locationSection}>
+                  <Text style={styles.labelLeft}>Drop-off</Text>
+                  <View style={styles.addressRow}>
+                    <View style={styles.smallMarker}>
+                      <Ionicons name="flag" size={12} color="#f44336" />
+                    </View>
+                    <Text style={styles.addressText} numberOfLines={2}>
+                      {item.dropoff}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.divider} />
+              </>
+            )}
 
             {/* Base Offer Title */}
             <Text style={styles.sectionTitle}>Base Offer</Text>
@@ -431,6 +549,26 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     backgroundColor: "#facc15",
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'white',
+  },
+  pickupMarker: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#4CAF50",
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'white',
+  },
+  dropoffMarker: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#f44336",
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,

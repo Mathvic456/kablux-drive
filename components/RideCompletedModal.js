@@ -8,11 +8,11 @@ const RideCompletedModal = ({ visible, onClose }) => {
   const [showRatingSection, setShowRatingSection] = useState(false);
 
   const handleRating = (value) => setRating(value);
-  
+
   const handleRateRider = () => {
     setShowRatingSection(true);
   };
-  
+
   const handleDone = () => {
     // Here you would typically save the rating and feedback
     console.log('Rating:', rating, 'Feedback:', feedback);
@@ -29,6 +29,7 @@ const RideCompletedModal = ({ visible, onClose }) => {
         <View style={styles.card}>
           {/* Character Illustration */}
           <View style={styles.imageWrapper}>
+
             {/* <Image
               source={require('../assets/Avatar.png')} // Replace with your actual image path
               style={styles.avatar}
@@ -50,8 +51,8 @@ const RideCompletedModal = ({ visible, onClose }) => {
               {/* Star Ratings */}
               <View style={styles.starsContainer}>
                 {[1, 2, 3, 4, 5].map((star) => (
-                  <TouchableOpacity 
-                    key={star} 
+                  <TouchableOpacity
+                    key={star}
                     onPress={() => handleRating(star)}
                     style={styles.starButton}
                   >
@@ -66,11 +67,11 @@ const RideCompletedModal = ({ visible, onClose }) => {
 
               {/* Feedback Input */}
               <View style={styles.feedbackBox}>
-                <MaterialIcons 
-                  name="feedback" 
-                  size={20} 
-                  color="#FFB800" 
-                  style={styles.feedbackIcon} 
+                <MaterialIcons
+                  name="feedback"
+                  size={20}
+                  color="#FFB800"
+                  style={styles.feedbackIcon}
                 />
                 <TextInput
                   style={styles.input}
@@ -92,11 +93,11 @@ const RideCompletedModal = ({ visible, onClose }) => {
           )}
 
           {/* Done Button */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
-              styles.doneButton, 
+              styles.doneButton,
               showRatingSection && rating === 0 && styles.doneButtonDisabled
-            ]} 
+            ]}
             onPress={handleDone}
             disabled={showRatingSection && rating === 0}
           >

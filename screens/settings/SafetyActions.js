@@ -352,7 +352,7 @@ export default function SafetyActions() {
           <Ionicons name="arrow-back-circle" size={isSmallScreen ? 28 : 32} color="white" />
         </TouchableOpacity>
         <Text style={styles.text}>Safety Actions</Text>
-        <View style={{ width: isSmallScreen ? 20 : 24 }}></View>
+        <View style={{ width: isSmallScreen ? 28 : 32 }}></View>
       </View>
 
       <TouchableOpacity style={styles.row} onPress={handleMessageSupport}>

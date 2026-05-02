@@ -42,6 +42,7 @@ const SignUp = ({ navigation }) => {
   const [plan, setPlan] = useState("");
   const [showErr, setShowErr] = useState(false);
   const [errMessage, setErrMessage] = useState("");
+  const [referralCode, setReferralCode] = useState("");
 
   const [errors, setErrors] = useState({
     fullName: "",
@@ -156,17 +157,17 @@ const SignUp = ({ navigation }) => {
     await AsyncStorage.setItem("pendingPassword", password);
 
     try {
-      register(
-        {
-          email,
-          password,
-          role: "driver",
-          first_name,
-          last_name,
-          phone_number: phone,
-          address,
-          driver_type: plan,
-        },
+      register({
+        email,
+        password,
+        role: "driver",
+        first_name,
+        last_name,
+        phone_number: phone,
+        address,
+        driver_type: plan,
+        ...(referralCode.trim() && { referrer_code: referralCode.trim() }),
+      },
         {
           onSuccess: () => {
             navigation.navigate("Terms");
@@ -378,6 +379,19 @@ const SignUp = ({ navigation }) => {
                   </Text>
                 ))}
               </View>
+            </View>
+            {/* Referral Code - Optional */}
+            <View style={styles.inputContainer}>
+              <Feather name="tag" size={scaleSize(20)} color="#aaa" style={styles.inputIcon} />
+              <TextInput
+                style={[styles.input, dynStyles.inputHeight]}
+                placeholder="Referral Code (optional)"
+                placeholderTextColor="#aaa"
+                value={referralCode}
+                onChangeText={setReferralCode}
+                autoCapitalize="characters"
+                returnKeyType="next"
+              />
             </View>
 
             {/* Plan Selector — original component, Premium & Business disabled inside it */}

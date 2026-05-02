@@ -1,8 +1,7 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
 import { Alert, Linking, Platform } from "react-native";
-import { navigationRef } from "../screens/context/NavigationContext";
 
 export interface PushTokenState {
     token: string | null;
@@ -83,47 +82,12 @@ export async function getDevicePushToken(): Promise<string | null> {
     }
 }
 
-function handleNotificationNavigation(data: any) {
-    if (!data) return;
-
-    console.log("🔔 [NOTIFICATION] Processing tap data:", JSON.stringify(data));
-
-    // If notification contains ride request data, navigate to Home
-    // where ride requests are displayed
-    const hasRideData = data.ride_request_id || data.ride_id || data.type === "RIDE_REQUESTED";
-
-    const tryNavigate = (attempts = 0) => {
-        if (!navigationRef.isReady()) {
-            if (attempts < 10) setTimeout(() => tryNavigate(attempts + 1), 500);
-            return;
-        }
-
-        const type = data.type || data.click_action;
-
-        if (type === "RIDE_REQUESTED" || hasRideData) {
-            console.log("🚗 [NOTIFICATION] Ride request tapped, navigating to Home with data");
-            // @ts-ignore - untyped navigator params
-            navigationRef.navigate("Mainapp", {
-                screen: "MainTabs",
-                params: { screen: "Home", params: { notificationData: data } },
-            });
-        } else if (data.screen) {
-            // @ts-ignore - untyped navigator params
-            navigationRef.navigate(data.screen, data.params);
-        }
-    };
-
-    tryNavigate();
-}
-
 export function usePushNotifications(enabled: boolean = true) {
     const [pushTokenState, setPushTokenState] = useState<PushTokenState>({
         token: null,
         isLoading: false,
         error: null,
     });
-
-    const initialNotificationHandled = useRef(false);
 
     const getPushToken = useCallback(async (): Promise<string | null> => {
         if (!enabled) return null;
@@ -153,43 +117,11 @@ export function usePushNotifications(enabled: boolean = true) {
     useEffect(() => {
         if (!enabled) return;
 
-        Notifications.setNotificationHandler({
-            handleNotification: async () => ({
-                shouldShowAlert: true,
-                shouldPlaySound: true,
-                shouldSetBadge: true,
-                shouldShowBanner: true,
-                shouldShowList: true,
-            }),
-        });
-
-        const subscription = Notifications.addNotificationResponseReceivedListener(response => {
-            console.log("🔔 Notification clicked:", response.notification.request.content.data);
-            const data = response.notification.request.content.data;
-            handleNotificationNavigation(data);
-        });
-
-        // Handle cold start: check if app was opened via notification
-        if (!initialNotificationHandled.current) {
-            initialNotificationHandled.current = true;
-            Notifications.getLastNotificationResponseAsync().then(response => {
-                if (response) {
-                    console.log("🔔 [COLD START] App opened from notification:", response.notification.request.content.data);
-                    const data = response.notification.request.content.data;
-                    handleNotificationNavigation(data);
-                }
-            });
-        }
-
         getPushToken().then((token) => {
             if (token) {
                 console.log("✅ Push notifications initialized successfully");
             }
         });
-
-        return () => {
-            subscription.remove();
-        };
     }, [enabled, getPushToken]);
 
     return {

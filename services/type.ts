@@ -6,6 +6,7 @@ export type CREATEACCOUNT_TYPE = {
   last_name: string;
   phone_number: string;
   address: string;
+  referrer_code?: string;
 };
 export type ProfileResponse = {
   id: number;

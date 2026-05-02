@@ -5,7 +5,7 @@ let sound: Audio.Sound | null = null;
 export const playMessageSound = async () => {
     try {
         const { sound: newSound } = await Audio.Sound.createAsync(
-            require('../assets/sounds/kablux-sound.wav'),
+            require('../assets/sounds/new_kablux_sound.wav'),
             { shouldPlay: true }
         );
 

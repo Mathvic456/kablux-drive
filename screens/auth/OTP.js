@@ -23,10 +23,10 @@ import { api } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import CentralModal from "../components/CentralModal";
 
-const { width, height } = Dimensions.get('window');
+const { width, height } = Dimensions.get("window");
 
 const OTP = ({ navigation }) => {
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [email, setEmail] = useState("");
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showResendModal, setShowResendModal] = useState(false);
@@ -41,7 +41,6 @@ const OTP = ({ navigation }) => {
   const otpResend = useResendOtpEndPoint();
   const { setTokens } = useAuth();
 
-  // Responsive scaling functions
   const scaleFont = (size) => {
     const scaleFactor = width / 375;
     return Math.round(size * Math.min(scaleFactor, 1.3));
@@ -74,7 +73,7 @@ const OTP = ({ navigation }) => {
     return () => clearTimeout(timer);
   }, []);
 
-  // Timer Logic: Countdown every second
+  // Timer countdown
   useEffect(() => {
     let interval;
     if (resendTimer > 0) {
@@ -85,7 +84,6 @@ const OTP = ({ navigation }) => {
     return () => clearInterval(interval);
   }, [resendTimer]);
 
-  // Handle Resend Action
   const handleResend = async () => {
     if (!email) return;
     setErrorMessage("");
@@ -94,15 +92,27 @@ const OTP = ({ navigation }) => {
       await otpResend.mutateAsync({ email });
       setResendModalMessage("A new code has been sent to your email.");
       setShowResendModal(true);
-      setResendTimer(30); // Start 30s cooldown
+      setResendTimer(30);
     } catch (err) {
       const msg = err?.response?.data?.message || "Failed to resend.";
       setErrorMessage(msg);
     }
   };
 
+  // Supports both single-digit entry and full paste of 6 digits
   const handleOtpChange = (text, index) => {
-    const sanitizedText = text.replace(/[^0-9]/g, '');
+    const sanitizedText = text.replace(/[^0-9]/g, "");
+
+    // Handle paste: distribute 6 digits across all inputs
+    if (sanitizedText.length === 6) {
+      const digits = sanitizedText.split("");
+      setOtp(digits);
+      inputRefs.current[5]?.focus();
+      // Auto-verify on paste if all 6 digits are filled
+      handleVerify(digits);
+      return;
+    }
+
     if (sanitizedText.length > 1) return;
 
     const newOtp = [...otp];
@@ -115,33 +125,31 @@ const OTP = ({ navigation }) => {
 
     if (index === 5 && sanitizedText) {
       const fullOtp = [...newOtp.slice(0, 5), sanitizedText];
-      if (fullOtp.every(digit => digit !== '')) {
+      if (fullOtp.every((digit) => digit !== "")) {
         handleVerify(fullOtp);
       }
     }
   };
 
   const handleKeyPress = (e, index) => {
-    if (e.nativeEvent.key === 'Backspace') {
+    if (e.nativeEvent.key === "Backspace") {
       if (!otp[index] && index > 0) {
         const newOtp = [...otp];
-        newOtp[index - 1] = '';
+        newOtp[index - 1] = "";
         setOtp(newOtp);
         inputRefs.current[index - 1]?.focus();
       } else if (otp[index]) {
         const newOtp = [...otp];
-        newOtp[index] = '';
+        newOtp[index] = "";
         setOtp(newOtp);
       }
     }
   };
 
   const handleVerify = async (otpArray = otp) => {
-    // navigation.navigate('Login');
-
     if (otpVerify.isPending) return;
 
-    const code = otpArray.join('');
+    const code = otpArray.join("");
 
     if (code.length !== 6) {
       console.log("❌ OTP must be 6 digits");
@@ -158,7 +166,7 @@ const OTP = ({ navigation }) => {
         setErrorMessage("Something went wrong. Please try again.");
       }
     } finally {
-      setOtp(['', '', '', '', '', '']);
+      setOtp(["", "", "", "", "", ""]);
       inputRefs.current[0]?.focus();
     }
   };
@@ -173,7 +181,6 @@ const OTP = ({ navigation }) => {
       const savedPassword = await AsyncStorage.getItem("pendingPassword");
 
       if (savedEmail && savedPassword) {
-        // Auto-login with stored credentials
         const res = await api.post("auth/login/", {
           email: savedEmail,
           password: savedPassword,
@@ -187,7 +194,6 @@ const OTP = ({ navigation }) => {
           await setTokens(accessToken, refreshToken, true);
           if (userId) await AsyncStorage.setItem("userId", userId);
 
-          // Clean up stored credentials
           await AsyncStorage.multiRemove(["pendingPassword"]);
 
           console.log("✅ Auto-login after signup successful");
@@ -196,7 +202,6 @@ const OTP = ({ navigation }) => {
         }
       }
 
-      // Fallback: go to Login if auto-login fails
       console.log("⚠️ Auto-login not possible, redirecting to Login");
       navigation.navigate("Login");
     } catch (error) {
@@ -207,9 +212,9 @@ const OTP = ({ navigation }) => {
     }
   };
 
-  const filledCount = otp.filter(digit => digit !== '').length;
+  const filledCount = otp.filter((digit) => digit !== "").length;
   const progress = (filledCount / 6) * 100;
-  const isOtpComplete = otp.every(digit => digit !== '');
+  const isOtpComplete = otp.every((digit) => digit !== "");
 
   return (
     <SafeAreaView style={styles.mainContainer}>
@@ -232,61 +237,49 @@ const OTP = ({ navigation }) => {
           <View style={styles.banner} />
 
           {/* Card */}
-          <View style={[
-            styles.card,
-            {
-              paddingHorizontal: Math.max(20, width * 0.05),
-              paddingTop: Math.max(20, height * 0.02),
-              paddingBottom: Math.max(30, height * 0.03),
-            }
-          ]}>
+          <View
+            style={[
+              styles.card,
+              {
+                paddingHorizontal: Math.max(20, width * 0.05),
+                paddingTop: Math.max(20, height * 0.02),
+                paddingBottom: Math.max(30, height * 0.03),
+              },
+            ]}
+          >
             <View style={styles.logoContainer}>
               <Image
                 source={Logo}
-                style={[
-                  styles.logoIcon,
-                  {
-                    width: scaleSize(130),
-                    height: scaleSize(100),
-                  }
-                ]}
+                style={[styles.logoIcon, { width: scaleSize(130), height: scaleSize(100) }]}
               />
             </View>
 
-            <View style={[
-              styles.iconContainer,
-              {
-                width: scaleSize(50),
-                height: scaleSize(50),
-                borderRadius: scaleSize(25),
-                padding: scaleSize(10),
-              }
-            ]}>
-              <Feather
-                name="mail"
-                size={scaleSize(24)}
-                color="#fcbf24"
-              />
+            <View
+              style={[
+                styles.iconContainer,
+                {
+                  width: scaleSize(50),
+                  height: scaleSize(50),
+                  borderRadius: scaleSize(25),
+                  padding: scaleSize(10),
+                },
+              ]}
+            >
+              <Feather name="mail" size={scaleSize(24)} color="#fcbf24" />
             </View>
 
-            <Text style={[styles.title, { fontSize: scaleFont(24) }]}>
-              OTP Authentication
-            </Text>
+            <Text style={[styles.title, { fontSize: scaleFont(24) }]}>OTP Authentication</Text>
 
-            <Text style={[
-              styles.subtitle,
-              {
-                fontSize: scaleFont(14),
-                marginBottom: scaleSize(30),
-              }
-            ]}>
+            <Text
+              style={[
+                styles.subtitle,
+                { fontSize: scaleFont(14), marginBottom: scaleSize(30) },
+              ]}
+            >
               Check your email for the verification code
             </Text>
 
-            <View style={[
-              styles.progressContainer,
-              { marginBottom: scaleSize(30) }
-            ]}>
+            <View style={[styles.progressContainer, { marginBottom: scaleSize(30) }]}>
               <View style={[styles.progressBar, { height: scaleSize(8) }]}>
                 <View style={[styles.progressFill, { width: `${progress}%` }]} />
               </View>
@@ -295,13 +288,12 @@ const OTP = ({ navigation }) => {
               </Text>
             </View>
 
-            <View style={[
-              styles.otpContainer,
-              {
-                marginBottom: scaleSize(40),
-                gap: Math.max(8, width * 0.02),
-              }
-            ]}>
+            <View
+              style={[
+                styles.otpContainer,
+                { marginBottom: scaleSize(40), gap: Math.max(8, width * 0.02) },
+              ]}
+            >
               {[0, 1, 2, 3, 4, 5].map((index) => (
                 <TextInput
                   key={index}
@@ -315,12 +307,12 @@ const OTP = ({ navigation }) => {
                       borderRadius: scaleSize(10),
                       borderWidth: 2,
                       fontSize: scaleFont(20),
-                    }
+                    },
                   ]}
                   placeholder="0"
                   placeholderTextColor="#555"
                   keyboardType="number-pad"
-                  maxLength={1}
+                  maxLength={index === 0 ? 6 : 1}
                   textAlign="center"
                   value={otp[index]}
                   onChangeText={(text) => handleOtpChange(text, index)}
@@ -332,13 +324,12 @@ const OTP = ({ navigation }) => {
             </View>
 
             {errorMessage ? (
-              <Text style={[
-                styles.errorText,
-                {
-                  fontSize: scaleFont(13),
-                  marginBottom: scaleSize(10),
-                }
-              ]}>
+              <Text
+                style={[
+                  styles.errorText,
+                  { fontSize: scaleFont(13), marginBottom: scaleSize(10) },
+                ]}
+              >
                 {errorMessage}
               </Text>
             ) : null}
@@ -347,10 +338,7 @@ const OTP = ({ navigation }) => {
               style={[
                 styles.verifyBtn,
                 (!isOtpComplete || otpVerify.isPending) && styles.verifyBtnDisabled,
-                {
-                  paddingVertical: scaleSize(14),
-                  minHeight: scaleSize(50),
-                }
+                { paddingVertical: scaleSize(14), minHeight: scaleSize(50) },
               ]}
               onPress={() => handleVerify()}
               disabled={!isOtpComplete || otpVerify.isPending}
@@ -359,20 +347,17 @@ const OTP = ({ navigation }) => {
               {otpVerify.isPending ? (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="small" color="#000" />
-                  <Text style={[
-                    styles.verifyText,
-                    {
-                      marginLeft: scaleSize(8),
-                      fontSize: scaleFont(16),
-                    }
-                  ]}>
+                  <Text
+                    style={[
+                      styles.verifyText,
+                      { marginLeft: scaleSize(8), fontSize: scaleFont(16) },
+                    ]}
+                  >
                     Verifying...
                   </Text>
                 </View>
               ) : (
-                <Text style={[styles.verifyText, { fontSize: scaleFont(16) }]}>
-                  Verify
-                </Text>
+                <Text style={[styles.verifyText, { fontSize: scaleFont(16) }]}>Verify</Text>
               )}
             </TouchableOpacity>
 
@@ -389,11 +374,13 @@ const OTP = ({ navigation }) => {
                 {otpResend.isPending ? (
                   <ActivityIndicator size="small" color="#fcbf24" />
                 ) : (
-                  <Text style={[
-                    styles.resendLink,
-                    resendTimer > 0 && styles.resendLinkDisabled,
-                    { fontSize: scaleFont(14) },
-                  ]}>
+                  <Text
+                    style={[
+                      styles.resendLink,
+                      resendTimer > 0 && styles.resendLinkDisabled,
+                      { fontSize: scaleFont(14) },
+                    ]}
+                  >
                     {resendTimer > 0 ? `Resend in ${resendTimer}s` : "Resend"}
                   </Text>
                 )}
@@ -403,18 +390,7 @@ const OTP = ({ navigation }) => {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <CentralModal
-        visible={showSuccessModal}
-        onClose={handleSuccessModalClose}
-        title="Success!"
-        subText="OTP verification successful"
-        icon="checkmark-circle"
-        confirmText="Login"
-        closeText=""
-        onConfirm={handleSuccessModalClose}
-        confirmButtonColor="#fcbf24"
-        themeColor="#fcbf24"
-      />
+      {/* Fixed: removed duplicate success modal */}
       <CentralModal
         visible={showSuccessModal}
         onClose={handleSuccessModalClose}
@@ -458,7 +434,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
+    paddingBottom: Platform.OS === "ios" ? 40 : 20,
   },
   banner: {
     height: Math.max(200, height * 0.25),
@@ -477,19 +453,19 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     marginBottom: Math.max(10, height * 0.01),
-    alignItems: 'center',
+    alignItems: "center",
   },
   logoIcon: {
     resizeMode: "contain",
     alignSelf: "center",
   },
   iconContainer: {
-    borderColor: '#fcbf24',
-    alignSelf: 'center',
+    borderColor: "#fcbf24",
+    alignSelf: "center",
     marginBottom: Math.max(20, height * 0.025),
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FEB91454',
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FEB91454",
     borderWidth: 1,
   },
   title: {
@@ -503,30 +479,30 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   progressContainer: {
-    alignItems: 'center',
-    width: '100%',
+    alignItems: "center",
+    width: "100%",
   },
   progressBar: {
-    width: '100%',
-    backgroundColor: '#222',
+    width: "100%",
+    backgroundColor: "#222",
     borderRadius: 4,
-    overflow: 'hidden',
+    overflow: "hidden",
     marginBottom: Math.max(8, height * 0.01),
   },
   progressFill: {
-    height: '100%',
-    backgroundColor: '#fcbf24',
+    height: "100%",
+    backgroundColor: "#fcbf24",
     borderRadius: 4,
   },
   progressText: {
-    color: '#888',
-    textAlign: 'center',
-    fontWeight: '500',
+    color: "#888",
+    textAlign: "center",
+    fontWeight: "500",
   },
   otpContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    width: '100%',
+    width: "100%",
   },
   otpInput: {
     flex: 1,
@@ -545,7 +521,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: "#ff4444",
     textAlign: "center",
-    fontWeight: '500',
+    fontWeight: "500",
   },
   verifyBtn: {
     backgroundColor: "#fcbf24",
@@ -558,29 +534,29 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
   },
   verifyText: {
     color: "#000",
     fontWeight: "bold",
   },
   resendContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
   },
   resendLabel: {
-    color: '#888',
-    fontWeight: '500',
+    color: "#888",
+    fontWeight: "500",
   },
   resendLink: {
-    color: '#fcbf24',
-    fontWeight: 'bold',
+    color: "#fcbf24",
+    fontWeight: "bold",
   },
   resendLinkDisabled: {
-    color: '#666',
+    color: "#666",
   },
 });
 
