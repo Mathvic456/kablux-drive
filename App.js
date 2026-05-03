@@ -97,15 +97,13 @@ export default function App() {
           <ApiAuthConnector />
           <NotificationNavigator />
           <DeviceRegistrar />
-          <DriverRideProvider>
-            <WebSocketProvider>
-
-              <QueryClientProvider client={queryClient}>
+          <QueryClientProvider client={queryClient}>
+            <DriverRideProvider>
+              <WebSocketProvider>
                 <AppNavigator />
-              </QueryClientProvider>
-
-            </WebSocketProvider>
-          </DriverRideProvider>
+              </WebSocketProvider>
+            </DriverRideProvider>
+          </QueryClientProvider>
         </AuthProvider>
       </NavigationContainer>
     );

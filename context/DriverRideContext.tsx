@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { useAuth } from "./AuthContext";
 import { api } from "../services/api";
+import { useNotifications } from "../services/notification.service";
 
 type DriverRideStatus =
   | "not_busy"
@@ -69,7 +70,9 @@ export const DriverRideProvider = ({ children }: DriverRideProviderProps) => {
   const [rideAcceptedAt, setRideAcceptedAt] = useState<number | null>(null);
   const [cancellationNotice, setCancellationNotice] = useState<CancellationNotice | null>(null);
   const expectedArrivalMinutes = 15; // Default ETA threshold in minutes
+  // const { data: notificationData } = useNotifications()
 
+  // console.log('notificationDAAR', notificationData)
   // Statuses the server returns for a ride that is no longer active.
   const TERMINAL_STATUSES = new Set(["cancelled", "completed", "finished", "not_busy"]);
   const loadPersisted = async () => {
