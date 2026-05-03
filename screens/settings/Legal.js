@@ -91,10 +91,7 @@ We implement industry-standard security measures to protect your personal inform
 We retain your personal information for as long as necessary to provide our services and comply with legal obligations.
 
 6. FULL SCREEN NOTIFICATION ALERTS
-We request the USE_FULL_SCREEN_INTENT permission to deliver time-sensitive ride offer notifications that appear directly on your lock screen, even when your device is sleeping or the screen is off. When a new ride request is matched to you, the app wakes your device and displays the alert in full screen so you can accept or decline immediately — without first unlocking your phone. This permission is used exclusively to deliver ride offer alerts and is only active while you are online as a driver. No additional personal data is collected or transmitted by this feature beyond what is described in the Location and Foreground Services sections above.
-
-7. SPECIAL USE FOREGROUND SERVICE
-We use the FOREGROUND_SERVICE_SPECIAL_USE permission to run a floating ride-status overlay (bubble) while you are actively on a trip and the app is in the background. This service keeps a small on-screen indicator visible so you can monitor trip state without switching back to the app. The service is started when a trip begins and stopped automatically when the trip ends, is cancelled, or you go offline. No personal data is collected through this service beyond the trip and location data already described in this policy.`
+We request the USE_FULL_SCREEN_INTENT permission to deliver time-sensitive ride offer notifications that appear directly on your lock screen, even when your device is sleeping or the screen is off. When a new ride request is matched to you, the app wakes your device and displays the alert in full screen so you can accept or decline immediately — without first unlocking your phone. This permission is used exclusively to deliver ride offer alerts and is only active while you are online as a driver. No additional personal data is collected or transmitted by this feature beyond what is described in the Location and Foreground Services sections above.`
         },
         community: {
             title: 'Community Guidelines',

@@ -47,11 +47,9 @@
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE",
-        "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.USE_FULL_SCREEN_INTENT",
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.FOREGROUND_SERVICE",
-        "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
         "android.permission.WAKE_LOCK"
       ],
       "package": "com.hunchoexpo.kabluxdrive",
@@ -91,8 +89,7 @@
           "androidPlayServicesEnabled": true
         }
       ],
-      "./plugins/withRideAlertManifest.js",
-      "./plugins/withBubbleOverlay.js"
+      "./plugins/withRideAlertManifest.js"
     ],
     "extra": {
       "eas": {

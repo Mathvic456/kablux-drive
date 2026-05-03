@@ -191,7 +191,7 @@ export default function Home() {
 
     try {
       if (goingOnline) {
-        // Prompt for the bubble + full-screen-intent permissions before
+        // Prompt for notification + full-screen-intent permissions before
         // committing to going online. Non-blocking — driver can skip.
         await ensureDriverPermissions();
 

@@ -5,11 +5,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { navigationRef } from "../screens/context/NavigationContext";
 import { useDriverRide } from "./DriverRideContext";
 import { useAuth } from "./AuthContext";
-import { BubbleOverlay } from "../modules/bubble-overlay/src";
-import { ensureOverlayPermission } from "../services/driverPermissions";
 import {
     displayFullScreenNotification,
-    displayRideAlertNotification,
     isRideRequestPayload,
 } from "../services/fcm.background";
 import { playMessageSound } from "../utils/PlayMessageSound";
@@ -86,9 +83,6 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
   const isOnlineRef = useRef(false); // tracks user intent (online/offline)
   const sentOffersRef = useRef<Map<string, RideNotification>>(new Map());
   const currentRideIdRef = useRef<string | null>(null);
-  // Set when the driver dismisses the bubble via the trash zone. Cleared on
-  // the next incoming ride event so the bubble re-appears for new offers.
-  const userDismissedBubbleRef = useRef(false);
 
   const isTogglingRef = useRef(false);
 
@@ -128,8 +122,6 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
     }
 
     stopLocationTracking();
-    BubbleOverlay.hide();
-    userDismissedBubbleRef.current = false;
     setIsOnline(false);
     await clearTokens();
     setSessionExpired(true);
@@ -178,9 +170,6 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
           ws.current.close();
           ws.current = null;
         }
-
-        BubbleOverlay.hide();
-        userDismissedBubbleRef.current = false;
 
         // State is set AFTER cleanup, not before, to prevent flicker.
         setIsConnected(false);
@@ -383,41 +372,30 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         console.log("[WS_DRIVER] Type:", msg.type);
         console.log("[WS_DRIVER] Full payload:", JSON.stringify(msg, null, 2));
 
-        // When app is backgrounded-not-killed and a ride request comes in,
-        // bring the app to the foreground (using SYSTEM_ALERT_WINDOW
-        // exemption) so the driver lands directly on the accept/decline UI.
-        // For other event types we fall back to a Notifee full-screen-intent
-        // notification so the driver still sees something.
+        // When the app is backgrounded-not-killed, surface the event via a
+        // Notifee full-screen-intent notification so the driver still sees
+        // something. Ride requests additionally stash the ride id so Home
+        // auto-opens the View Offer modal once the user taps in.
         const currentAppState = AppState.currentState;
         const data = (msg.data ?? {}) as Record<string, any>;
-        console.log("📲 [WS->FOREGROUND] AppState:", currentAppState, "msg.type:", msg.type);
+        console.log("📲 [WS->NOTIFEE] AppState:", currentAppState, "msg.type:", msg.type);
         if (currentAppState !== "active") {
           if (isRideRequestPayload(data)) {
             const rideId = data.ride_id || data.ride_request_id;
-            const deeplink = rideId ? `ride/${rideId}` : undefined;
-            console.log("📲 [WS->FOREGROUND] Ride request — opening app", deeplink);
-            // Stash so Home can auto-open the View Offer modal once mounted/active.
             if (rideId) setPendingOfferRideId(rideId);
-            try {
-              BubbleOverlay.openApp(deeplink);
-            } catch (e) {
-              console.warn("⚠️ [WS->FOREGROUND] openApp failed:", e);
-            }
-          } else {
-            console.log("📲 [WS->NOTIFEE] Non-ride event — Notifee full-screen");
-            (async () => {
-              try {
-                await displayFullScreenNotification({
-                  title: data.title || msg.type,
-                  body: data.message || data.body || JSON.stringify(data).slice(0, 120),
-                  data,
-                });
-                console.log("✅ [WS->NOTIFEE] dispatch complete");
-              } catch (e) {
-                console.warn("⚠️ [WS->NOTIFEE] failed:", e);
-              }
-            })();
           }
+          (async () => {
+            try {
+              await displayFullScreenNotification({
+                title: data.title || msg.type,
+                body: data.message || data.body || JSON.stringify(data).slice(0, 120),
+                data,
+              });
+              console.log("✅ [WS->NOTIFEE] dispatch complete");
+            } catch (e) {
+              console.warn("⚠️ [WS->NOTIFEE] failed:", e);
+            }
+          })();
         } else {
           console.log("📲 [WS->FOREGROUND] App is foreground — no-op");
         }
@@ -445,7 +423,6 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
                 return prev;
               }
               console.log("✅ [WS_DRIVER] Adding notification:", notification.ride_request_id);
-              userDismissedBubbleRef.current = false;
               return [...prev, notification];
             });
           }
@@ -607,47 +584,6 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
       subscription.remove();
     };
   }, [getValidToken]);
-
-  // --- BUBBLE OVERLAY ---
-  // Show a circular logo bubble whenever the driver is online and the app is
-  // backgrounded. Dragging the bubble onto the trash zone dismisses it; the
-  // next incoming ride event clears the dismiss flag and the bubble returns.
-  useEffect(() => {
-    if (!BubbleOverlay.isSupported()) return;
-
-    const showIfEligible = () => {
-      if (!isOnlineRef.current) return;
-      if (userDismissedBubbleRef.current) return;
-      if (!BubbleOverlay.hasPermission()) return;
-      BubbleOverlay.show();
-    };
-
-    const onChange = (state: AppStateStatus) => {
-      if (state === "active") {
-        BubbleOverlay.hide();
-        ensureOverlayPermission();
-      } else {
-        showIfEligible();
-      }
-    };
-
-    if (!isOnline) {
-      BubbleOverlay.hide();
-    } else if (AppState.currentState !== "active") {
-      showIfEligible();
-    }
-
-    const dismissSub = BubbleOverlay.addDismissListener(() => {
-      console.log("🫧 [BubbleOverlay] user dismissed via trash zone");
-      userDismissedBubbleRef.current = true;
-    });
-
-    const sub = AppState.addEventListener("change", onChange);
-    return () => {
-      sub.remove();
-      dismissSub.remove();
-    };
-  }, [isOnline, rideNotifications]);
 
   // --- MOUNT / UNMOUNT ---
   useEffect(() => {

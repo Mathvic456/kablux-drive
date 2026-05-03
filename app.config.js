@@ -8,7 +8,7 @@ export default {
     icon: "./assets/r-logo.png",
     userInterfaceStyle: "light",
     newArchEnabled: true,
-    owner: "agbaby",
+    owner: "agbaby02",
     splash: {
       image: "./assets/adaptive-icon.png",
       resizeMode: "contain",
@@ -36,6 +36,7 @@ export default {
         googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_IOS_API_KEY,
       },
       bundleIdentifier: "com.kablux.kabluxdriver",
+      googleServicesFile: "./GoogleService-Info.plist",
     },
     android: {
       adaptiveIcon: {
@@ -68,12 +69,10 @@ export default {
         "android.permission.ACCESS_BACKGROUND_LOCATION",
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_LOCATION",
-        "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE",
-        "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.USE_FULL_SCREEN_INTENT",
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.WAKE_LOCK",
@@ -142,13 +141,13 @@ export default {
       ],
       "expo-font",
       "./plugins/withRideAlertManifest.js",
-      "./plugins/withBubbleOverlay.js",
       "./plugins/withNotifeeMavenRepo.js",
       "./plugins/withNotificationIcon.js",
+      "./plugins/withFirebaseModularHeaders.js",
     ],
     extra: {
       eas: {
-        projectId: "07dff6e6-f4c1-4796-ad30-39fa35e57744",
+        projectId: "67453bc9-908b-4dea-8b94-d45f405b60d5",
       },
     },
   },

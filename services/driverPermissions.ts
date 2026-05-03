@@ -4,9 +4,7 @@ import notifee, {
     AuthorizationStatus,
 } from "@notifee/react-native";
 
-import { BubbleOverlay } from "../modules/bubble-overlay/src";
-
-export type PermissionGap = "notifications" | "fullScreenIntent" | "overlay";
+export type PermissionGap = "notifications" | "fullScreenIntent";
 
 export async function getMissingDriverPermissions(): Promise<PermissionGap[]> {
     if (Platform.OS !== "android") return [];
@@ -24,10 +22,6 @@ export async function getMissingDriverPermissions(): Promise<PermissionGap[]> {
         missing.push("fullScreenIntent");
     }
 
-    if (BubbleOverlay.isSupported() && !BubbleOverlay.hasPermission()) {
-        missing.push("overlay");
-    }
-
     return missing;
 }
 
@@ -41,11 +35,6 @@ const COPY: Record<PermissionGap, { title: string; body: string; action: () => v
         title: "Show on lock screen",
         body: "Lets new ride requests light up your phone, even when locked.",
         action: () => notifee.openAlarmPermissionSettings(),
-    },
-    overlay: {
-        title: "Show ride bubble",
-        body: "Floats a small bubble over other apps so you can return to a ride quickly.",
-        action: () => BubbleOverlay.requestPermission(),
     },
 };
 
@@ -80,11 +69,4 @@ export async function ensureDriverPermissions(): Promise<boolean> {
 
     const stillMissing = await getMissingDriverPermissions();
     return stillMissing.length === 0;
-}
-
-export async function ensureOverlayPermission(): Promise<boolean> {
-    if (Platform.OS !== "android" || !BubbleOverlay.isSupported()) return true;
-    if (BubbleOverlay.hasPermission()) return true;
-    await promptForPermission("overlay");
-    return BubbleOverlay.hasPermission();
 }
