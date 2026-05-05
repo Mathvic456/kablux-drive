@@ -2,18 +2,16 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 import { api } from "./api";
 import { getDevicePushToken } from "../hooks/usePushNotifications";
-import { getFcmToken } from "./fcmHandler";
 
 /**
  * Device registration service.
  *
- * Binds the current FCM device token to the authenticated user on the
- * backend. Additive to the existing login-payload path — safe to call
- * repeatedly (idempotent on the server).
+ * Binds the current device push token to the authenticated user on the
+ * backend. Token comes from expo-notifications: FCM on Android, APNs on iOS.
+ * Safe to call repeatedly (idempotent on the server).
  *
  * Call sites:
  *   - after a successful login
- *   - on FCM token refresh (onNewToken)
  *   - on app cold-start if a token exists (cheap idempotent re-registration)
  *   - before clearing local auth on logout (unregister)
  */
@@ -37,15 +35,7 @@ export async function registerDevice(
   opts: { force?: boolean } = {}
 ): Promise<boolean> {
   try {
-    // Prefer the @react-native-firebase token on Android — it's the source
-    // of truth for the FirebaseMessagingService that will actually receive
-    // dispatched messages. Fall back to expo-notifications' token (same
-    // underlying FCM token in practice, but keeps iOS path working for
-    // when that lands).
-    const fcmToken =
-      token ??
-      (Platform.OS === "android" ? await getFcmToken() : null) ??
-      (await getDevicePushToken());
+    const fcmToken = token ?? (await getDevicePushToken());
     if (!fcmToken) {
       console.log("📭 [DeviceReg] No FCM token available, skipping register");
       return false;

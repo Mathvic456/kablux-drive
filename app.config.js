@@ -2,7 +2,7 @@ export default {
   expo: {
     name: "kablux-drive",
     slug: "kablux-drive",
-    version: "1.0.2",
+    version: "1.0.3",
     scheme: "kablux-drive",
     orientation: "portrait",
     icon: "./assets/r-logo.png",
@@ -18,7 +18,7 @@ export default {
       color: "#ffffff",
     },
     ios: {
-      buildNumber: "6",
+      buildNumber: "7",
       supportsTablet: true,
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
@@ -85,17 +85,6 @@ export default {
       favicon: "./assets/favicon.png",
     },
     plugins: [
-      "@react-native-firebase/app",
-      "@react-native-firebase/messaging",
-      "./plugins/withFirebaseMessagingFix",
-      [
-        "expo-build-properties",
-        {
-          ios: {
-            useFrameworks: "static",
-          },
-        },
-      ],
       [
         "expo-image-picker",
         {
@@ -143,7 +132,7 @@ export default {
       "./plugins/withRideAlertManifest.js",
       "./plugins/withNotifeeMavenRepo.js",
       "./plugins/withNotificationIcon.js",
-      "./plugins/withFirebaseModularHeaders.js",
+      "./plugins/withReactNativeMapsBuildFix.js",
     ],
     extra: {
       eas: {

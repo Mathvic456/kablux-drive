@@ -2,6 +2,8 @@ import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import * as Notifications from 'expo-notifications';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import AppNavigator from './screens/navigation/AppNavigator';
 import { WebSocketProvider } from './context/WebSocketProvider';
 import { navigationRef } from './screens/context/NavigationContext';
@@ -11,7 +13,6 @@ import { setAuthTokenGetter } from './services/api';
 import React, { useEffect } from 'react';
 import { useNotificationNavigator } from './hooks/useNotificationNavigator';
 import { registerDevice } from './services/deviceRegistration';
-import { requestFcmPermission } from './services/fcmHandler';
 // Side-effect import: registers the background location task with TaskManager.
 // Must be imported at module load, before any start call.
 import './services/locationBeacon';
@@ -80,21 +81,15 @@ export default function App() {
 
   // Cold-start re-registration: whenever we have a valid auth token (either
   // from a fresh login or a restored "remember me" session), push the current
-  // FCM token to the backend. Idempotent — deviceRegistration.ts short-circuits
-  // if the token is unchanged since the last successful register.
+  // device push token to the backend. Idempotent — deviceRegistration.ts
+  // short-circuits if the token is unchanged since the last successful register.
   function DeviceRegistrar() {
     const { token } = useAuth();
     useEffect(() => {
       if (!token) return;
-      // Ensure notification permission is granted at the Firebase SDK
-      // level before we try to register a token. The Expo hook handles
-      // the UI prompt; this is idempotent and cheap.
-      (async () => {
-        await requestFcmPermission();
-        await registerDevice().catch((err) => {
-          console.warn("⚠️ [DeviceRegistrar] cold-start register failed:", err);
-        });
-      })();
+      registerDevice().catch((err) => {
+        console.warn("⚠️ [DeviceRegistrar] cold-start register failed:", err);
+      });
     }, [token]);
     return null;
   }
