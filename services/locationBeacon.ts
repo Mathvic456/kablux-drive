@@ -16,7 +16,7 @@ import { API_URL } from "../constants/api";
  */
 
 export const LOCATION_TASK_NAME = "kablux-driver-location-beacon";
-const ENDPOINT = `${API_URL}/rides/driver/location`;
+const ENDPOINT = `${API_URL}rides/driver/location`;
 const TOKEN_CACHE_KEY = "token"; // same key AuthContext writes to
 
 type TaskBody = {

@@ -5,6 +5,7 @@ import { ActivityIndicator, Alert, Image, Linking, StyleSheet, Text, TouchableOp
 import * as Location from 'expo-location';
 import { openDirections } from '../../utils/openMap';
 import { USE_IN_APP_MAP } from '../../config/mapConfig';
+import { useSOSAudio } from '../../hooks/useSOSAudio';
 
 const ActiveRideSection = ({
   status,
@@ -24,6 +25,7 @@ const ActiveRideSection = ({
 }) => {
 
   const navigation = useNavigation();
+  const { sosStatus, toggleSOS } = useSOSAudio(rideId);
 
   const isPickupPhase = status === 'ride_created' || status === 'driver_on_way';
 
@@ -302,21 +304,41 @@ const ActiveRideSection = ({
 
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity
-            style={[styles.mapButton, openingMaps && styles.buttonDisabled]}
-            onPress={handleOpenInMaps}
-            disabled={openingMaps}
-          >
-            {openingMaps ? (
-              <ActivityIndicator size="small" color="white" />
-            ) : (
-              // <Ionicons name="navigate" size={22} color="white" />
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Ionicons name="navigate" size={18} color="white" />
-                <Text style={{ color: '#fff' }}>Open Map</Text>
-              </View>
-            )}
-          </TouchableOpacity>
+          <View style={{ flex: 1, gap: 10 }}>
+            <TouchableOpacity
+              style={[styles.mapButton, openingMaps && styles.buttonDisabled]}
+              onPress={handleOpenInMaps}
+              disabled={openingMaps}
+            >
+              {openingMaps ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : (
+                // <Ionicons name="navigate" size={22} color="white" />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Ionicons name="navigate" size={18} color="white" />
+                  <Text style={{ color: '#fff' }}>Open Map</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.mapButton,
+                sosStatus === 'connecting' && styles.buttonDisabled,
+                { backgroundColor: sosStatus === 'recording' ? '#b71c1c' : '#f44336' },
+              ]}
+              onPress={toggleSOS}
+              disabled={sosStatus === 'connecting'}
+            >
+              {sosStatus === 'connecting' ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Ionicons name="help-buoy" size={18} color="white" />
+                  <Text style={{ color: '#fff' }}>{sosStatus === 'recording' ? 'Stop SOS' : 'SOS'}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
         )}
 
       </View>
