@@ -6,6 +6,7 @@ import * as Location from 'expo-location';
 import { openDirections } from '../../utils/openMap';
 import { USE_IN_APP_MAP } from '../../config/mapConfig';
 import { useSOSAudio } from '../../hooks/useSOSAudio';
+import SOSButton from '../../components/SOSButton';
 
 const ActiveRideSection = ({
   status,
@@ -25,9 +26,19 @@ const ActiveRideSection = ({
 }) => {
 
   const navigation = useNavigation();
-  const { sosStatus, toggleSOS } = useSOSAudio(rideId);
+
+  const dropoffLat = parseFloat(rideDetails?.raw?.dropoff_lat);
+  const dropoffLng = parseFloat(rideDetails?.raw?.dropoff_lng);
+  const { sosStatus, toggleSOS, remainingSeconds: sosRemainingSeconds } = useSOSAudio(rideId, {
+    dropoffLat: Number.isFinite(dropoffLat) ? dropoffLat : undefined,
+    dropoffLng: Number.isFinite(dropoffLng) ? dropoffLng : undefined,
+  });
 
   const isPickupPhase = status === 'ride_created' || status === 'driver_on_way';
+  // SOS is available only once the driver has reached the pickup point,
+  // through to the end of the trip.
+  const sosVisible =
+    status === 'arrived' || status === 'ride_started' || status === 'started';
 
   const [openingMaps, setOpeningMaps] = useState(false);
 
@@ -295,16 +306,15 @@ const ActiveRideSection = ({
         </View>
 
         {/* Map / Open in Maps Button — behavior gated by USE_IN_APP_MAP */}
-        {USE_IN_APP_MAP ? (
-          <TouchableOpacity
-            style={styles.mapButton}
-            onPress={() => navigation.navigate('DriverMapScreen', { rideDetails })}
-          >
-            <Ionicons name="map-outline" size={22} color="white" />
-
-          </TouchableOpacity>
-        ) : (
-          <View style={{ flex: 1, gap: 10 }}>
+        <View style={{ flex: 1, gap: 10 }}>
+          {USE_IN_APP_MAP ? (
+            <TouchableOpacity
+              style={styles.mapButton}
+              onPress={() => navigation.navigate('DriverMapScreen', { rideDetails })}
+            >
+              <Ionicons name="map-outline" size={22} color="white" />
+            </TouchableOpacity>
+          ) : (
             <TouchableOpacity
               style={[styles.mapButton, openingMaps && styles.buttonDisabled]}
               onPress={handleOpenInMaps}
@@ -313,33 +323,24 @@ const ActiveRideSection = ({
               {openingMaps ? (
                 <ActivityIndicator size="small" color="white" />
               ) : (
-                // <Ionicons name="navigate" size={22} color="white" />
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                   <Ionicons name="navigate" size={18} color="white" />
                   <Text style={{ color: '#fff' }}>Open Map</Text>
                 </View>
               )}
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.mapButton,
-                sosStatus === 'connecting' && styles.buttonDisabled,
-                { backgroundColor: sosStatus === 'recording' ? '#b71c1c' : '#f44336' },
-              ]}
-              onPress={toggleSOS}
-              disabled={sosStatus === 'connecting'}
-            >
-              {sosStatus === 'connecting' ? (
-                <ActivityIndicator size="small" color="white" />
-              ) : (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Ionicons name="help-buoy" size={18} color="white" />
-                  <Text style={{ color: '#fff' }}>{sosStatus === 'recording' ? 'Stop SOS' : 'SOS'}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
+          )}
+
+          {/* SOS — only after the driver has arrived at pickup, through trip end. */}
+          {sosVisible && (
+            <SOSButton
+              sosStatus={sosStatus}
+              remainingSeconds={sosRemainingSeconds}
+              onActivate={toggleSOS}
+              onStop={toggleSOS}
+            />
+          )}
+        </View>
 
       </View>
     </View>
