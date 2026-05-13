@@ -246,7 +246,7 @@ export default function CarDetails() {
         }
     }, [handleDocumentUpload]);
 
-    // ── Pick car document from camera ─────────────────────────────────────────
+    // ── Pick car document from camera  ─────────────────────────────────────────
     const pickDocumentFromCamera = useCallback(async () => {
         setShowDocumentPickerModal(false);
         try {
