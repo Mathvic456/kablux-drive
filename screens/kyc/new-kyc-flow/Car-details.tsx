@@ -17,12 +17,13 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { useUploadFile } from "../../../services/fileUpload.service";
 import { useSubmitKycDocument } from "../../../services/useSubmitKyc.service";
 import { useCreateVehicle } from "../../../services/createVehicle.service";
+import Select from "../../../components/Select";
 
 // ─── Sanitizers ───────────────────────────────────────────────────────────────
 // Allows letters, numbers, spaces only
@@ -104,6 +105,10 @@ export default function CarDetails() {
     const [carDocument, setCarDocument] = useState<{ id: string; name: string } | null>(null);
     const [driversLicense, setDriversLicense] = useState<{ id: string; name: string } | null>(null);
     const [carColor, setCarColor] = useState("");
+    const [isCarInGoodCondition, setIsCarInGoodCondition] = useState<string | null>(null);
+    const [isAcWorking, setIsAcWorking] = useState<string | null>(null);
+    const [isInteriorNeat, setIsInteriorNeat] = useState<string | null>(null);
+    const [carBodyCondition, setCarBodyCondition] = useState<string | null>(null);
 
     const [isUploadingDocument, setIsUploadingDocument] = useState(false);
     const [isUploadingLicense, setIsUploadingLicense] = useState(false);
@@ -117,6 +122,10 @@ export default function CarDetails() {
         carDocument: "",
         driversLicense: "",
         carColor: "",
+        isCarInGoodCondition: "",
+        isAcWorking: "",
+        isInteriorNeat: "",
+        carBodyCondition: "",
     });
 
     const { mutateAsync: uploadFile } = useUploadFile();
@@ -132,6 +141,10 @@ export default function CarDetails() {
             carDocument: "",
             driversLicense: "",
             carColor: "",
+            isCarInGoodCondition: "",
+            isAcWorking: "",
+            isInteriorNeat: "",
+            carBodyCondition: "",
         };
 
         if (!plateNumber.trim()) {
@@ -159,6 +172,22 @@ export default function CarDetails() {
         }
         if (!carColor.trim()) {
             newErrors.carColor = "Car color is required";
+            valid = false;
+        }
+        if (!isCarInGoodCondition) {
+            newErrors.isCarInGoodCondition = "Please select an option";
+            valid = false;
+        }
+        if (!isAcWorking) {
+            newErrors.isAcWorking = "Please select an option";
+            valid = false;
+        }
+        if (!isInteriorNeat) {
+            newErrors.isInteriorNeat = "Please select an option";
+            valid = false;
+        }
+        if (!carBodyCondition) {
+            newErrors.carBodyCondition = "Please select an option";
             valid = false;
         }
 
@@ -368,6 +397,12 @@ export default function CarDetails() {
                 model: carModel,
                 year: parseInt(year, 10),
                 color: carColor,
+                vehicle_info: {
+                    is_car_in_good_condition: isCarInGoodCondition === "yes",
+                    is_ac_working: isAcWorking === "yes",
+                    is_interior_neat: isInteriorNeat === "yes",
+                    car_body_condition: carBodyCondition,
+                },
             });
 
             await submitKycDocument({
@@ -634,6 +669,77 @@ export default function CarDetails() {
                             </Text>
                         ) : null}
 
+                        {/* Vehicle Info — condition selects */}
+                        <Select
+                            icon="check-circle"
+                            label="Is your car in good condition?"
+                            placeholder="Select Yes or No"
+                            value={isCarInGoodCondition}
+                            options={[
+                                { value: "yes", label: "Yes" },
+                                { value: "no", label: "No" },
+                            ]}
+                            onSelect={(v) => {
+                                setIsCarInGoodCondition(v);
+                                setErrors((e) => ({ ...e, isCarInGoodCondition: "" }));
+                            }}
+                            error={errors.isCarInGoodCondition}
+                        />
+
+                        <Select
+                            icon="wind"
+                            label="Is the air conditioning working?"
+                            placeholder="Select Yes or No"
+                            value={isAcWorking}
+                            options={[
+                                { value: "yes", label: "Yes" },
+                                { value: "no", label: "No" },
+                            ]}
+                            onSelect={(v) => {
+                                setIsAcWorking(v);
+                                setErrors((e) => ({ ...e, isAcWorking: "" }));
+                            }}
+                            error={errors.isAcWorking}
+                        />
+
+                        <Select
+                            icon="droplet"
+                            label="Is the car interior neat?"
+                            placeholder="Select Yes or No"
+                            value={isInteriorNeat}
+                            options={[
+                                { value: "yes", label: "Yes" },
+                                { value: "no", label: "No" },
+                            ]}
+                            onSelect={(v) => {
+                                setIsInteriorNeat(v);
+                                setErrors((e) => ({ ...e, isInteriorNeat: "" }));
+                            }}
+                            error={errors.isInteriorNeat}
+                        />
+
+                        <Select
+                            icon="shield"
+                            label="How would you rate the car body condition?"
+                            placeholder="Select Fair, Good or Bad"
+                            value={carBodyCondition}
+                            options={[
+                                { value: "fair", label: "Fair" },
+                                { value: "good", label: "Good" },
+                                { value: "bad", label: "Bad" },
+                            ]}
+                            onSelect={(v) => {
+                                setCarBodyCondition(v);
+                                setErrors((e) => ({ ...e, carBodyCondition: "" }));
+                            }}
+                            error={errors.carBodyCondition}
+                        />
+
+                        {/* Disclaimer */}
+                        <Text style={[styles.disclaimerText, { fontSize: scaleFont(12) }]}>
+                            Kindly note that if any information given here is false, your details maybe parnanately ban from our system
+                        </Text>
+
                         {/* Submit */}
                         <TouchableOpacity
                             style={[
@@ -741,6 +847,14 @@ const styles = StyleSheet.create({
     },
     proceedBtnDisabled: { opacity: 0.5 },
     proceedText: { color: "#000", fontWeight: "bold", fontFamily: "Poppins-Bold" },
+    disclaimerText: {
+        color: "#fcbf24",
+        marginTop: 16,
+        paddingHorizontal: 4,
+        textAlign: "center",
+        lineHeight: 18,
+        fontFamily: "Poppins-Regular",
+    },
     // Picker Sheet
     pickerOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
     pickerSheet: {

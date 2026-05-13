@@ -204,7 +204,6 @@ export default function IDVerification() {
                             </Text>
                             {(kycData?.steps?.vehicle_added && kycData?.steps?.vehicle_images_completed) && (
                                 <TouchableOpacity
-                                    onPress={handleTakeSelfie}
                                     style={styles.tick}
                                     activeOpacity={0.7}
                                     disabled

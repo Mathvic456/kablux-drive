@@ -3,7 +3,18 @@ import { api } from "./api";
 
 export const useCreateVehicle = () => {
     return useMutation({
-        mutationFn: async (data: { plate_number: string; model: string; year: number; color: string }) => {
+        mutationFn: async (data: {
+            plate_number: string;
+            model: string;
+            year: number;
+            color: string;
+            vehicle_info: {
+                is_car_in_good_condition: boolean;
+                is_ac_working: boolean;
+                is_interior_neat: boolean;
+                car_body_condition: string | null;
+            };
+        }) => {
             const response = await api.post("drivers/vehicles/", data);
             return response.data;
         },

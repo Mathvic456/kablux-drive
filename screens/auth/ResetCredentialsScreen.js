@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback, useMemo } from "react";
+import React, { useRef, useState, useCallback, useMemo, useEffect } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -33,7 +33,7 @@ export default function ResetCredentialsScreen() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendCooldown, setResendCooldown] = useState(300);
   const [isResending, setIsResending] = useState(false);
   const resendOTP = useResendOTP();
   const [errors, setErrors] = useState({
@@ -46,9 +46,19 @@ export default function ResetCredentialsScreen() {
   const otpRefs = useRef([]);
   const passwordRef = useRef(null);
   const confirmPasswordRef = useRef(null);
-  const cooldownRef = useRef(null);
 
   const { mutateAsync: resetPassword, isPending: isLoading } = usePasswordReset();
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const id = setInterval(() => setResendCooldown((s) => s - 1), 1000);
+    return () => clearInterval(id);
+  }, [resendCooldown]);
+
+  const formatTime = useCallback(
+    (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`,
+    []
+  );
 
   const scaleFont = useCallback((size) => {
     const scaleFactor = width / 375;
@@ -141,15 +151,7 @@ export default function ResetCredentialsScreen() {
       const res = await resendOTP.mutateAsync({ email });
       console.log("resend res", res);
 
-      setResendCooldown(60);
-      let remaining = 60;
-      cooldownRef.current = setInterval(() => {
-        remaining -= 1;
-        setResendCooldown(remaining);
-        if (remaining <= 0) {
-          clearInterval(cooldownRef.current);
-        }
-      }, 1000);
+      setResendCooldown(300);
     } catch {
       setErrors((prev) => ({ ...prev, general: "Failed to resend OTP. Try again." }));
     } finally {
@@ -316,7 +318,7 @@ export default function ResetCredentialsScreen() {
                           (resendCooldown > 0 || isLoading) && styles.resendDisabled,
                         ]}
                       >
-                        {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend OTP"}
+                        {resendCooldown > 0 ? `Resend in ${formatTime(resendCooldown)}` : "Resend OTP"}
                       </Text>
                     )}
                   </TouchableOpacity>

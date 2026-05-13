@@ -25,6 +25,8 @@ import CentralModal from "../components/CentralModal";
 
 const { width, height } = Dimensions.get("window");
 
+const formatTime = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+
 const OTP = ({ navigation }) => {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [email, setEmail] = useState("");
@@ -33,7 +35,7 @@ const OTP = ({ navigation }) => {
   const [resendModalMessage, setResendModalMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
-  const [resendTimer, setResendTimer] = useState(0);
+  const [resendTimer, setResendTimer] = useState(300);
   const [isAutoLogging, setIsAutoLogging] = useState(false);
 
   const inputRefs = useRef([]);
@@ -92,7 +94,7 @@ const OTP = ({ navigation }) => {
       await otpResend.mutateAsync({ email });
       setResendModalMessage("A new code has been sent to your email.");
       setShowResendModal(true);
-      setResendTimer(30);
+      setResendTimer(300);
     } catch (err) {
       const msg = err?.response?.data?.message || "Failed to resend.";
       setErrorMessage(msg);
@@ -381,7 +383,7 @@ const OTP = ({ navigation }) => {
                       { fontSize: scaleFont(14) },
                     ]}
                   >
-                    {resendTimer > 0 ? `Resend in ${resendTimer}s` : "Resend"}
+                    {resendTimer > 0 ? `Resend in ${formatTime(resendTimer)}` : "Resend"}
                   </Text>
                 )}
               </TouchableOpacity>

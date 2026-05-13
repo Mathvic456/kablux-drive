@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect, useCallback } from "react";
+import React, { useState, useContext, useEffect, useCallback, useRef } from "react";
 import {
   ActivityIndicator,
   View,
@@ -15,7 +15,7 @@ import {
   Pressable
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation, useRoute } from "@react-navigation/native";
+import { useNavigation, useRoute, useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Components
@@ -57,6 +57,7 @@ export default function Home() {
   const [rideModalVisible, setRideModalVisible] = useState(false);
   const [updatesModalVisible, setUpdatesModalVisible] = useState(false);
   const [uploadModalVisible, setUploadModalVisible] = useState(false);
+  const hasShownUploadModalRef = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
   const [alertModalVisible, setAlertModalVisible] = useState(false);
   const [alertData, setAlertData] = useState({ title: '', message: '', isError: false });
@@ -284,12 +285,17 @@ export default function Home() {
 
   // --- EFFECTS ---
 
-  useEffect(() => {
-    if (!isLoading && kycData?.kyc_status === "PENDING") {
-      setUploadModalVisible(true);
-    }
-    return () => { setUploadModalVisible(false); };
-  }, [isLoading, kycData]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!isLoading && kycData?.kyc_status === "PENDING" && !hasShownUploadModalRef.current) {
+        setUploadModalVisible(true);
+        hasShownUploadModalRef.current = true;
+      }
+      return () => {
+        hasShownUploadModalRef.current = false;
+      };
+    }, [isLoading, kycData])
+  );
 
   useEffect(() => {
     if (!rideId) {
