@@ -720,7 +720,7 @@ export default function CarDetails() {
 
                         <Select
                             icon="shield"
-                            label="How would you rate the car body condition?"
+                            label="How would you rate the general car condition?"
                             placeholder="Select Fair, Good or Bad"
                             value={carBodyCondition}
                             options={[
