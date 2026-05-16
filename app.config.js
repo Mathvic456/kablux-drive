@@ -1,3 +1,9 @@
+// Reversed iOS OAuth client ID. Public value — no secret. Hardcoded so this
+// config is independent of .env loading (EAS CLI doesn't load .env when it
+// falls back to its bundled @expo/config).
+const IOS_GOOGLE_URL_SCHEME =
+  "com.googleusercontent.apps.482339209517-j0pf22mcbuufjqdqt2e2hm1jl1oqqlhi";
+
 export default {
   expo: {
     name: "kablux-drive",
@@ -80,7 +86,7 @@ export default {
       ],
       package: "com.crashingout.kabluxdrive",
       googleServicesFile: "./google-services.json",
-      versionCode: 64,
+      versionCode: 65,
     },
     web: {
       favicon: "./assets/favicon.png",
@@ -89,6 +95,10 @@ export default {
       "@react-native-firebase/app",
       "@react-native-firebase/messaging",
       "./plugins/withFirebaseMessagingFix",
+      [
+        "@react-native-google-signin/google-signin",
+        { iosUrlScheme: IOS_GOOGLE_URL_SCHEME },
+      ],
       [
         "expo-build-properties",
         {
