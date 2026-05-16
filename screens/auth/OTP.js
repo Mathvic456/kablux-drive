@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
   progressText: {
     color: "#888",
     textAlign: "center",
-    fontWeight: "500",
+    fontWeight: "500"
   },
   otpContainer: {
     flexDirection: "row",
